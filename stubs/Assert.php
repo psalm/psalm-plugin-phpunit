@@ -37,7 +37,7 @@ abstract class Assert
      * @param string $message
      *
      * @throws AssertionFailedError
-     * @psalm-assert true $actual
+     * @psalm-assert true $condition
      */
     public static function assertTrue($condition, $message = '') {}
 
@@ -48,7 +48,7 @@ abstract class Assert
      * @param string $message
      *
      * @throws AssertionFailedError
-     * @psalm-assert !true $actual
+     * @psalm-assert !true $condition
      */
     public static function assertNotTrue($condition, $message = '') {}
 
@@ -59,7 +59,7 @@ abstract class Assert
      * @param string $message
      *
      * @throws AssertionFailedError
-     * @psalm-assert false $actual
+     * @psalm-assert false $condition
      */
     public static function assertFalse($condition, $message = '') {}
 
@@ -70,7 +70,7 @@ abstract class Assert
      * @param string $message
      *
      * @throws AssertionFailedError
-     * @psalm-assert !false $actual
+     * @psalm-assert !false $condition
      */
     public static function assertNotFalse($condition, $message = '') {}
 
