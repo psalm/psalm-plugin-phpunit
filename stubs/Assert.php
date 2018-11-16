@@ -98,9 +98,10 @@ abstract class Assert
      * @template T
      * @param T      $expected
      * @param mixed  $actual
+     * @param string $message
      * @psalm-assert =T $actual
      */
-    function assertSame($expected, $actual) : void {}
+    function assertSame($expected, $actual, $message = '') : void {}
     
     /**
      * Asserts that two variables are loosely equal to each other
@@ -108,9 +109,10 @@ abstract class Assert
      * @template T
      * @param T      $expected
      * @param mixed  $actual
+     * @param string $message
      * @psalm-assert ~T $actual
      */
-    function assertEquals($expected, $actual) : void {}
+    function assertEquals($expected, $actual, $message = '') : void {}
     
     /**
      * Asserts that two variables are not the same.
@@ -118,9 +120,10 @@ abstract class Assert
      * @template T
      * @param T      $expected
      * @param mixed  $actual
+     * @param string $message
      * @psalm-assert !=T $actual
      */
-    function assertNotSame($expected, $actual) : void {}
+    function assertNotSame($expected, $actual, $message = '') : void {}
     
     /**
      * Asserts that two variables are not loosely equal to each other
@@ -128,7 +131,8 @@ abstract class Assert
      * @template T
      * @param T      $expected
      * @param mixed  $actual
+     * @param string $message
      * @psalm-assert !~T $actual
      */
-    function assertNotEquals($expected, $actual) : void {}
+    function assertNotEquals($expected, $actual, $message = '') : void {}
 }
