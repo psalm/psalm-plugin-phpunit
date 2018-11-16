@@ -91,4 +91,24 @@ abstract class Assert
      * @psalm-assert !null $actual
      */
     public static function assertNotNull($actual, $message = '') {}
+    
+    /**
+     * Asserts that two variables are the same.
+     *
+     * @template T
+     * @param T      $expected
+     * @param mixed  $actual
+     * @psalm-assert =T $actual
+     */
+    function assertSame($expected, $actual) : void {}
+    
+    /**
+     * Asserts that two variables are loosely equal to each other
+     *
+     * @template T
+     * @param T      $expected
+     * @param mixed  $actual
+     * @psalm-assert ~T $actual
+     */
+    function assertEquals($expected, $actual) : void {}
 }
