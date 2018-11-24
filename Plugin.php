@@ -12,5 +12,6 @@ class Plugin implements PluginEntryPointInterface
     {
     	$psalm->addStubFile(__DIR__ . '/stubs/Assert.php');
         $psalm->addStubFile(__DIR__ . '/stubs/TestCase.php');
+        $psalm->addStubFile(__DIR__ . '/stubs/MockBuilder.php');
     }
 }
