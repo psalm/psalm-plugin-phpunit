@@ -2,6 +2,7 @@
 namespace PHPUnit\Framework\MockObject;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\MockObject\Builder\InvocationMocker;
 
 /**
  * @template T
@@ -46,24 +47,9 @@ interface MockObject
     /**
      * @param Constraint|string $constraint
      *
-     * @return static
+     * @return InvocationMocker
      *
      * @throws RuntimeException
      */
     public function method($constraint);
-
-    /**
-     * @param mixed $value
-     * @param mixed $nextValues, ...
-     *
-     * @return static
-     */
-    public function willReturn($value, ...$nextValues);
-
-    /**
-     * @param Stub $stub
-     *
-     * @return InvocationMocker
-     */
-    public function will(Stub $stub);
 }
