@@ -1,0 +1,26 @@
+<?php
+namespace Prophecy\Prophecy {
+    /** @template T */
+    class ObjectProphecy implements ProphecyInterface
+    {
+        /** @return T */
+        public function reveal() {}
+    }
+
+    class MethodProphecy
+    {
+        public function willReturn(...$values): self {}
+    }
+}
+
+namespace Prophecy {
+    use Prophecy\Argument\Token;
+    class Argument
+    {
+        /** @param callable():bool $callback */
+        public static function that(callable $callback): Token\CallbackToken {}
+
+        /** @param mixed ...$tokens */
+        public static function allOf(...$tokens): Token\LogicalAndToken {}
+    }
+}

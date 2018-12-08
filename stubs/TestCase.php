@@ -24,4 +24,12 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      * @return MockBuilder<T>
      */
     public function getMockBuilder(string $className) {}
+
+    /**
+     * @template T
+     * @template-typeof T $classOrInterface
+     * @param class-string $classOrInterface
+     * @return ObjectProphecy<T>
+     */
+    public function prophesize($classOrInterface): ObjectProphecy {}
 }
