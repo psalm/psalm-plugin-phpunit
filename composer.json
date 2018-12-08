@@ -29,7 +29,6 @@
     "scripts" : {
         "check": [
             "@cs-check",
-            "@test",
             "@analyze"
         ],
         "analyze": "psalm",
