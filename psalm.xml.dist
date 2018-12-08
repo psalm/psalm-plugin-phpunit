@@ -9,24 +9,13 @@
         <directory name="." />
         <ignoreFiles>
             <directory name="vendor" />
+	    <directory name="stubs" />
         </ignoreFiles>
     </projectFiles>
 
     <issueHandlers>
 
         <LessSpecificReturnType errorLevel="info" />
-
-        <PropertyNotSetInConstructor>
-            <errorLevel type="suppress">
-                <directory name="tests" />
-            </errorLevel>
-        </PropertyNotSetInConstructor>
-
-        <TypeCoercion>
-            <errorLevel type="suppress">
-                <directory name="tests" />
-            </errorLevel>
-        </TypeCoercion>
 
     </issueHandlers>
 </psalm>
