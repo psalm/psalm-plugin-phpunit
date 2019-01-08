@@ -33,7 +33,7 @@ abstract class Assert
     /**
      * Asserts that a condition is true.
      *
-     * @param bool   $condition
+     * @param mixed  $condition
      * @param string $message
      *
      * @throws AssertionFailedError
@@ -44,7 +44,7 @@ abstract class Assert
     /**
      * Asserts that a condition is not true.
      *
-     * @param bool   $condition
+     * @param mixed  $condition
      * @param string $message
      *
      * @throws AssertionFailedError
@@ -55,7 +55,7 @@ abstract class Assert
     /**
      * Asserts that a condition is false.
      *
-     * @param bool   $condition
+     * @param mixed  $condition
      * @param string $message
      *
      * @throws AssertionFailedError
@@ -66,7 +66,7 @@ abstract class Assert
     /**
      * Asserts that a condition is not false.
      *
-     * @param bool   $condition
+     * @param mixed  $condition
      * @param string $message
      *
      * @throws AssertionFailedError
