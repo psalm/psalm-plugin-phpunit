@@ -9,8 +9,7 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
 {
     /**
      * @template T
-     * @template-typeof T $class
-     * @param class-string $class
+     * @param class-string<T> $class
      * @return MockObject&T
      */
     public function createMock($class) {}
@@ -19,8 +18,7 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      * Returns a builder object to create mock objects using a fluent interface.
      *
      * @template T
-     * @template-typeof T $className
-     * @param class-string $className
+     * @param class-string<T> $className
      *
      * @return MockBuilder<T>
      */
@@ -28,8 +26,7 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
 
     /**
      * @template T
-     * @template-typeof T $classOrInterface
-     * @param class-string $classOrInterface
+     * @param class-string<T> $classOrInterface
      * @return ObjectProphecy<T>
      */
     public function prophesize($classOrInterface): ObjectProphecy {}
