@@ -14,7 +14,9 @@
         "vimeo/psalm": "^3.0 || dev-master"
     },
     "require-dev": {
-        "squizlabs/php_codesniffer": "^3.3.1"
+        "squizlabs/php_codesniffer": "^3.3.1",
+        "codeception/base": "^2.5",
+        "weirdan/codeception-psalm-module": "dev-master"
     },
     "extra": {
         "psalm": {
@@ -26,13 +28,20 @@
             "Psalm\\PhpUnitPlugin\\": ["."]
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Psalm\\PhpUnitPlugin\\Tests\\": ["tests/_support"]
+        }
+    },
     "scripts" : {
         "check": [
             "@cs-check",
-            "@analyze"
+            "@analyze",
+	    "@test"
         ],
         "analyze": "psalm",
         "cs-check": "phpcs",
-        "cs-fix": "phpcbf"
+        "cs-fix": "phpcbf",
+	"test": "codecept run -v"
     }
 }

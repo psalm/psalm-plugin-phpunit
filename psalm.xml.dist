@@ -9,13 +9,16 @@
         <directory name="." />
         <ignoreFiles>
             <directory name="vendor" />
-	    <directory name="stubs" />
+            <directory name="stubs" />
+            <directory name="tests/_support/_generated" />
         </ignoreFiles>
     </projectFiles>
 
     <issueHandlers>
-
         <LessSpecificReturnType errorLevel="info" />
-
     </issueHandlers>
+
+    <plugins>
+        <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+    </plugins>
 </psalm>
