@@ -37,11 +37,11 @@
         "check": [
             "@cs-check",
             "@analyze",
-	    "@test"
+            "@test"
         ],
         "analyze": "psalm",
         "cs-check": "phpcs",
         "cs-fix": "phpcbf",
-	"test": "codecept run -v"
+        "test": "codecept run -v"
     }
 }
