@@ -255,10 +255,11 @@ Feature: Assert (PHPUnit 7.5+)
     Then I see no errors
 
   Scenario: Assert::assertIsNotCallable()
-    Given I have some future Psalm that supports this feature "Negative assertions with callables"
-    And I have the following code
+    Given I have the following code
       """
-      $a = rand(0, 1) ? function(): void {} : 1.1;
+      /** @return callable|float */
+      function f() { return rand(0,1) ? 'f' : 1.1; }
+      $a = f();
       Assert::assertIsNotCallable($a);
       atan($a);
       """
