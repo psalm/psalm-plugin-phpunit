@@ -12,7 +12,7 @@ Feature: Assert
 
       """
 
-  Scenario: Asserting instanceof
+  Scenario: Assert::assertInstanceOf()
     Given I have the following code
       """
       function f(): \Exception {
