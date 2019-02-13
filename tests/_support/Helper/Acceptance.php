@@ -20,8 +20,10 @@ class Acceptance extends \Codeception\Module
 
     /**
      * @Given /I have PHPUnit (newer than|older than) "([0-9.]+)" \(because of "([^"]+)"\)/
+     *
+     * @return void
      */
-    public function havePHPUnitOfACertainVersionRangeBecauseOf(string $operator, string $version, string $reason): void
+    public function havePHPUnitOfACertainVersionRangeBecauseOf(string $operator, string $version, string $reason)
     {
         if (!isset(self::VERSION_OPERATORS[$operator])) {
             throw new TestRuntimeException("Unknown operator: $operator");
