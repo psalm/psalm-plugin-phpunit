@@ -12,6 +12,7 @@ Feature: TestCase
       """
 
   Scenario: TestCase::expectException() rejects non-throwables
+    Given I have Psalm newer than "3.0.12" (because of "missing functionality")
     Given I have the following code
       """
       class MyTestCase extends TestCase 
