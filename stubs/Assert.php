@@ -91,7 +91,7 @@ abstract class Assert
      * @psalm-assert !null $actual
      */
     public static function assertNotNull($actual, $message = '') {}
-    
+
     /**
      * Asserts that two variables are the same.
      *
@@ -100,9 +100,10 @@ abstract class Assert
      * @param mixed  $actual
      * @param string $message
      * @psalm-assert =T $actual
+     * @return void
      */
-    function assertSame($expected, $actual, $message = '') : void {}
-    
+    function assertSame($expected, $actual, $message = '') {}
+
     /**
      * Asserts that two variables are not the same.
      *
@@ -111,6 +112,7 @@ abstract class Assert
      * @param mixed  $actual
      * @param string $message
      * @psalm-assert !=T $actual
+     * @return void
      */
-    function assertNotSame($expected, $actual, $message = '') : void {}
+    function assertNotSame($expected, $actual, $message = '') {}
 }

@@ -18,7 +18,11 @@ Feature: Assert
       function f(): \Exception {
         return rand(0,1) ? new \RuntimeException : new \InvalidArgumentException;
       }
-      function acceptsRuntimeException(\RuntimeException $_e): void {}
+
+      /**
+       * @return void
+       */
+      function acceptsRuntimeException(\RuntimeException $_e) {}
 
       $e = f();
       Assert::assertInstanceOf(\RuntimeException::class, $e);
