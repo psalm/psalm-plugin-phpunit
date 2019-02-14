@@ -1,4 +1,4 @@
-<?php
+<?php // phpcs:ignoreFile
 namespace PHPUnit\Framework;
 
 use PHPUnit\Framework\MockObject\MockObject;
@@ -30,4 +30,9 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      * @return ObjectProphecy<T>
      */
     public function prophesize($classOrInterface): ObjectProphecy {}
+    /**
+     * @param class-string<\Throwable> $exception
+     * @return void
+     */
+    public function expectException(string $exception) {}
 }
