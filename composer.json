@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "phpunit/phpunit": "^5.0 || ^6.0 || ^7.0",
+        "phpunit/phpunit": "^6.0 || ^7.0 || ^8.0",
         "vimeo/psalm": "^3.0 || dev-master",
         "composer/semver": "^1.4",
         "muglug/package-versions-56": "^1.2"
