@@ -50,16 +50,18 @@ Feature: TestCase
 
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase 
+      class MyTestCase extends TestCase
       {
         /** @var ObjectProphecy<I> */
         private $i;
 
-        public function setUp(): void {
+        /** @return void */
+        public function setUp() {
           $this->i = $this->prophesize(I::class);
         }
 
-        public function testSomething(): void {
+        /** @return void */
+        public function testSomething() {
           $this->i->work()->willReturn(1);;
           $i = $this->i->reveal();
           $this->assertEquals(1, $i->work());
@@ -76,17 +78,21 @@ Feature: TestCase
 
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase 
+      class MyTestCase extends TestCase
       {
         /** @var ObjectProphecy<I> */
         private $i;
 
-	/** @before */
-        public function myInit(): void {
+        /**
+         * @before
+         * @return void
+         */
+        public function myInit() {
           $this->i = $this->prophesize(I::class);
         }
 
-        public function testSomething(): void {
+        /** @return void */
+        public function testSomething() {
           $this->i->work()->willReturn(1);;
           $i = $this->i->reveal();
           $this->assertEquals(1, $i->work());
@@ -108,11 +114,13 @@ Feature: TestCase
         /** @var ObjectProphecy<I> */
         private $i;
 
-        public function myInit(): void {
+        /** @return void */
+        public function myInit() {
           $this->i = $this->prophesize(I::class);
         }
 
-        public function testSomething(): void {
+        /** @return void */
+        public function testSomething() {
           $this->i->work()->willReturn(1);;
           $i = $this->i->reveal();
           $this->assertEquals(1, $i->work());
@@ -123,4 +131,3 @@ Feature: TestCase
     Then I see these errors
       | Type               | Message                                                                  |
       | MissingConstructor | NS\MyTestCase has an uninitialized variable $this->i, but no constructor | 
-
