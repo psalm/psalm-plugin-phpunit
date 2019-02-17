@@ -21,6 +21,9 @@ class Plugin implements PluginEntryPointInterface
         $psalm->addStubFile(__DIR__ . '/stubs/MockBuilder.php');
         $psalm->addStubFile(__DIR__ . '/stubs/InvocationMocker.php');
         $psalm->addStubFile(__DIR__ . '/stubs/Prophecy.php');
+
+        class_exists(Hooks\TestCaseHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);
     }
 
     private function packageVersionIs(string $package, string $op, string $ref): bool
