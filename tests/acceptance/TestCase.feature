@@ -157,7 +157,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething($int) {
-          $this->assertIsInt($int);
+          $this->assertEquals(1, $int);
         }
       }
       new MyTestCase;
