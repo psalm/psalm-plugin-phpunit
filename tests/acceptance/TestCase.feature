@@ -144,3 +144,26 @@ Feature: TestCase
     Then I see these errors
       | Type               | Message                                                                  |
       | MissingConstructor | NS\MyTestCase has an uninitialized variable $this->i, but no constructor | 
+
+  Scenario: Missing data provider is reported
+    Given I have the following code
+    """
+      class MyTestCase extends TestCase
+      {
+        /**
+         * @param mixed $int
+         * @return void
+         * @psalm-suppress UnusedMethod
+         * @dataProvider provide
+         */
+        public function testSomething($int) {
+          $this->assertIsInt($int);
+        }
+      }
+      new MyTestCase;
+    """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
+    And I see no other errors
