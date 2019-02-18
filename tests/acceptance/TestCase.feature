@@ -4,7 +4,20 @@ Feature: TestCase
   I need Psalm to typecheck my test cases
 
   Background:
-    Given I have the following code preamble
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm>
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+      </psalm>
+      """
+    And I have the following code preamble
       """
       <?php
       namespace NS;
