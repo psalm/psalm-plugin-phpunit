@@ -92,6 +92,8 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $classStorage->name);
                 assert(null !== $provider_return_type);
 
+                $provider_return_type_string = $provider_return_type->getId();
+
                 $provider_return_type_location = $codebase->getMethodReturnTypeLocation($provider_method_id);
                 assert(null !== $provider_return_type_location);
 
@@ -107,7 +109,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 )) {
                     IssueBuffer::accepts(new Issue\InvalidReturnType(
                         'Providers must return ' . $expected_provider_return_type->getId()
-                        . ', ' . $provider_return_type->getId() . ' provided',
+                        . ', ' . $provider_return_type_string . ' provided',
                         $provider_return_type_location
                     ));
 
@@ -118,7 +120,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     if (!$type->isIterable($codebase)) {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
-                            . ', ' . $provider_return_type->getId() . ' provided',
+                            . ', ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
                         ));
                         continue;
@@ -143,7 +145,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 )) {
                     IssueBuffer::accepts(new Issue\InvalidReturnType(
                         'Providers must return ' . $expected_provider_return_type->getId()
-                        . ', ' . $provider_return_type->getId() . ' provided',
+                        . ', ' . $provider_return_type_string . ' provided',
                         $provider_return_type_location
                     ));
                     continue;
@@ -159,7 +161,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     $codebase,
                     $method_id,
                     $provider_method_id,
-                    $provider_return_type,
+                    $provider_return_type_string,
                     $provider_docblock_location
                 ) {
                     assert(null !== $param->type);
@@ -170,7 +172,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_id
                             . ' expects ' . $param->type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_method_id . '():(' . $provider_return_type->getId() . ')',
+                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
                     } else {
@@ -178,7 +180,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_id
                             . ' expects ' . $param->type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_method_id . '():(' . $provider_return_type->getId() . ')',
+                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
                     }
@@ -204,7 +206,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                             . ' - expecting ' . $method_storage->required_param_count
                             . ' but saw ' . count($potential_argument_types)
                             . ' provided by ' . $provider_method_id . '()'
-                            .  ':(' . $provider_return_type->getId() . ')',
+                            .  ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location,
                             $method_id
                         ));
