@@ -28,7 +28,8 @@
     "autoload": {
         "psr-4": {
             "Psalm\\PhpUnitPlugin\\": ["."],
-            "Psalm\\PhpUnitPlugin\\Hooks\\": ["hooks"]
+            "Psalm\\PhpUnitPlugin\\Hooks\\": ["hooks"],
+            "Psalm\\PhpUnitPlugin\\Exception\\" : ["Exception"]
         }
     },
     "autoload-dev": {
