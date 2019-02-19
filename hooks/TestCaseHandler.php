@@ -256,6 +256,42 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
         }
     }
 
+    /**
+     * @param Type\Atomic\TNamedObject|Type\Atomic\TIterable $type
+     * @return array{0:Type\Union,1:Type\Union}
+     */
+    private static function getKeyValueParamsForTraversableObject(Codebase $codebase, $type): array
+    {
+        if (method_exists($codebase, 'getKeyValueParamsForTraversableObject')) {
+            $ret = (array) $codebase->getKeyValueParamsForTraversableObject($type);
+            assert($ret[0] instanceof Type\Union);
+            assert($ret[1] instanceof Type\Union);
+            return [$ret[0], $ret[1]];
+        } elseif (class_exists(\Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class, true)
+            && method_exists(
+                \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class,
+                'getKeyValueParamsForTraversableObject'
+            )
+        ) {
+            $iterable_key_type = null;
+            $iterable_value_type = null;
+
+            \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::getKeyValueParamsForTraversableObject(
+                $type,
+                $codebase,
+                $iterable_key_type,
+                $iterable_value_type
+            );
+
+            return [
+                $iterable_key_type ?? Type::getMixed(),
+                $iterable_value_type ?? Type::getMixed(),
+            ];
+        } else {
+            throw new UnsupportedPsalmVersion();
+        }
+    }
+
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
     {
         /** @var Type\Union[] $key_types */
@@ -276,17 +312,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 $key_types[] = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
-                $iterable_key_type = null;
-                $iterable_value_type = null;
-
-                \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::getKeyValueParamsForTraversableObject(
-                    $type,
-                    $codebase,
-                    $iterable_key_type,
-                    $iterable_value_type
-                );
-                $key_types[] = $iterable_key_type ?? Type::getMixed();
-                $value_types[] = $iterable_value_type ?? Type::getMixed();
+                list($key_types[], $value_types[]) = self::getKeyValueParamsForTraversableObject($codebase, $type);
             } else {
                 throw new \RuntimeException('unexpected type');
             }
