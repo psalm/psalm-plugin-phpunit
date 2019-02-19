@@ -149,7 +149,9 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     continue;
                 }
 
-                $checkParam = function (
+                $checkParam =
+                /** @return void */
+                function (
                     Type\Union $potential_argument_type,
                     FunctionLikeParameter $param,
                     int $param_offset
@@ -159,7 +161,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     $provider_method_id,
                     $provider_return_type,
                     $provider_docblock_location
-                ): void {
+                ) {
                     assert(null !== $param->type);
                     if (self::isTypeContainedByType($codebase, $potential_argument_type, $param->type)) {
                         // ok
