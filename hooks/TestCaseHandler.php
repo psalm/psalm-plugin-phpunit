@@ -53,7 +53,17 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
             return null;
         }
 
-        /** @var MethodStorage $method_storage */
+        // add a fake reference to test class to prevent it from being marked as unused
+        // it would have been easier to add a suppression, but that's only possible
+        // since 3.0.17 (vimeo/psalm#1353)
+        //
+        // This should always pass, we're calling it for the side-effect
+        // of adding self-reference
+
+        if (!$codebase->classOrInterfaceExists($class_storage->name, $class_storage->location)) {
+            return null;
+        }
+
         foreach ($class_storage->methods as $method_name => $method_storage) {
             if (!$method_storage->location) {
                 continue;
@@ -69,6 +79,13 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
 
             $method_id = $class_storage->name . '::' . $method_storage->cased_name;
 
+            if (0 !== strpos($method_storage->cased_name, 'test')
+                && !isset($specials['test'])) {
+                continue; // skip non-test methods
+            }
+
+            $method_storage->suppressed_issues[] = 'PossiblyUnusedMethod';
+
             if (!isset($specials['dataProvider'])) {
                 continue;
             }
@@ -79,7 +96,8 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 $provider_docblock_location = clone $method_storage->location;
                 $provider_docblock_location->setCommentLine($line);
 
-                if (!$codebase->methodExists($provider_method_id)) {
+                // methodExists also can mark methods as used (weird, but handy)
+                if (!$codebase->methodExists($provider_method_id, $provider_docblock_location, $method_id)) {
                     IssueBuffer::accepts(new Issue\UndefinedMethod(
                         'Provider method ' . $provider_method_id . ' is not defined',
                         $provider_docblock_location,
