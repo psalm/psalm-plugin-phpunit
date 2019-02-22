@@ -17,6 +17,7 @@ use Psalm\Storage\ClassLikeStorage;
 use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Storage\MethodStorage;
 use Psalm\Type;
+use Psalm\Type\Atomic\TIterable;
 
 class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAnalysisInterface
 {
@@ -125,12 +126,23 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     $provider_return_type,
                     new Type\Union([$expected_provider_return_type])
                 )) {
-                    IssueBuffer::accepts(new Issue\InvalidReturnType(
-                        'Providers must return ' . $expected_provider_return_type->getId()
-                        . ', ' . $provider_return_type_string . ' provided',
-                        $provider_return_type_location
-                    ));
-
+                    if (self::isTypeContainedByType(
+                        $codebase,
+                        $provider_return_type,
+                        new Type\Union([new TIterable()])
+                    )) {
+                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', possibly different ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    } else {
+                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    }
                     continue;
                 }
 
@@ -336,13 +348,21 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
             }
         }
 
-        $combine = function (Type\Union $a, Type\Union $b) use ($codebase): Type\Union {
-            return Type::combineUnionTypes($a, $b, $codebase);
+        if (empty($key_types)) {
+            $key_types[] = Type::getMixed();
+        }
+
+        if (empty($value_types)) {
+            $value_types[] = Type::getMixed();
+        }
+
+        $combine = function (?Type\Union $a, Type\Union $b) use ($codebase): Type\Union {
+            return $a ? Type::combineUnionTypes($a, $b, $codebase) : $b;
         };
 
         return new Type\Atomic\TIterable([
-            array_reduce($key_types, $combine, new Type\Union([])),
-            array_reduce($value_types, $combine, new Type\Union([]))
+            array_reduce($key_types, $combine),
+            array_reduce($value_types, $combine)
         ]);
     }
 

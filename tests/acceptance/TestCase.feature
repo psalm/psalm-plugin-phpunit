@@ -29,7 +29,7 @@ Feature: TestCase
     Given I have Psalm newer than "3.0.12" (because of "missing functionality")
     Given I have the following code
       """
-      class MyTestCase extends TestCase 
+      class MyTestCase extends TestCase
       {
         /** @return void */
         public function testSomething() {
@@ -46,7 +46,7 @@ Feature: TestCase
   Scenario: TestCase::expectException() accepts throwables
     Given I have the following code
       """
-      class MyTestCase extends TestCase 
+      class MyTestCase extends TestCase
       {
         /** @return void */
         public function testSomething() {
@@ -123,7 +123,7 @@ Feature: TestCase
 
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase 
+      class MyTestCase extends TestCase
       {
         /** @var ObjectProphecy<I> */
         private $i;
@@ -144,7 +144,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type               | Message                                                                  |
-      | MissingConstructor | NS\MyTestCase has an uninitialized variable $this->i, but no constructor | 
+      | MissingConstructor | NS\MyTestCase has an uninitialized variable $this->i, but no constructor |
     And I see no other errors
 
   Scenario: Missing data provider is reported
@@ -162,7 +162,6 @@ Feature: TestCase
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
     """
     When I run Psalm
     Then I see these errors
@@ -181,14 +180,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
@@ -207,14 +204,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see no errors
@@ -230,14 +225,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
@@ -256,14 +249,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see no errors
@@ -279,19 +270,17 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                        |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, array<int, int> provided |
+      | Type              | Message                                                                                                           |
+      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different array<int, int> provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed
@@ -307,14 +296,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see no errors
@@ -332,14 +319,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see no errors
@@ -355,14 +340,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
@@ -381,14 +364,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
@@ -407,19 +388,17 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int, int $i) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                          |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting 2 but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) | 
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting 2 but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -433,14 +412,12 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          * @dataProvider provide
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm with dead code detection
     Then I see no errors
@@ -456,13 +433,11 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @psalm-suppress UnusedMethod
          */
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm with dead code detection
     Then I see these errors
@@ -489,7 +464,6 @@ Feature: TestCase
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm with dead code detection
     Then I see no errors
@@ -506,11 +480,10 @@ Feature: TestCase
           $this->assertEquals(1, $int);
         }
       }
-      new MyTestCase;
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                 | Message                                                         | 
+      | Type                 | Message                                                         |
       | PossiblyUnusedMethod | Cannot find public calls to method NS\MyTestCase::somethingElse |
     And I see no other errors
 
