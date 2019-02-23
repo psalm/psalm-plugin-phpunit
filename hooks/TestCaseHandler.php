@@ -349,9 +349,11 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
             ]);
         }
 
-        $combine = function (?Type\Union $a, Type\Union $b) use ($codebase): Type\Union {
-            return $a ? Type::combineUnionTypes($a, $b, $codebase) : $b;
-        };
+        $combine =
+            /** @param null|Type\Union $a */
+            function ($a, Type\Union $b) use ($codebase): Type\Union {
+                return $a ? Type::combineUnionTypes($a, $b, $codebase) : $b;
+            };
 
         return new Type\Atomic\TIterable([
             array_reduce($key_types, $combine),
