@@ -11,14 +11,14 @@
     ],
     "require": {
         "phpunit/phpunit": "^6.0 || ^7.0 || ^8.0",
-        "vimeo/psalm": "^3.0.8 || dev-master",
+        "vimeo/psalm": "^3.0.13 || dev-master",
         "composer/semver": "^1.4",
         "muglug/package-versions-56": "^1.2"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.3.1",
         "codeception/base": "^2.5",
-        "weirdan/codeception-psalm-module": "^0.1.0"
+        "weirdan/codeception-psalm-module": "^0.2.1"
     },
     "extra": {
         "psalm": {
@@ -28,7 +28,8 @@
     "autoload": {
         "psr-4": {
             "Psalm\\PhpUnitPlugin\\": ["."],
-            "Psalm\\PhpUnitPlugin\\Hooks\\": ["hooks"]
+            "Psalm\\PhpUnitPlugin\\Hooks\\": ["hooks"],
+            "Psalm\\PhpUnitPlugin\\Exception\\" : ["Exception"]
         }
     },
     "autoload-dev": {
