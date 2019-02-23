@@ -134,7 +134,8 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
 
                 // unionize iterable so that instead of array<int,string>|Traversable<object|int>
                 // we get iterable<int|object,string|int>
-
+                //
+                // TODO: this may get implemented in a future Psalm version, remove it then
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
                 if (!self::isTypeContainedByType(
@@ -236,7 +237,6 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                         ));
                     }
 
-
                     foreach ($method_storage->params as $param_offset => $param) {
                         if (!isset($potential_argument_types[$param_offset])) {
                             break;
@@ -257,12 +257,15 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
     ): bool {
         if (method_exists($codebase, 'isTypeContainedByType')) {
             return (bool) $codebase->isTypeContainedByType($input_type, $container_type);
-        } elseif (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
+        }
+
+        /** @psalm-suppress RedundantCondition */
+        if (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
             && method_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, 'isContainedBy')) {
             return \Psalm\Internal\Analyzer\TypeAnalyzer::isContainedBy($codebase, $input_type, $container_type);
-        } else {
-            throw new UnsupportedPsalmVersion();
         }
+
+        throw new UnsupportedPsalmVersion();
     }
 
     private static function canTypeBeContainedByType(
@@ -272,12 +275,15 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
     ): bool {
         if (method_exists($codebase, 'canTypeBeContainedByType')) {
             return (bool) $codebase->canTypeBeContainedByType($input_type, $container_type);
-        } elseif (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
+        }
+
+        /** @psalm-suppress RedundantCondition */
+        if (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
             && method_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, 'canBeContainedBy')) {
             return \Psalm\Internal\Analyzer\TypeAnalyzer::canBeContainedBy($codebase, $input_type, $container_type);
-        } else {
-            throw new UnsupportedPsalmVersion();
         }
+
+        throw new UnsupportedPsalmVersion();
     }
 
     /**
@@ -291,7 +297,10 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
             assert($ret[0] instanceof Type\Union);
             assert($ret[1] instanceof Type\Union);
             return [$ret[0], $ret[1]];
-        } elseif (class_exists(\Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class, true)
+        }
+
+        /** @psalm-suppress RedundantCondition */
+        if (class_exists(\Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class, true)
             && method_exists(
                 \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class,
                 'getKeyValueParamsForTraversableObject'
@@ -311,9 +320,9 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                 $iterable_key_type ?? Type::getMixed(),
                 $iterable_value_type ?? Type::getMixed(),
             ];
-        } else {
-            throw new UnsupportedPsalmVersion();
         }
+
+        throw new UnsupportedPsalmVersion();
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
