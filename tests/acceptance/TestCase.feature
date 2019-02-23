@@ -279,8 +279,80 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                           |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different array<int, int> provided |
+      | Type              | Message                                                                                        |
+      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, array<int, int> provided |
+    And I see no other errors
+
+  Scenario: Underspecified array data provider is reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return array */
+        public function provide() {
+          return [1 => [1]];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                                                                                   |
+      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different array<array-key, mixed> provided |
+    And I see no other errors
+
+  Scenario: Underspecified iterable data provider is reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return iterable */
+        public function provide() {
+          return [1 => [1]];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                                                                                  |
+      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
+    And I see no other errors
+
+  Scenario: Underspecified generator data provider is reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return \Generator */
+        public function provide() {
+          yield 1 => [1];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                                                                     |
+      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different Generator provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed
@@ -508,4 +580,73 @@ Feature: TestCase
     Then I see these errors
       | Type        | Message                             |
       | UnusedClass | Class NS\UtilityClass is never used |
+    And I see no other errors
+
+  Scenario: Provider returning possibly undefined offset is fine when test method has default for that param
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return iterable<string,array{0?:int}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? [1] : [];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+       public function testSomething(int $int = 2) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Provider returning possibly undefined offset with mismatching type is reported even when test method has default for that param
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return iterable<string,array{0?:string}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? ["1"] : [];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+       public function testSomething(int $int = 2) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                  |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array{0?:string}>) |
+    And I see no other errors
+
+  Scenario: Provider returning possibly undefined offset is marked when test method has no default for that param
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @return iterable<string,array{0?:int}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? [1] : [];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+       public function testSomething(int $int) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                                                                                                                            |
+      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?:int}>) |
     And I see no other errors

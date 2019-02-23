@@ -121,31 +121,6 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     Type::getArray(),
                 ]);
 
-                if (!self::isTypeContainedByType(
-                    $codebase,
-                    $provider_return_type,
-                    new Type\Union([$expected_provider_return_type])
-                )) {
-                    if (self::isTypeContainedByType(
-                        $codebase,
-                        $provider_return_type,
-                        new Type\Union([new TIterable()])
-                    )) {
-                        IssueBuffer::accepts(new Issue\InvalidReturnType(
-                            'Providers must return ' . $expected_provider_return_type->getId()
-                            . ', possibly different ' . $provider_return_type_string . ' provided',
-                            $provider_return_type_location
-                        ));
-                    } else {
-                        IssueBuffer::accepts(new Issue\InvalidReturnType(
-                            'Providers must return ' . $expected_provider_return_type->getId()
-                            . ', ' . $provider_return_type_string . ' provided',
-                            $provider_return_type_location
-                        ));
-                    }
-                    continue;
-                }
-
                 foreach ($provider_return_type->getTypes() as $type) {
                     if (!$type->isIterable($codebase)) {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
@@ -162,8 +137,6 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
 
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
-                // this is basically a repetition of above $expected_provider_return_type check
-                // but older Psalm versions couldn't check iterable descendants (see vimeo/psalm#1359)
                 if (!self::isTypeContainedByType(
                     $codebase,
                     $provider_return_type->type_params[0],
@@ -173,11 +146,20 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     $provider_return_type->type_params[1],
                     $expected_provider_return_type->type_params[1]
                 )) {
-                    IssueBuffer::accepts(new Issue\InvalidReturnType(
-                        'Providers must return ' . $expected_provider_return_type->getId()
-                        . ', ' . $provider_return_type_string . ' provided',
-                        $provider_return_type_location
-                    ));
+                    if ($provider_return_type->type_params[0]->hasMixed()
+                        || $provider_return_type->type_params[1]->hasMixed()) {
+                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', possibly different ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    } else {
+                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    }
                     continue;
                 }
 
@@ -195,12 +177,24 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     $provider_docblock_location
                 ) {
                     assert(null !== $param->type);
-                    if (self::isTypeContainedByType($codebase, $potential_argument_type, $param->type)) {
+                    $param_type = clone $param->type;
+                    if ($param->default_type) {
+                        $param_type->possibly_undefined = true;
+                    }
+                    if (self::isTypeContainedByType($codebase, $potential_argument_type, $param_type)) {
                         // ok
-                    } elseif (self::canTypeBeContainedByType($codebase, $potential_argument_type, $param->type)) {
+                    } elseif (self::canTypeBeContainedByType($codebase, $potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_id
-                            . ' expects ' . $param->type->getId() . ', '
+                            . ' expects ' . $param_type->getId() . ', '
+                            . $potential_argument_type->getId() . ' provided'
+                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
+                            $provider_docblock_location
+                        ));
+                    } elseif ($potential_argument_type->possibly_undefined && !$param->default_type) {
+                        IssueBuffer::accepts(new Issue\InvalidArgument(
+                            'Argument ' . ($param_offset + 1) . ' of ' . $method_id
+                            . ' has no default value, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
@@ -208,7 +202,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_id
-                            . ' expects ' . $param->type->getId() . ', '
+                            . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
@@ -348,12 +342,11 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
             }
         }
 
-        if (empty($key_types)) {
-            $key_types[] = Type::getMixed();
-        }
-
-        if (empty($value_types)) {
-            $value_types[] = Type::getMixed();
+        if (empty($key_types) || empty($value_types)) {
+            return new Type\Atomic\TIterable([
+                Type::getMixed(),
+                Type::getMixed(),
+            ]);
         }
 
         $combine = function (?Type\Union $a, Type\Union $b) use ($codebase): Type\Union {
@@ -362,7 +355,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
 
         return new Type\Atomic\TIterable([
             array_reduce($key_types, $combine),
-            array_reduce($value_types, $combine)
+            array_reduce($value_types, $combine),
         ]);
     }
 
