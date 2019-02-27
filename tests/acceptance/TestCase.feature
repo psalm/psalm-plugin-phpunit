@@ -680,3 +680,70 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Descendant of a test that has setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      use Prophecy\Prophecy\ObjectProphecy;
+
+      interface I { public function work(): int; }
+
+      class BaseTestCase extends TestCase {
+        /** @var ObjectProphecy<I> */
+        protected $i;
+
+        /** @return void */
+        public function setUp() {
+          $this->i = $this->prophesize(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      class MyTestCase extends Intermediate
+      {
+        /** @return void */
+        public function testSomething() {
+          $this->i->work()->willReturn(1);;
+          $i = $this->i->reveal();
+          $this->assertEquals(1, $i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has @before produces no MissingConstructor
+    Given I have the following code
+      """
+      use Prophecy\Prophecy\ObjectProphecy;
+
+      interface I { public function work(): int; }
+
+      class BaseTestCase extends TestCase {
+        /** @var ObjectProphecy<I> */
+        protected $i;
+
+        /**
+         * @before
+         * @return void
+         */
+        public function myInit() {
+          $this->i = $this->prophesize(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      class MyTestCase extends Intermediate
+      {
+        /** @return void */
+        public function testSomething() {
+          $this->i->work()->willReturn(1);;
+          $i = $this->i->reveal();
+          $this->assertEquals(1, $i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
