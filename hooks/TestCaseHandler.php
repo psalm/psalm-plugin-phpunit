@@ -4,6 +4,7 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 use PHPUnit\Framework\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\FileSource;
@@ -11,6 +12,7 @@ use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Exception\UnsupportedPsalmVersion;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
+use Psalm\Plugin\Hook\AfterClassLikeExistenceCheckInterface;
 use Psalm\Plugin\Hook\AfterClassLikeVisitInterface;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
@@ -19,24 +21,54 @@ use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TIterable;
 
-class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAnalysisInterface
+class TestCaseHandler implements
+    AfterClassLikeVisitInterface,
+    AfterClassLikeAnalysisInterface,
+    AfterClassLikeExistenceCheckInterface
 {
+    /** @var bool */
+    private static $suppressed = false;
+
+    /**
+     * TODO: move to new hook (afterCodebasePopulation?)
+     * {@inheritDoc}
+     */
+    public static function afterClassLikeExistenceCheck(
+        string $fq_class_name,
+        CodeLocation $code_location,
+        StatementsSource $statements_source,
+        Codebase $codebase,
+        array &$file_replacements = []
+    ) {
+        if (self::$suppressed) {
+            return;
+        }
+        self::$suppressed = true;
+
+        foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
+            $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
+            if ($codebase->classExtends($name, TestCase::class) && ($meta['hasInitializers'] ?? false)) {
+                $storage->suppressed_issues[] = 'MissingConstructor';
+            }
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
     public static function afterClassLikeVisit(
-        ClassLike $classNode,
-        ClassLikeStorage $classStorage,
+        ClassLike $class_node,
+        ClassLikeStorage $class_storage,
         FileSource $statements_source,
         Codebase $codebase,
         array &$file_replacements = []
     ) {
-        if (!$codebase->classExtends($classStorage->name, TestCase::class)) {
-            return;
-        }
-
-        if (self::hasInitializers($classStorage, $classNode)) {
-            $classStorage->suppressed_issues[] = 'MissingConstructor';
+        if (self::hasInitializers($class_storage, $class_node)) {
+            if (!isset($class_storage->custom_metadata)) {
+                /** @psalm-suppress UndefinedPropertyAssignment */
+                $class_storage->custom_metadata = [];
+            }
+            $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
     }
 
@@ -380,7 +412,7 @@ class TestCaseHandler implements AfterClassLikeVisitInterface, AfterClassLikeAna
         foreach ($storage->methods as $method => $_) {
             $stmt_method = $stmt->getMethod($method);
             if (!$stmt_method) {
-                throw new \RuntimeException('Failed to find ' . $method);
+                continue;
             }
             if (self::isBeforeInitializer($stmt_method)) {
                 return true;

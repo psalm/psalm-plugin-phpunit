@@ -650,3 +650,33 @@ Feature: TestCase
       | Type              | Message                                                                                                                                                            |
       | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?:int}>) |
     And I see no other errors
+
+  Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      use Prophecy\Prophecy\ObjectProphecy;
+
+      class BaseTestCase extends TestCase {}
+
+      interface I { public function work(): int; }
+
+      class MyTestCase extends BaseTestCase
+      {
+        /** @var ObjectProphecy<I> */
+        private $i;
+
+        /** @return void */
+        public function setUp() {
+          $this->i = $this->prophesize(I::class);
+        }
+
+        /** @return void */
+        public function testSomething() {
+          $this->i->work()->willReturn(1);;
+          $i = $this->i->reveal();
+          $this->assertEquals(1, $i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
