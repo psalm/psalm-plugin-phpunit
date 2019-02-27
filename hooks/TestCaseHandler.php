@@ -49,8 +49,32 @@ class TestCaseHandler implements
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
             if ($codebase->classExtends($name, TestCase::class) && ($meta['hasInitializers'] ?? false)) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
+
+                foreach (self::getDescendants($codebase, $name) as $dependent_name) {
+                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
+                    $dependent_storage->suppressed_issues[] = 'MissingConstructor';
+                }
             }
         }
+    }
+
+    /** @return string[] */
+    private static function getDescendants(Codebase $codebase, string $name): array
+    {
+        if (!$codebase->classlike_storage_provider->has($name)) {
+            return [];
+        }
+
+        $storage = $codebase->classlike_storage_provider->get($name);
+        $ret = [];
+
+        foreach ($storage->dependent_classlikes as $dependent => $_) {
+            if ($codebase->classExtends($dependent, $name)) {
+                $ret[] = $dependent;
+                $ret = array_merge($ret, self::getDescendants($codebase, $dependent));
+            }
+        }
+        return $ret;
     }
 
     /**
