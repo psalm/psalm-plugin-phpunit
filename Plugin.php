@@ -8,6 +8,7 @@ use SimpleXMLElement;
 use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
 
+/** @psalm-suppress UnusedClass */
 class Plugin implements PluginEntryPointInterface
 {
     /** @return void */

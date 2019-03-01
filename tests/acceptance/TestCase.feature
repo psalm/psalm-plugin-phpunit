@@ -747,3 +747,113 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Test methods in traits are not marked as unused
+    Given I have the following code
+      """
+      trait MyTestTrait {
+        /** @return void */
+        public function testSomething() {}
+      }
+      class MyTestCase extends TestCase {
+        use MyTestTrait;
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Inherited test methods are not marked as unused
+    Given I have the following code
+      """
+      abstract class IntermediateTest extends TestCase {
+        /** @return void */
+        public function testSomething() {}
+      }
+      class MyTestCase extends IntermediateTest {
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Data providers in traits are not marked as unused
+    Given I have the following code
+      """
+      trait MyTestTrait {
+        /** @return iterable<int,array{int}> */
+        public function provide() { return [[1]]; }
+      }
+      class MyTestCase extends TestCase {
+        use MyTestTrait;
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $_i) {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Data providers in test case when test methods are in trait are not marked as unused
+    Given I have the following code
+      """
+      trait MyTestTrait {
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $_i) {}
+      }
+      class MyTestCase extends TestCase {
+        use MyTestTrait;
+        /** @return iterable<int,array{int}> */
+        public function provide() { return [[1]]; }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Renamed imported test methods are validated
+    Given I have the following code
+      """
+      trait MyTestTrait {
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function foo(int $_i) {}
+      }
+      class MyTestCase extends TestCase {
+        use MyTestTrait { foo as testAnything; }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
+    And I see no other errors
+
+  Scenario: Test methods and providers in trait used by a test case are validated
+    Given I have the following code
+      """
+      trait MyTestTrait {
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(string $_p) {}
+        /**
+         * @return iterable<int,int[]>
+         */
+        public function provide() { return [[1]]; }
+      }
+
+      class MyTestCase extends TestCase {
+        use MyTestTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                      |
+      | InvalidArgument | Argument 1 of NS\MyTestTrait::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
+    And I see no other errors
