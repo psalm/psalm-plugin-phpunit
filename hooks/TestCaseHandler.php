@@ -121,22 +121,30 @@ class TestCaseHandler implements
             return null;
         }
 
-        foreach ($class_storage->methods as $method_name => $method_storage) {
+        foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
+            $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
+            $method_storage = $codebase->methods->getStorage($declaring_method_id);
+            list($declaring_method_class, $declaring_method_name) = explode('::', $declaring_method_id);
+            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
+
+            $declaring_class_node = $class_node;
+            if ($declaring_class_storage->is_trait) {
+                $declaring_class_node = $codebase->classlikes->getTraitNode($declaring_class_storage->name);
+            }
+
             if (!$method_storage->location) {
                 continue;
             }
 
-            $stmt_method = $class_node->getMethod($method_name);
+            $stmt_method = $declaring_class_node->getMethod($declaring_method_name);
 
             if (!$stmt_method) {
-                throw new \RuntimeException('Failed to find ' . $method_name);
+                continue;
             }
 
             $specials = self::getSpecials($stmt_method);
 
-            $method_id = $class_storage->name . '::' . $method_storage->cased_name;
-
-            if (0 !== strpos($method_storage->cased_name, 'test')
+            if (0 !== strpos($method_name_lc, 'test')
                 && !isset($specials['test'])) {
                 continue; // skip non-test methods
             }
@@ -148,23 +156,25 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                $provider_method_id = $class_storage->name . '::' . (string) $provider;
-
                 $provider_docblock_location = clone $method_storage->location;
                 $provider_docblock_location->setCommentLine($line);
 
-                // methodExists also can mark methods as used (weird, but handy)
-                if (!$codebase->methodExists($provider_method_id, $provider_docblock_location, $method_id)) {
-                    IssueBuffer::accepts(new Issue\UndefinedMethod(
-                        'Provider method ' . $provider_method_id . ' is not defined',
-                        $provider_docblock_location,
-                        $provider_method_id
-                    ));
+                $apparent_provider_method_name = $class_storage->name . '::' . (string) $provider;
+                $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
+                // methodExists also can mark methods as used (weird, but handy)
+                if (null === $provider_method_id
+                    || !$codebase->methodExists($provider_method_id, $provider_docblock_location, $declaring_method_id)
+                ) {
+                    IssueBuffer::accepts(new Issue\UndefinedMethod(
+                        'Provider method ' . $apparent_provider_method_name . ' is not defined',
+                        $provider_docblock_location,
+                        $apparent_provider_method_name
+                    ));
                     continue;
                 }
 
-                $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $classStorage->name);
+                $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $_);
                 assert(null !== $provider_return_type);
 
                 $provider_return_type_string = $provider_return_type->getId();
@@ -228,7 +238,7 @@ class TestCaseHandler implements
                     int $param_offset
                 ) use (
                     $codebase,
-                    $method_id,
+                    $method_name,
                     $provider_method_id,
                     $provider_return_type_string,
                     $provider_docblock_location
@@ -242,7 +252,7 @@ class TestCaseHandler implements
                         // ok
                     } elseif (self::canTypeBeContainedByType($codebase, $potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_id
+                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -250,7 +260,7 @@ class TestCaseHandler implements
                         ));
                     } elseif ($potential_argument_type->possibly_undefined && !$param->default_type) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_id
+                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' has no default value, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -258,7 +268,7 @@ class TestCaseHandler implements
                         ));
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_id
+                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -283,13 +293,13 @@ class TestCaseHandler implements
 
                     if (count($potential_argument_types) < $method_storage->required_param_count) {
                         IssueBuffer::accepts(new Issue\TooFewArguments(
-                            'Too few arguments for ' . $method_id
+                            'Too few arguments for ' . $method_name
                             . ' - expecting ' . $method_storage->required_param_count
                             . ' but saw ' . count($potential_argument_types)
                             . ' provided by ' . $provider_method_id . '()'
                             .  ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location,
-                            $method_id
+                            $method_name
                         ));
                     }
 
