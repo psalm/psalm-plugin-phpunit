@@ -231,10 +231,14 @@ class TestCaseHandler implements
                 }
 
                 $checkParam =
-                /** @return void */
+                /**
+                 * @param null|Type\Union $param_default_type
+                 * @return void
+                 */
                 function (
                     Type\Union $potential_argument_type,
-                    FunctionLikeParameter $param,
+                    Type\Union $param_type,
+                    $param_default_type,
                     int $param_offset
                 ) use (
                     $codebase,
@@ -243,9 +247,8 @@ class TestCaseHandler implements
                     $provider_return_type_string,
                     $provider_docblock_location
                 ) {
-                    assert(null !== $param->type);
-                    $param_type = clone $param->type;
-                    if ($param->default_type) {
+                    $param_type = clone $param_type;
+                    if ($param_default_type) {
                         $param_type->possibly_undefined = true;
                     }
                     if (self::isTypeContainedByType($codebase, $potential_argument_type, $param_type)) {
@@ -258,7 +261,7 @@ class TestCaseHandler implements
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
-                    } elseif ($potential_argument_type->possibly_undefined && !$param->default_type) {
+                    } elseif ($potential_argument_type->possibly_undefined && !$param_default_type) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' has no default value, but possibly undefined '
@@ -284,32 +287,60 @@ class TestCaseHandler implements
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
                     foreach ($method_storage->params as $param_offset => $param) {
-                        $checkParam($potential_argument_type, $param, $param_offset);
+                        assert(null !== $param->type);
+                        $checkParam($potential_argument_type, $param->type, $param->default_type, $param_offset);
                     }
                 } else {
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
 
-                    if (count($potential_argument_types) < $method_storage->required_param_count) {
-                        IssueBuffer::accepts(new Issue\TooFewArguments(
-                            'Too few arguments for ' . $method_name
-                            . ' - expecting ' . $method_storage->required_param_count
-                            . ' but saw ' . count($potential_argument_types)
-                            . ' provided by ' . $provider_method_id . '()'
-                            .  ':(' . $provider_return_type_string . ')',
-                            $provider_docblock_location,
-                            $method_name
-                        ));
-                    }
-
                     foreach ($method_storage->params as $param_offset => $param) {
                         if (!isset($potential_argument_types[$param_offset])) {
+                            // variadics are never required
+                            // and they always come last
+                            if ($param->is_variadic) {
+                                break;
+                            }
+                            // reached default params, so it's fine, but let's continue
+                            // because MisplacedRequiredParam could be suppressed
+                            if ($param->default_type) {
+                                continue;
+                            }
+
+                            IssueBuffer::accepts(new Issue\TooFewArguments(
+                                'Too few arguments for ' . $method_name
+                                . ' - expecting at least ' . ($param_offset + 1)
+                                . ', but saw ' . count($potential_argument_types)
+                                . ' provided by ' . $provider_method_id . '()'
+                                .  ':(' . $provider_return_type_string . ')',
+                                $provider_docblock_location,
+                                $method_name
+                            ));
                             break;
                         }
                         $potential_argument_type = $potential_argument_types[$param_offset];
 
-                        $checkParam($potential_argument_type, $param, $param_offset);
+                        assert(null !== $param->type);
+                        if ($param->is_variadic) {
+                            /** @var Type\Atomic\TArray $variadic_type */
+                            $variadic_type = $param->type->getTypes()['array'];
+                            $variadic_param_type = $variadic_type->type_params[1] ?? Type::getMixed();
+
+                            // check remaining argument types
+                            for (; $param_offset < count($potential_argument_types); $param_offset++) {
+                                $potential_argument_type = $potential_argument_types[$param_offset];
+                                $checkParam(
+                                    $potential_argument_type,
+                                    $variadic_param_type,
+                                    $variadic_param_type,
+                                    $param_offset
+                                );
+                            }
+                            break;
+                        }
+
+                        $checkParam($potential_argument_type, $param->type, $param->default_type, $param_offset);
                     }
                 }
             }
