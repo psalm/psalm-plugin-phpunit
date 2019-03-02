@@ -469,8 +469,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                          |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting 2 but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
+      | Type            | Message                                                                                                                                                    |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -856,4 +856,82 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message                                                                                                                                      |
       | InvalidArgument | Argument 1 of NS\MyTestTrait::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
+    And I see no other errors
+
+  Scenario: Providers may omit variadic part for variadic tests
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string,array{int}> */
+        public function provide() {
+          yield "data set" => [1];
+        }
+        /**
+         * @dataProvider provide
+         * @return void
+         */
+        public function testSomething(int $i, ...$rest) {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Providers may omit non-varidic params with default for variadic tests
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string,array{int}> */
+        public function provide() {
+          yield "data set" => [1];
+        }
+        /**
+         * @dataProvider provide
+         * @return void
+         */
+        public function testSomething(int $i, string $s = "", ...$rest) {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Providers may not omit non-varidic params with no default for variadic tests
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string,array{int}> */
+        public function provide() {
+          yield "data set" => [1];
+        }
+        /**
+         * @dataProvider provide
+         * @return void
+         */
+        public function testSomething(int $i, string $s, ...$rest) {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                    |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
+    And I see no other errors
+
+  Scenario: Providers generating incompatible datasets for variadic tests are reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string,array{float,1?:string}> */
+        public function provide() {
+          yield "data set" => [1., "a"];
+        }
+        /**
+         * @dataProvider provide
+         * @return void
+         */
+        public function testSomething(float ...$rest) {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                             |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array{0:float, 1?:string}>) |
     And I see no other errors
