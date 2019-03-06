@@ -232,13 +232,12 @@ class TestCaseHandler implements
 
                 $checkParam =
                 /**
-                 * @param null|Type\Union $param_default_type
                  * @return void
                  */
                 function (
                     Type\Union $potential_argument_type,
                     Type\Union $param_type,
-                    $param_default_type,
+                    bool $is_optional,
                     int $param_offset
                 ) use (
                     $codebase,
@@ -248,7 +247,7 @@ class TestCaseHandler implements
                     $provider_docblock_location
                 ) {
                     $param_type = clone $param_type;
-                    if ($param_default_type) {
+                    if ($is_optional) {
                         $param_type->possibly_undefined = true;
                     }
                     if (self::isTypeContainedByType($codebase, $potential_argument_type, $param_type)) {
@@ -261,7 +260,7 @@ class TestCaseHandler implements
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
-                    } elseif ($potential_argument_type->possibly_undefined && !$param_default_type) {
+                    } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' has no default value, but possibly undefined '
@@ -288,7 +287,7 @@ class TestCaseHandler implements
                     $potential_argument_type = $dataset_type->type_params[1];
                     foreach ($method_storage->params as $param_offset => $param) {
                         assert(null !== $param->type);
-                        $checkParam($potential_argument_type, $param->type, $param->default_type, $param_offset);
+                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 } else {
                     // iterate over all params checking if corresponding value type is acceptable
@@ -304,7 +303,7 @@ class TestCaseHandler implements
                             }
                             // reached default params, so it's fine, but let's continue
                             // because MisplacedRequiredParam could be suppressed
-                            if ($param->default_type) {
+                            if ($param->is_optional) {
                                 continue;
                             }
 
@@ -333,14 +332,14 @@ class TestCaseHandler implements
                                 $checkParam(
                                     $potential_argument_type,
                                     $variadic_param_type,
-                                    $variadic_param_type,
+                                    true,
                                     $param_offset
                                 );
                             }
                             break;
                         }
 
-                        $checkParam($potential_argument_type, $param->type, $param->default_type, $param_offset);
+                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 }
             }
