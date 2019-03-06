@@ -582,6 +582,52 @@ Feature: TestCase
       | UnusedClass | Class NS\UtilityClass is never used |
     And I see no other errors
 
+  Scenario: Provider returning optional offsets is fine when test method has defaults for those params (specified as constants)
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @var string */
+        const S = "s";
+        /** @return iterable<string,array{0:int,1?:string}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int, string $_str = self::S) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @var string */
+        const S = "s";
+        /** @return iterable<string,array{0:int}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int, string $_str = self::S) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Provider returning possibly undefined offset is fine when test method has default for that param
     Given I have the following code
       """
