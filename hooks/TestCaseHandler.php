@@ -175,7 +175,10 @@ class TestCaseHandler implements
                 }
 
                 $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $_);
-                assert(null !== $provider_return_type);
+
+                if (!$provider_return_type) {
+                    continue;
+                }
 
                 $provider_return_type_string = $provider_return_type->getId();
 
