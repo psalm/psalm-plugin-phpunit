@@ -981,3 +981,21 @@ Feature: TestCase
       | Type            | Message                                                                                                                                             |
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array{0:float, 1?:string}>) |
     And I see no other errors
+
+  Scenario: Untyped providers returns are not checked against test method signatures
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @psalm-suppress MissingReturnType */
+        public function provide() {
+          yield "data set" => ["a"];
+        }
+        /**
+         * @dataProvider provide
+         * @return void
+         */
+        public function testSomething(string $_s) {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
