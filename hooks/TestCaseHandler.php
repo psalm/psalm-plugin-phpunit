@@ -289,7 +289,9 @@ class TestCaseHandler implements
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
                     foreach ($method_storage->params as $param_offset => $param) {
-                        assert(null !== $param->type);
+                        if (!$param->type) {
+                            continue;
+                        }
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 } else {
