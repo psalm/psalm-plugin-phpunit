@@ -150,6 +150,12 @@ class TestCaseHandler implements
             }
 
             $method_storage->suppressed_issues[] = 'PossiblyUnusedMethod';
+            $codebase->methodExists(
+                $declaring_method_id,
+                null,
+                'PHPUnit\Framework\TestSuite::run',
+                '/vendor/phpunit/phpunit/src/Framework/TestSuite.php'
+            );
 
             if (!isset($specials['dataProvider'])) {
                 continue;
