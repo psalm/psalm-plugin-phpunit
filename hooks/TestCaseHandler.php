@@ -192,7 +192,7 @@ class TestCaseHandler implements
                 assert(null !== $provider_return_type_location);
 
                 $expected_provider_return_type = new Type\Atomic\TIterable([
-                    Type::combineUnionTypes(Type::getArrayKey()),
+                    Type::getArrayKey(),
                     Type::getArray(),
                 ]);
 
