@@ -3,7 +3,7 @@ namespace Psalm\PhpUnitPlugin;
 
 use Composer\Semver\Comparator;
 use Composer\Semver\VersionParser;
-use Muglug\PackageVersions\Versions;
+use Ocramius\PackageVersions\Versions;
 use SimpleXMLElement;
 use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
