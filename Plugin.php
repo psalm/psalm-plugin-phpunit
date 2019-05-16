@@ -3,7 +3,7 @@ namespace Psalm\PhpUnitPlugin;
 
 use Composer\Semver\Comparator;
 use Composer\Semver\VersionParser;
-use Ocramius\PackageVersions\Versions;
+use PackageVersions\Versions;
 use SimpleXMLElement;
 use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
@@ -29,7 +29,7 @@ class Plugin implements PluginEntryPointInterface
 
     private function packageVersionIs(string $package, string $op, string $ref): bool
     {
-        $currentVersion = (string) Versions::getShortVersion($package);
+        $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
 
         $parser = new VersionParser();
 
