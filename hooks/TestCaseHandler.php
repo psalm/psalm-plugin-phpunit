@@ -213,18 +213,38 @@ class TestCaseHandler implements
                 // TODO: this may get implemented in a future Psalm version, remove it then
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
+                $type_coerced = false;
+
                 if (!self::isTypeContainedByType(
                     $codebase,
                     $provider_return_type->type_params[0],
                     $expected_provider_return_type->type_params[0]
-                ) || !self::isTypeContainedByType(
+                )) {
+                    if ($provider_return_type->type_params[0]->hasMixed()
+                        || $provider_return_type->type_params[0]->hasArrayKey()
+                    ) {
+                        IssueBuffer::accepts(new Issue\MixedInferredReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', possibly different ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    } else {
+                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                            'Providers must return ' . $expected_provider_return_type->getId()
+                            . ', ' . $provider_return_type_string . ' provided',
+                            $provider_return_type_location
+                        ));
+                    }
+                    continue;
+                }
+
+                if (!self::isTypeContainedByType(
                     $codebase,
                     $provider_return_type->type_params[1],
                     $expected_provider_return_type->type_params[1]
                 )) {
-                    if ($provider_return_type->type_params[0]->hasMixed()
-                        || $provider_return_type->type_params[1]->hasMixed()) {
-                        IssueBuffer::accepts(new Issue\InvalidReturnType(
+                    if ($provider_return_type->type_params[1]->hasMixed()) {
+                        IssueBuffer::accepts(new Issue\MixedInferredReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
@@ -240,9 +260,6 @@ class TestCaseHandler implements
                 }
 
                 $checkParam =
-                /**
-                 * @return void
-                 */
                 function (
                     Type\Union $potential_argument_type,
                     Type\Union $param_type,
@@ -254,7 +271,7 @@ class TestCaseHandler implements
                     $provider_method_id,
                     $provider_return_type_string,
                     $provider_docblock_location
-                ) {
+                ) : void {
                     $param_type = clone $param_type;
                     if ($is_optional) {
                         $param_type->possibly_undefined = true;
