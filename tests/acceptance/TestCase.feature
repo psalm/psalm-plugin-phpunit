@@ -7,7 +7,7 @@ Feature: TestCase
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm>
+      <psalm totallyTyped="true">
         <projectFiles>
           <directory name="."/>
           <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
@@ -303,8 +303,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                                   |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different array<array-key, mixed> provided |
+      | Type                    | Message                                                                                                |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different array<array-key, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified iterable data provider is reported
@@ -327,8 +327,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                                  |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
+      | Type                    | Message                                                                                                                |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different iterable<mixed, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified generator data provider is reported
@@ -351,8 +351,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                     |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, possibly different Generator provided |
+      | Type                    | Message                                                                                  |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different Generator provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed
@@ -385,6 +385,7 @@ Feature: TestCase
       {
         /** @return \ArrayObject<string,array<int,int>> */
         public function provide() {
+          /** @var \ArrayObject<string,array<int,int>> */
           return new \ArrayObject([
             "data set name" => [1],
           ]);
@@ -497,7 +498,7 @@ Feature: TestCase
   Scenario: Unreferenced providers are marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      class MyDeadCodeTestCase extends TestCase
       {
         /** @return iterable<string,array{int}> */
         public function provide() {
@@ -513,8 +514,8 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                 | Message                                                |
-      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::provide |
+      | Type                 | Message                                                        |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyDeadCodeTestCase::provide |
     And I see no other errors
 
   Scenario: Test method are never marked as unused
@@ -981,8 +982,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                             |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array{0:float, 1?:string}>) |
+      | Type            | Message                                                                                                                          |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Untyped providers returns are not checked against test method signatures
