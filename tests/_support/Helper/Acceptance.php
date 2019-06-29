@@ -31,7 +31,7 @@ class Acceptance extends \Codeception\Module
 
         $op = (string) self::VERSION_OPERATORS[$operator];
 
-        $currentVersion = (string) explode('@', Versions::getVersion('phpunit/phpunit')[0];
+        $currentVersion = (string) explode('@', Versions::getVersion('phpunit/phpunit'))[0];
         $this->debug(sprintf("Current version: %s", $currentVersion));
 
         $parser = new VersionParser();

@@ -40,7 +40,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                  |
-      | InvalidArgument | Argument 1 of PHPUnit\Framework\TestCase::expectException expects class-string<Throwable>, NS\MyTestCase::class provided |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::expectexception expects class-string<Throwable>, NS\MyTestCase::class provided |
     And I see no other errors
 
   Scenario: TestCase::expectException() accepts throwables
@@ -190,7 +190,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type              | Message                                                                                           |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, iterable<int, int> provided |
+      | InvalidReturnType | Providers must return iterable<array-key, array%>, iterable<int, int> provided |
     And I see no other errors
 
   Scenario: Valid iterable data provider is allowed
@@ -234,8 +234,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                         |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, Generator<int, int, mixed, void> provided |
+      | Type              | Message                                                                                      |
+      | InvalidReturnType | Providers must return iterable<array-key, array%>, Generator<int, int, mixed, void> provided |
     And I see no other errors
 
   Scenario: Valid generator data provider is allowed
@@ -280,7 +280,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type              | Message                                                                                        |
-      | InvalidReturnType | Providers must return iterable<int\|string, array<array-key, mixed>>, array<int, int> provided |
+      | InvalidReturnType | Providers must return iterable<array-key, array%>, array<int, int> provided |
     And I see no other errors
 
   Scenario: Underspecified array data provider is reported
@@ -421,8 +421,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                 |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array{0:string}>) |
+      | Type            | Message                                                                                                                        |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Invalid dataset array is reported
@@ -445,8 +445,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                    | Message                                                                                                                                              |
-      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string\|int provided by NS\MyTestCase::provide():(iterable<string, array<int, string\|int>>) |
+      | Type                    | Message                                                                                                                             |
+      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string\|int provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Shape dataset with missing params is reported
@@ -469,8 +469,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                                    |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
+      | Type            | Message                                                                                                                                         |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, %>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -513,8 +513,8 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                 | Message                                                   |
-      | PossiblyUnusedMethod | Cannot find public calls to method NS\MyTestCase::provide |
+      | Type                 | Message                                                |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::provide |
     And I see no other errors
 
   Scenario: Test method are never marked as unused
@@ -555,8 +555,8 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                 | Message                                                         |
-      | PossiblyUnusedMethod | Cannot find public calls to method NS\MyTestCase::somethingElse |
+      | Type                 | Message                                                      |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::somethingElse |
     And I see no other errors
 
   Scenario: Unreferenced TestCase descendants are never marked as unused
@@ -669,8 +669,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                  |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array{0?:string}>) |
+      | Type            | Message                                                                                                                        |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Provider returning possibly undefined offset is marked when test method has no default for that param
@@ -693,8 +693,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                                                                            |
-      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?:int}>) |
+      | Type              | Message                                                                                                                                                     |
+      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
@@ -900,8 +900,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                      |
-      | InvalidArgument | Argument 1 of NS\MyTestTrait::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
+      | Type            | Message                                                                                                                       |
+      | InvalidArgument | Argument 1 of NS\MyTestTrait::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array%>) |
     And I see no other errors
 
   Scenario: Providers may omit variadic part for variadic tests
@@ -914,6 +914,7 @@ Feature: TestCase
         }
         /**
          * @dataProvider provide
+         * @param int ...$rest
          * @return void
          */
         public function testSomething(int $i, ...$rest) {}
@@ -922,7 +923,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Providers may omit non-varidic params with default for variadic tests
+  Scenario: Providers may omit non-variadic params with default for variadic tests
     Given I have the following code
       """
       class MyTestCase extends TestCase {
@@ -932,6 +933,7 @@ Feature: TestCase
         }
         /**
          * @dataProvider provide
+         * @param int ...$rest
          * @return void
          */
         public function testSomething(int $i, string $s = "", ...$rest) {}
@@ -940,7 +942,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Providers may not omit non-varidic params with no default for variadic tests
+  Scenario: Providers may not omit non-variadic params with no default for variadic tests
     Given I have the following code
       """
       class MyTestCase extends TestCase {
@@ -950,6 +952,7 @@ Feature: TestCase
         }
         /**
          * @dataProvider provide
+         * @param int ...$rest
          * @return void
          */
         public function testSomething(int $i, string $s, ...$rest) {}
@@ -957,8 +960,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                                    |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0:int}>) |
+      | Type            | Message                                                                                                                                              |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array%>) |
     And I see no other errors
 
   Scenario: Providers generating incompatible datasets for variadic tests are reported
