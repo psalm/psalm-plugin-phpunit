@@ -40,7 +40,6 @@ Feature: Assert (PHPUnit 7.5+)
     When I run Psalm
     Then I see no errors
 
-  @gg
   Scenario: Assert::assertIsBool()
     Given I have the following code
       """
