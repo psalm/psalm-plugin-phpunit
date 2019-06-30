@@ -213,8 +213,6 @@ class TestCaseHandler implements
                 // TODO: this may get implemented in a future Psalm version, remove it then
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
-                $type_coerced = false;
-
                 if (!self::isTypeContainedByType(
                     $codebase,
                     $provider_return_type->type_params[0],
@@ -350,9 +348,14 @@ class TestCaseHandler implements
 
                         assert(null !== $param->type);
                         if ($param->is_variadic) {
-                            /** @var Type\Atomic\TArray $variadic_type */
-                            $variadic_type = $param->type->getTypes()['array'];
-                            $variadic_param_type = $variadic_type->type_params[1] ?? Type::getMixed();
+                            $param_types = $param->type->getTypes();
+                            if (isset($param_types['array'])) { // assume it's older psalm reporting variadic as array
+                                /** @var Type\Atomic\TArray $variadic_type */
+                                $variadic_type = $param->type->getTypes()['array'];
+                                $variadic_param_type = $variadic_type->type_params[1] ?? Type::getMixed();
+                            } else {
+                                $variadic_param_type = new Type\Union(array_values($param_types));
+                            }
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {

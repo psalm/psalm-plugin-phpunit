@@ -20,8 +20,8 @@ Feature: Assert (PHPUnit 7.5+)
       namespace NS;
       use PHPUnit\Framework\Assert;
 
-      /** 
-       * @return mixed 
+      /**
+       * @return mixed
        * @psalm-suppress InvalidReturnType
        */
       function mixed() {}
@@ -47,7 +47,7 @@ Feature: Assert (PHPUnit 7.5+)
       $b = mixed();
 
       Assert::assertIsBool($b);
-      microtime($b);
+      class_exists(Assert::class, $b);
       """
     When I run Psalm
     Then I see no errors
