@@ -11,7 +11,7 @@
     ],
     "require": {
         "phpunit/phpunit": "^6.0 || ^7.0 || ^8.0",
-        "vimeo/psalm": "^3.2.9 || ^3.3 || dev-master",
+        "vimeo/psalm": "^3.2.11 || ^3.3 || dev-master",
         "composer/semver": "^1.4",
         "ocramius/package-versions": "^1.3"
     },

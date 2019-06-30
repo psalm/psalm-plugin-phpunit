@@ -498,7 +498,7 @@ Feature: TestCase
   Scenario: Unreferenced providers are marked as unused
     Given I have the following code
       """
-      class MyDeadCodeTestCase extends TestCase
+      class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{int}> */
         public function provide() {
@@ -514,8 +514,8 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                 | Message                                                        |
-      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyDeadCodeTestCase::provide |
+      | Type                 | Message                                                |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::provide |
     And I see no other errors
 
   Scenario: Test method are never marked as unused
