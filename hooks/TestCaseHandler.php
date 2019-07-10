@@ -11,41 +11,23 @@ use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
-use Psalm\PhpUnitPlugin\Exception\UnsupportedPsalmVersion;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
-use Psalm\Plugin\Hook\AfterClassLikeExistenceCheckInterface;
 use Psalm\Plugin\Hook\AfterClassLikeVisitInterface;
+use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
-use Psalm\Storage\FunctionLikeParameter;
-use Psalm\Storage\MethodStorage;
 use Psalm\Type;
-use Psalm\Type\Atomic\TIterable;
 
 class TestCaseHandler implements
     AfterClassLikeVisitInterface,
     AfterClassLikeAnalysisInterface,
-    AfterClassLikeExistenceCheckInterface
+    AfterCodebasePopulatedInterface
 {
-    /** @var bool */
-    private static $suppressed = false;
-
     /**
-     * TODO: move to new hook (afterCodebasePopulation?)
      * {@inheritDoc}
      */
-    public static function afterClassLikeExistenceCheck(
-        string $fq_class_name,
-        CodeLocation $code_location,
-        StatementsSource $statements_source,
-        Codebase $codebase,
-        array &$file_replacements = []
-    ) {
-        if (self::$suppressed) {
-            return;
-        }
-        self::$suppressed = true;
-
+    public static function afterCodebasePopulated(Codebase $codebase)
+    {
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
             if ($codebase->classExtends($name, TestCase::class) && ($meta['hasInitializers'] ?? false)) {
@@ -89,10 +71,6 @@ class TestCaseHandler implements
         array &$file_replacements = []
     ) {
         if (self::hasInitializers($class_storage, $class_node)) {
-            if (!isset($class_storage->custom_metadata)) {
-                /** @psalm-suppress UndefinedPropertyAssignment */
-                $class_storage->custom_metadata = [];
-            }
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
     }
@@ -111,13 +89,13 @@ class TestCaseHandler implements
             return null;
         }
 
-        // add a fake reference to test class to prevent it from being marked as unused
-        // it would have been easier to add a suppression, but that's only possible
-        // since 3.0.17 (vimeo/psalm#1353)
+        // This should always pass, we're calling it for the side-effect of adding self-reference
+        // in order to
+        // 1. Inform Psalm that class is used
+        // 2. Make Psalm analyze unused methods
         //
-        // This should always pass, we're calling it for the side-effect
-        // of adding self-reference
-
+        // Marking class as used is required to get more detailed dead-code analysis (like unused
+        // methods). If we instead just suppress UnusedClass, unused methods are not analyzed.
         if (!$codebase->classOrInterfaceExists($class_storage->name, $class_storage->location)) {
             return null;
         }
@@ -150,12 +128,10 @@ class TestCaseHandler implements
                 continue; // skip non-test methods
             }
 
-            $method_storage->suppressed_issues[] = 'PossiblyUnusedMethod';
             $codebase->methodExists(
                 $declaring_method_id,
                 null,
-                'PHPUnit\Framework\TestSuite::run',
-                '/vendor/phpunit/phpunit/src/Framework/TestSuite.php'
+                'PHPUnit\Framework\TestSuite::run'
             );
 
             if (!isset($specials['dataProvider'])) {
@@ -214,8 +190,7 @@ class TestCaseHandler implements
                 // TODO: this may get implemented in a future Psalm version, remove it then
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
-                if (!self::isTypeContainedByType(
-                    $codebase,
+                if (!$codebase->isTypeContainedByType(
                     $provider_return_type->type_params[0],
                     $expected_provider_return_type->type_params[0]
                 )) {
@@ -237,8 +212,7 @@ class TestCaseHandler implements
                     continue;
                 }
 
-                if (!self::isTypeContainedByType(
-                    $codebase,
+                if (!$codebase->isTypeContainedByType(
                     $provider_return_type->type_params[1],
                     $expected_provider_return_type->type_params[1]
                 )) {
@@ -275,9 +249,9 @@ class TestCaseHandler implements
                     if ($is_optional) {
                         $param_type->possibly_undefined = true;
                     }
-                    if (self::isTypeContainedByType($codebase, $potential_argument_type, $param_type)) {
+                    if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
                         // ok
-                    } elseif (self::canTypeBeContainedByType($codebase, $potential_argument_type, $param_type)) {
+                    } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
@@ -350,13 +324,7 @@ class TestCaseHandler implements
                         assert(null !== $param->type);
                         if ($param->is_variadic) {
                             $param_types = $param->type->getTypes();
-                            if (isset($param_types['array'])) { // assume it's older psalm reporting variadic as array
-                                /** @var Type\Atomic\TArray $variadic_type */
-                                $variadic_type = $param->type->getTypes()['array'];
-                                $variadic_param_type = $variadic_type->type_params[1] ?? Type::getMixed();
-                            } else {
-                                $variadic_param_type = new Type\Union(array_values($param_types));
-                            }
+                            $variadic_param_type = new Type\Union(array_values($param_types));
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {
@@ -376,81 +344,6 @@ class TestCaseHandler implements
                 }
             }
         }
-    }
-
-    private static function isTypeContainedByType(
-        Codebase $codebase,
-        Type\Union $input_type,
-        Type\Union $container_type
-    ): bool {
-        if (method_exists($codebase, 'isTypeContainedByType')) {
-            return (bool) $codebase->isTypeContainedByType($input_type, $container_type);
-        }
-
-        /** @psalm-suppress RedundantCondition */
-        if (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
-            && method_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, 'isContainedBy')) {
-            return \Psalm\Internal\Analyzer\TypeAnalyzer::isContainedBy($codebase, $input_type, $container_type);
-        }
-
-        throw new UnsupportedPsalmVersion();
-    }
-
-    private static function canTypeBeContainedByType(
-        Codebase $codebase,
-        Type\Union $input_type,
-        Type\Union $container_type
-    ): bool {
-        if (method_exists($codebase, 'canTypeBeContainedByType')) {
-            return (bool) $codebase->canTypeBeContainedByType($input_type, $container_type);
-        }
-
-        /** @psalm-suppress RedundantCondition */
-        if (class_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, true)
-            && method_exists(\Psalm\Internal\Analyzer\TypeAnalyzer::class, 'canBeContainedBy')) {
-            return \Psalm\Internal\Analyzer\TypeAnalyzer::canBeContainedBy($codebase, $input_type, $container_type);
-        }
-
-        throw new UnsupportedPsalmVersion();
-    }
-
-    /**
-     * @param Type\Atomic\TNamedObject|Type\Atomic\TIterable $type
-     * @return array{0:Type\Union,1:Type\Union}
-     */
-    private static function getKeyValueParamsForTraversableObject(Codebase $codebase, $type): array
-    {
-        if (method_exists($codebase, 'getKeyValueParamsForTraversableObject')) {
-            $ret = (array) $codebase->getKeyValueParamsForTraversableObject($type);
-            assert($ret[0] instanceof Type\Union);
-            assert($ret[1] instanceof Type\Union);
-            return [$ret[0], $ret[1]];
-        }
-
-        /** @psalm-suppress RedundantCondition */
-        if (class_exists(\Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class, true)
-            && method_exists(
-                \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::class,
-                'getKeyValueParamsForTraversableObject'
-            )
-        ) {
-            $iterable_key_type = null;
-            $iterable_value_type = null;
-
-            \Psalm\Internal\Analyzer\Statements\Block\ForeachAnalyzer::getKeyValueParamsForTraversableObject(
-                $type,
-                $codebase,
-                $iterable_key_type,
-                $iterable_value_type
-            );
-
-            return [
-                $iterable_key_type ?? Type::getMixed(),
-                $iterable_value_type ?? Type::getMixed(),
-            ];
-        }
-
-        throw new UnsupportedPsalmVersion();
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
@@ -473,7 +366,7 @@ class TestCaseHandler implements
                 $key_types[] = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
-                list($key_types[], $value_types[]) = self::getKeyValueParamsForTraversableObject($codebase, $type);
+                list($key_types[], $value_types[]) = $codebase->getKeyValueParamsForTraversableObject($type);
             } else {
                 throw new \RuntimeException('unexpected type');
             }
