@@ -7,6 +7,7 @@ use PhpParser\Node\Stmt\ClassMethod;
 use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
+use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
@@ -528,7 +529,11 @@ class TestCaseHandler implements
         $docblock = $method->getDocComment();
 
         if ($docblock) {
-            $parsed_comment = DocComment::parse((string)$docblock->getReformattedText(), $docblock->getLine());
+            try {
+                $parsed_comment = DocComment::parse((string)$docblock->getReformattedText(), $docblock->getLine());
+            } catch (DocblockParseException $e) {
+                return [];
+            }
             if (isset($parsed_comment['specials'])) {
                 return $parsed_comment['specials'];
             }

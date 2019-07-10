@@ -1003,3 +1003,48 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see no errors
+
+  Scenario: Invalid psalm annotation on a class does not crash psalm
+    Given I have the following code
+      """
+      /** @psalm-ignore Everything */
+      class MyTestCase extends TestCase {}
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message         |
+      | InvalidDocblock | %@psalm-ignore% |
+
+  Scenario: Invalid psalm annotation on an before initializer does not crash psalm
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /**
+         * @before
+         * @psalm-rm-Rf-slash
+         * @return void
+         */
+        public function preparation() {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message              |
+      | InvalidDocblock | %@psalm-rm-Rf-slash% |
+
+  Scenario: Invalid psalm annotation on a test does not crash psalm
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /**
+         * @test
+         * @psalm-force-push-master
+         * @return void
+         */
+        public function doThings() {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                    |
+      | InvalidDocblock | %@psalm-force-push-master% |
