@@ -126,10 +126,8 @@ class TestCaseHandler implements
 
             $specials = self::getSpecials($stmt_method);
 
-            if (
-                0 !== strpos($method_name_lc, 'test')
-                && !isset($specials['test'])
-            ) {
+            $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
+            if (!$is_test) {
                 continue; // skip non-test methods
             }
 
@@ -151,10 +149,22 @@ class TestCaseHandler implements
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
                 // methodExists also can mark methods as used (weird, but handy)
-                if (
-                    null === $provider_method_id
-                    || !$codebase->methodExists($provider_method_id, $provider_docblock_location, $declaring_method_id)
-                ) {
+                if (null === $provider_method_id) {
+                    IssueBuffer::accepts(new Issue\UndefinedMethod(
+                        'Provider method ' . $apparent_provider_method_name . ' is not defined',
+                        $provider_docblock_location,
+                        $apparent_provider_method_name
+                    ));
+                    continue;
+                }
+
+                $provider_method_exists = $codebase->methodExists(
+                    $provider_method_id,
+                    $provider_docblock_location,
+                    $declaring_method_id
+                );
+
+                if (!$provider_method_exists) {
                     IssueBuffer::accepts(new Issue\UndefinedMethod(
                         'Provider method ' . $apparent_provider_method_name . ' is not defined',
                         $provider_docblock_location,
@@ -196,16 +206,18 @@ class TestCaseHandler implements
                 // TODO: this may get implemented in a future Psalm version, remove it then
                 $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
 
-                if (
-                    !$codebase->isTypeContainedByType(
-                        $provider_return_type->type_params[0],
-                        $expected_provider_return_type->type_params[0]
-                    )
-                ) {
-                    if (
+                $provider_key_type_is_compatible = $codebase->isTypeContainedByType(
+                    $provider_return_type->type_params[0],
+                    $expected_provider_return_type->type_params[0]
+                );
+
+                if (!$provider_key_type_is_compatible) {
+                    // XXX: isn't array key allowed by the $expected_provider_return_type ?
+                    $provider_key_type_is_uncertain =
                         $provider_return_type->type_params[0]->hasMixed()
-                        || $provider_return_type->type_params[0]->hasArrayKey()
-                    ) {
+                        || $provider_return_type->type_params[0]->hasArrayKey();
+
+                    if ($provider_key_type_is_uncertain) {
                         IssueBuffer::accepts(new Issue\MixedInferredReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
@@ -221,12 +233,12 @@ class TestCaseHandler implements
                     continue;
                 }
 
-                if (
-                    !$codebase->isTypeContainedByType(
-                        $provider_return_type->type_params[1],
-                        $expected_provider_return_type->type_params[1]
-                    )
-                ) {
+                $provider_value_type_is_compatible = $codebase->isTypeContainedByType(
+                    $provider_return_type->type_params[1],
+                    $expected_provider_return_type->type_params[1]
+                );
+
+                if (!$provider_value_type_is_compatible) {
                     if ($provider_return_type->type_params[1]->hasMixed()) {
                         IssueBuffer::accepts(new Issue\MixedInferredReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
