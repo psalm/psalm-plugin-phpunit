@@ -1,4 +1,5 @@
 <?php
+
 namespace Psalm\PhpUnitPlugin\Tests\Helper;
 
 use Codeception\Exception\Skip;
@@ -13,7 +14,7 @@ use PackageVersions\Versions;
 class Acceptance extends \Codeception\Module
 {
     /** @var array<string,string */
-    const VERSION_OPERATORS = [
+    public const VERSION_OPERATORS = [
         'newer than' => '>',
         'older than' => '<',
     ];

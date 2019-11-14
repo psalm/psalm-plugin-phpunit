@@ -1,4 +1,5 @@
 <?php
+
 namespace Psalm\PhpUnitPlugin;
 
 use Composer\Semver\Comparator;
