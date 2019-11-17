@@ -140,10 +140,11 @@ Feature: Assert (PHPUnit 7.5+)
     When I run Psalm
     Then I see these errors
       | Type                      | Message                                                                                                               |
-      | DocblockTypeContradiction | Cannot resolve types for $s - docblock-defined type scalar does not contain array<%, mixed>                           |
+      | DocblockTypeContradiction | Found a contradiction with a docblock-defined type when evaluating $s and trying to reconcile type 'scalar' to array  |
       | DocblockTypeContradiction | Cannot resolve types for $s - docblock-defined type scalar does not contain resource                                  |
       | DocblockTypeContradiction | Found a contradiction with a docblock-defined type when evaluating $s and trying to reconcile type 'scalar' to object |
       | DocblockTypeContradiction | Cannot resolve types for $s - docblock-defined type scalar does not contain null                                      |
+    And I see no other errors
 
   Scenario: Assert::assertIsCallable()
     Given I have the following code

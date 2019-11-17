@@ -26,7 +26,6 @@ Feature: TestCase
       """
 
   Scenario: TestCase::expectException() rejects non-throwables
-    Given I have Psalm newer than "3.0.12" (because of "missing functionality")
     Given I have the following code
       """
       class MyTestCase extends TestCase
@@ -39,8 +38,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                  |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::expectexception expects class-string<Throwable>, NS\MyTestCase::class provided |
+      | Type            | Message                                                                                                     |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::expectException expects class-string<Throwable>, NS\MyTestCase::class provided |
     And I see no other errors
 
   Scenario: TestCase::expectException() accepts throwables
@@ -189,8 +188,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                           |
-      | InvalidReturnType | Providers must return iterable<array-key, array%>, iterable<int, int> provided |
+      | Type              | Message                                                                                         |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable<int, int> provided |
     And I see no other errors
 
   Scenario: Valid iterable data provider is allowed
@@ -234,8 +233,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                      |
-      | InvalidReturnType | Providers must return iterable<array-key, array%>, Generator<int, int, mixed, void> provided |
+      | Type              | Message                                                                                                       |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, Generator<int, int, mixed, void> provided |
     And I see no other errors
 
   Scenario: Valid generator data provider is allowed
@@ -279,8 +278,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                        |
-      | InvalidReturnType | Providers must return iterable<array-key, array%>, array<int, int> provided |
+      | Type              | Message                                                                                      |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, array<int, int> provided |
     And I see no other errors
 
   Scenario: Underspecified array data provider is reported
@@ -303,8 +302,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                    | Message                                                                                                |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different array<array-key, mixed> provided |
+      | Type                    | Message                                                                                                                 |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different array<array-key, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified iterable data provider is reported
@@ -328,7 +327,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                                |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different iterable<mixed, mixed> provided |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified generator data provider is reported
@@ -351,8 +350,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                    | Message                                                                                  |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array%>, possibly different Generator provided |
+      | Type                    | Message                                                                                                   |
+      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different Generator provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed
@@ -422,8 +421,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                        |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type            | Message                                                                                                                                  |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array{0: string}>) |
     And I see no other errors
 
   Scenario: Invalid dataset array is reported
@@ -446,8 +445,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                    | Message                                                                                                                             |
-      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string\|int provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type                    | Message                                                                                                                                              |
+      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, int\|string provided by NS\MyTestCase::provide():(iterable<string, array<int, int\|string>>) |
     And I see no other errors
 
   Scenario: Shape dataset with missing params is reported
@@ -470,8 +469,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                         |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, %>) |
+      | Type            | Message                                                                                                                                                     |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0: int}>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -670,8 +669,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                        |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type            | Message                                                                                                                                   |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, array{0?: string}>) |
     And I see no other errors
 
   Scenario: Provider returning possibly undefined offset is marked when test method has no default for that param
@@ -694,8 +693,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                                                                     |
-      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type              | Message                                                                                                                                                             |
+      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?: int}>) |
     And I see no other errors
 
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
@@ -901,8 +900,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                       |
-      | InvalidArgument | Argument 1 of NS\MyTestTrait::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array%>) |
+      | Type            | Message                                                                                                                                     |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
     And I see no other errors
 
   Scenario: Providers may omit variadic part for variadic tests
@@ -961,8 +960,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                              |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type            | Message                                                                                                                                                     |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, array{0: int}>) |
     And I see no other errors
 
   Scenario: Providers generating incompatible datasets for variadic tests are reported
@@ -982,8 +981,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                          |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array%>) |
+      | Type            | Message                                                                                                                                               |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array{0: float, 1?: string}>) |
     And I see no other errors
 
   Scenario: Untyped providers returns are not checked against test method signatures
