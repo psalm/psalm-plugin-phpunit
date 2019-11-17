@@ -451,7 +451,12 @@ class TestCaseHandler implements
                 return [];
             }
             if (isset($parsed_comment['specials'])) {
-                return $parsed_comment['specials'];
+                return array_map(
+                    function (array $lines): array {
+                        return array_map('trim', $lines);
+                    },
+                    $parsed_comment['specials']
+                );
             }
         }
         return [];

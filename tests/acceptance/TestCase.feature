@@ -1047,3 +1047,18 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message                    |
       | InvalidDocblock | %@psalm-force-push-master% |
+
+  Scenario: Providers referenced in shorthand docblocks are not marked as unused
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+        /** @dataProvider provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
