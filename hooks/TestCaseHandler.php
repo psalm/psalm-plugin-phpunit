@@ -390,6 +390,9 @@ class TestCaseHandler implements
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
                 list($key_types[], $value_types[]) = $codebase->getKeyValueParamsForTraversableObject($type);
+            } elseif ($type instanceof Type\Atomic\TList) {
+                $key_types[] = Type::getInt();
+                $value_types[] = $type->type_param;
             } else {
                 throw new \RuntimeException('unexpected type');
             }
