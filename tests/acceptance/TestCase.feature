@@ -1062,3 +1062,150 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see no errors
+
+
+  @ExternalProviders
+  Scenario: External providers are allowed
+    Given I have the following code
+      """
+      class External {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+      }
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: External providers with parens are allowed
+    Given I have the following code
+      """
+      class External {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+      }
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide() */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: External fully qualified providers are allowed
+    Given I have the following code
+      """
+      class External {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+      }
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider \NS\External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: Missing external provider classes are reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                          |
+      | UndefinedClass | Class NS\External does not exist |
+
+
+  @ExternalProviders
+  Scenario: External providers are not marked as unused
+    Given I have the following code
+      """
+      class External {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+      }
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: Mismatched external providers are reported
+    Given I have the following code
+      """
+      class External {
+        /** @return iterable<string, array<int,string>> */
+        public function provide(): iterable {
+          yield "dataset name" => ["1"];
+        }
+      }
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                  |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable<string, array<int, string>>) |
+
+  @List
+  Scenario: Providers returning list are ok
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string, list<int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+        /** @dataProvider provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @List
+  Scenario: Providers returning mismatching list are reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return iterable<string, list<string>> */
+        public function provide(): iterable {
+          yield "dataset name" => ["1"];
+        }
+        /** @dataProvider provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                              |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list<string>>) |
