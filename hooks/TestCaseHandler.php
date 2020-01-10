@@ -145,10 +145,27 @@ class TestCaseHandler implements
                 $provider_docblock_location = clone $method_storage->location;
                 $provider_docblock_location->setCommentLine($line);
 
-                $apparent_provider_method_name = $class_storage->name . '::' . (string) $provider;
+                if (false !== strpos($provider, '::')) {
+                    [$class_name, $method_id] = explode('::', $provider);
+                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+
+                    if (!$codebase->classOrInterfaceExists($fq_class_name, $provider_docblock_location)) {
+                        IssueBuffer::accepts(new Issue\UndefinedClass(
+                            'Class ' . $fq_class_name . ' does not exist',
+                            $provider_docblock_location,
+                            $fq_class_name
+                        ));
+                        continue;
+                    }
+                    $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
+                } else {
+                    $apparent_provider_method_name = $class_storage->name . '::' . (string) $provider;
+                }
+
+                $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
+
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
-                // methodExists also can mark methods as used (weird, but handy)
                 if (null === $provider_method_id) {
                     IssueBuffer::accepts(new Issue\UndefinedMethod(
                         'Provider method ' . $apparent_provider_method_name . ' is not defined',
@@ -158,6 +175,7 @@ class TestCaseHandler implements
                     continue;
                 }
 
+                // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
                     $provider_method_id,
                     $provider_docblock_location,
@@ -189,7 +207,7 @@ class TestCaseHandler implements
                     Type::getArray(),
                 ]);
 
-                foreach ($provider_return_type->getTypes() as $type) {
+                foreach (self::getAtomics($provider_return_type) as $type) {
                     if (!$type->isIterable($codebase)) {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
@@ -301,8 +319,8 @@ class TestCaseHandler implements
                     }
                 };
 
-                /** @var Type\Atomic\TArray|Type\Atomic\ObjectLike $dataset_type */
-                $dataset_type = $provider_return_type->type_params[1]->getTypes()['array'];
+                /** @var Type\Atomic\TArray|Type\Atomic\ObjectLike|Type\Atomic\TList $dataset_type */
+                $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // check that all of the required (?) params accept value type
@@ -313,7 +331,15 @@ class TestCaseHandler implements
                         }
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
-                } else {
+                } elseif ($dataset_type instanceof Type\Atomic\TList) {
+                    $potential_argument_type = $dataset_type->type_param;
+                    foreach ($method_storage->params as $param_offset => $param) {
+                        if (!$param->type) {
+                            continue;
+                        }
+                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
+                    }
+                } else { // ObjectLike
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
@@ -346,7 +372,7 @@ class TestCaseHandler implements
 
                         assert(null !== $param->type);
                         if ($param->is_variadic) {
-                            $param_types = $param->type->getTypes();
+                            $param_types = self::getAtomics($param->type);
                             $variadic_param_type = new Type\Union(array_values($param_types));
 
                             // check remaining argument types
@@ -369,6 +395,18 @@ class TestCaseHandler implements
         }
     }
 
+    /** @return Type\Atomic[] */
+    private static function getAtomics(Type\Union $union): array
+    {
+        if (method_exists($union, 'getAtomicTypes')) {
+            /** @var Type\Atomic[] annotated for versions missing the method */
+            return $union->getAtomicTypes();
+        } else {
+            /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
+            return $union->getTypes();
+        }
+    }
+
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
     {
         /** @var Type\Union[] $key_types */
@@ -377,7 +415,7 @@ class TestCaseHandler implements
         /** @var Type\Union[] $value_types */
         $value_types = [];
 
-        foreach ($iterables->getTypes() as $type) {
+        foreach (self::getAtomics($iterables) as $type) {
             if (!$type->isIterable($codebase)) {
                 throw new \RuntimeException('should be iterable');
             }
