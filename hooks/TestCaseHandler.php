@@ -207,7 +207,7 @@ class TestCaseHandler implements
                     Type::getArray(),
                 ]);
 
-                foreach ($provider_return_type->getTypes() as $type) {
+                foreach (self::getAtomics($provider_return_type) as $type) {
                     if (!$type->isIterable($codebase)) {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
@@ -320,7 +320,7 @@ class TestCaseHandler implements
                 };
 
                 /** @var Type\Atomic\TArray|Type\Atomic\ObjectLike|Type\Atomic\TList $dataset_type */
-                $dataset_type = $provider_return_type->type_params[1]->getTypes()['array'];
+                $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // check that all of the required (?) params accept value type
@@ -372,7 +372,7 @@ class TestCaseHandler implements
 
                         assert(null !== $param->type);
                         if ($param->is_variadic) {
-                            $param_types = $param->type->getTypes();
+                            $param_types = self::getAtomics($param->type);
                             $variadic_param_type = new Type\Union(array_values($param_types));
 
                             // check remaining argument types
@@ -395,6 +395,18 @@ class TestCaseHandler implements
         }
     }
 
+    /** @return Type\Atomic[] */
+    private static function getAtomics(Type\Union $union): array
+    {
+        if (method_exists($union, 'getAtomicTypes')) {
+            /** @var Type\Atomic[] annotated for versions missing the method */
+            return $union->getAtomicTypes();
+        } else {
+            /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
+            return $union->getTypes();
+        }
+    }
+
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
     {
         /** @var Type\Union[] $key_types */
@@ -403,7 +415,7 @@ class TestCaseHandler implements
         /** @var Type\Union[] $value_types */
         $value_types = [];
 
-        foreach ($iterables->getTypes() as $type) {
+        foreach (self::getAtomics($iterables) as $type) {
             if (!$type->isIterable($codebase)) {
                 throw new \RuntimeException('should be iterable');
             }
