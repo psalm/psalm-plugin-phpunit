@@ -371,6 +371,9 @@ class TestCaseHandler implements
                         $potential_argument_type = $potential_argument_types[$param_offset];
 
                         assert(null !== $param->type);
+                        if (is_null($param->type)) {
+                            $param->type = Type::getMixed();
+                        }
                         if ($param->is_variadic) {
                             $param_types = self::getAtomics($param->type);
                             $variadic_param_type = new Type\Union(array_values($param_types));
