@@ -27,6 +27,10 @@ env:
     global:
         - DEFAULT_COMPOSER_FLAGS="--no-interaction --no-suggest"
 
+cache:
+  directories:
+    - ./vendor
+
 allow_failures:
     - php: 7.1
       env: DEPS="dev"
