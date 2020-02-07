@@ -10,7 +10,8 @@ before_install:
 
 install:
   - composer install
-  - if [[ "$DEPS" = 'high' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS update; fi
+  - if [[ "$DEPS" = 'high' || "$DEPS" = 'dev' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS update; fi
+  - if [[ "$DEPS" = 'high' ]]; then composer require $DEFAULT_COMPOSER_FLAGS --prefer-stable vimeo/psalm; fi
   - if [[ "$DEPS" = 'low' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS --prefer-lowest --prefer-stable update; fi
   - if [[ "$DEPS" = 'stable' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS --prefer-stable update; fi
   - ./vendor/bin/psalm --version
@@ -22,5 +23,6 @@ env:
         - DEPS="low"
         - DEPS="high"
         - DEPS="stable"
+        - DEPS="dev"
     global:
         - DEFAULT_COMPOSER_FLAGS="--no-interaction --no-suggest"
