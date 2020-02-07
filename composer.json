@@ -17,7 +17,7 @@
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.3.1",
-        "codeception/base": "^2.5",
+        "codeception/base": "^3.0",
         "weirdan/codeception-psalm-module": "^0.2.2"
     },
     "extra": {
