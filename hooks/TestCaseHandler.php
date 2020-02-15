@@ -106,7 +106,7 @@ class TestCaseHandler implements
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            list($declaring_method_class, $declaring_method_name) = explode('::', $declaring_method_id);
+            list($declaring_method_class, $declaring_method_name) = explode('::', (string) $declaring_method_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
 
             $declaring_class_node = $class_node;
