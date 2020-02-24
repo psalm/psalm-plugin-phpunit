@@ -179,7 +179,7 @@ class TestCaseHandler implements
                 $provider_method_exists = $codebase->methodExists(
                     $provider_method_id,
                     $provider_docblock_location,
-                    $declaring_method_id
+                    (string) $declaring_method_id
                 );
 
                 if (!$provider_method_exists) {
@@ -372,8 +372,9 @@ class TestCaseHandler implements
 
                         assert(null !== $param->type);
                         if ($param->is_variadic) {
-                            $param_types = self::getAtomics($param->type);
-                            $variadic_param_type = new Type\Union(array_values($param_types));
+                            /** @var non-empty-array<int, Type\Atomic> $param_types */
+                            $param_types = array_values(self::getAtomics($param->type));
+                            $variadic_param_type = new Type\Union($param_types);
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {

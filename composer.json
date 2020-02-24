@@ -27,14 +27,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Psalm\\PhpUnitPlugin\\": ["."],
-            "Psalm\\PhpUnitPlugin\\Hooks\\": ["hooks"],
-            "Psalm\\PhpUnitPlugin\\Exception\\" : ["Exception"]
+            "Psalm\\PhpUnitPlugin\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Psalm\\PhpUnitPlugin\\Tests\\": ["tests/_support"]
+            "Psalm\\PhpUnitPlugin\\Tests\\": "tests/_support"
         }
     },
     "scripts" : {
