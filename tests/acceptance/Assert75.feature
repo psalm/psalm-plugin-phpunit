@@ -127,24 +127,17 @@ Feature: Assert (PHPUnit 7.5+)
   Scenario: Assert::assertIsScalar()
     Given I have the following code
       """
-      /** @psalm-suppress MixedAssignment */
-      $s = mixed();
+      /** @return scalar */
+      function f() {
+        /** @psalm-suppress MixedAssignment */
+        $s = mixed();
 
-      Assert::assertIsScalar($s); // int|string|float|bool
-      // all of the following should cause errors
-      if (is_array($s)) {}
-      if (is_resource($s)) {}
-      if (is_object($s)) {}
-      if (is_null($s)) {}
+        Assert::assertIsScalar($s);
+        return $s;
+      }
       """
     When I run Psalm
-    Then I see these errors
-      | Type                      | Message                                                                                                               |
-      | DocblockTypeContradiction | Found a contradiction with a docblock-defined type when evaluating $s and trying to reconcile type 'scalar' to array  |
-      | DocblockTypeContradiction | Cannot resolve types for $s - docblock-defined type scalar does not contain resource                                  |
-      | DocblockTypeContradiction | Found a contradiction with a docblock-defined type when evaluating $s and trying to reconcile type 'scalar' to object |
-      | DocblockTypeContradiction | Cannot resolve types for $s - docblock-defined type scalar does not contain null                                      |
-    And I see no other errors
+    Then I see no errors
 
   Scenario: Assert::assertIsCallable()
     Given I have the following code

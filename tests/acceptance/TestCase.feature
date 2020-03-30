@@ -7,7 +7,7 @@ Feature: TestCase
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm totallyTyped="true">
+      <psalm totallyTyped="true" %s>
         <projectFiles>
           <directory name="."/>
           <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
@@ -1175,6 +1175,38 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message                                                                                                                                  |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable<string, array<int, string>>) |
+
+  @ExternalProviders
+  Scenario: External providers are available even when Psalm is asked to analyze single test case
+    Given I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    And I have the following code in "ext.php"
+      """
+      <?php
+      namespace NS;
+
+      class External {
+        /** @return iterable<string, array<int,int>> */
+        public function provide(): iterable {
+          yield "dataset name" => [1];
+        }
+      }
+      """
+    And I have the following classmap
+      | Class         | File     |
+      | NS\MyTestCase | test.php |
+      | NS\External   | ext.php  |
+    When I run Psalm on "test.php"
+    Then I see no errors
 
   @List
   Scenario: Providers returning list are ok

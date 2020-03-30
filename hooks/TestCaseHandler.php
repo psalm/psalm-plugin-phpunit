@@ -7,11 +7,11 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 use PHPUnit\Framework\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
-use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
+use Psalm\Internal\PhpVisitor\ReflectorVisitor;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
@@ -76,6 +76,24 @@ class TestCaseHandler implements
         if (self::hasInitializers($class_storage, $class_node)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
+
+        $file_path = $statements_source->getFilePath();
+        $file_storage = $codebase->file_storage_provider->get($file_path);
+
+        foreach ($class_node->getMethods() as $method) {
+            $specials = self::getSpecials($method);
+            if (!isset($specials['dataProvider'])) {
+                continue;
+            }
+            foreach ($specials['dataProvider'] as $provider) {
+                if (false !== strpos($provider, '::')) {
+                    [$class_name] = explode('::', $provider);
+                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+                    $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
+                    $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
+                }
+            }
+        }
     }
 
     /**
@@ -132,7 +150,7 @@ class TestCaseHandler implements
             }
 
             $codebase->methodExists(
-                $declaring_method_id,
+                (string) $declaring_method_id,
                 null,
                 'PHPUnit\Framework\TestSuite::run'
             );
@@ -177,9 +195,9 @@ class TestCaseHandler implements
 
                 // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
-                    $provider_method_id,
+                    (string) $provider_method_id,
                     $provider_docblock_location,
-                    $declaring_method_id
+                    (string) $declaring_method_id
                 );
 
                 if (!$provider_method_exists) {
@@ -395,15 +413,17 @@ class TestCaseHandler implements
         }
     }
 
-    /** @return Type\Atomic[] */
+    /** @return non-empty-array<string,Type\Atomic> */
     private static function getAtomics(Type\Union $union): array
     {
         if (method_exists($union, 'getAtomicTypes')) {
-            /** @var Type\Atomic[] annotated for versions missing the method */
+            /** @var non-empty-array<string, Type\Atomic> annotated for versions missing the method */
             return $union->getAtomicTypes();
         } else {
             /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
-            return $union->getTypes();
+            $types = $union->getTypes();
+            assert(!empty($types));
+            return $types;
         }
     }
 
@@ -434,13 +454,6 @@ class TestCaseHandler implements
             } else {
                 throw new \RuntimeException('unexpected type');
             }
-        }
-
-        if (empty($key_types) || empty($value_types)) {
-            return new Type\Atomic\TIterable([
-                Type::getMixed(),
-                Type::getMixed(),
-            ]);
         }
 
         $combine =
