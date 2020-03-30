@@ -197,7 +197,7 @@ class TestCaseHandler implements
                 $provider_method_exists = $codebase->methodExists(
                     (string) $provider_method_id,
                     $provider_docblock_location,
-                    $declaring_method_id
+                    (string) $declaring_method_id
                 );
 
                 if (!$provider_method_exists) {
