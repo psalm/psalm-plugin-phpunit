@@ -7,11 +7,11 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 use PHPUnit\Framework\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
-use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
+use Psalm\Internal\PhpVisitor\ReflectorVisitor;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
@@ -75,6 +75,24 @@ class TestCaseHandler implements
     ) {
         if (self::hasInitializers($class_storage, $class_node)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
+        }
+
+        $file_path = $statements_source->getFilePath();
+        $file_storage = $codebase->file_storage_provider->get($file_path);
+
+        foreach ($class_node->getMethods() as $method) {
+            $specials = self::getSpecials($method);
+            if (!isset($specials['dataProvider'])) {
+                continue;
+            }
+            foreach ($specials['dataProvider'] as $provider) {
+                if (false !== strpos($provider, '::')) {
+                    [$class_name] = explode('::', $provider);
+                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+                    $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
+                    $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
+                }
+            }
         }
     }
 
