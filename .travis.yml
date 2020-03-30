@@ -8,6 +8,7 @@ before_install:
     - phpenv config-rm xdebug.ini || true
 
 install:
+  - composer config --global discard-changes true
   - travis_retry composer install
   - if [[ "$DEPS" = 'high' || "$DEPS" = 'dev' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS update; fi
   - if [[ "$DEPS" = 'high' ]]; then composer require $DEFAULT_COMPOSER_FLAGS --prefer-stable --update-with-dependencies vimeo/psalm; fi
