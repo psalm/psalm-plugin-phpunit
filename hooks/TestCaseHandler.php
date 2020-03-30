@@ -413,15 +413,17 @@ class TestCaseHandler implements
         }
     }
 
-    /** @return Type\Atomic[] */
+    /** @return non-empty-array<string,Type\Atomic> */
     private static function getAtomics(Type\Union $union): array
     {
         if (method_exists($union, 'getAtomicTypes')) {
-            /** @var Type\Atomic[] annotated for versions missing the method */
+            /** @var non-empty-array<string, Type\Atomic> annotated for versions missing the method */
             return $union->getAtomicTypes();
         } else {
             /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
-            return $union->getTypes();
+            $types = $union->getTypes();
+            assert(!empty($types));
+            return $types;
         }
     }
 
@@ -452,13 +454,6 @@ class TestCaseHandler implements
             } else {
                 throw new \RuntimeException('unexpected type');
             }
-        }
-
-        if (empty($key_types) || empty($value_types)) {
-            return new Type\Atomic\TIterable([
-                Type::getMixed(),
-                Type::getMixed(),
-            ]);
         }
 
         $combine =
