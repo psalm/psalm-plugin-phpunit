@@ -9,7 +9,7 @@ before_install:
     - composer clear-cache
 
 install:
-  - composer install
+  - travis_retry composer install
   - if [[ "$DEPS" = 'high' || "$DEPS" = 'dev' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS update; fi
   - if [[ "$DEPS" = 'high' ]]; then composer require $DEFAULT_COMPOSER_FLAGS --prefer-stable --update-with-dependencies vimeo/psalm; fi
   - if [[ "$DEPS" = 'low' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS --prefer-lowest --prefer-stable update; fi
