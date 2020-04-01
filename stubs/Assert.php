@@ -102,7 +102,7 @@ abstract class Assert
      * @psalm-assert =T $actual
      * @return void
      */
-    function assertSame($expected, $actual, $message = '') {}
+    public static function assertSame($expected, $actual, $message = '') {}
 
     /**
      * Asserts that two variables are not the same.
@@ -114,5 +114,5 @@ abstract class Assert
      * @psalm-assert !=T $actual
      * @return void
      */
-    function assertNotSame($expected, $actual, $message = '') {}
+    public static function assertNotSame($expected, $actual, $message = '') {}
 }
