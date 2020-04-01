@@ -6,9 +6,9 @@ php:
     - 7.4
 before_install:
     - phpenv config-rm xdebug.ini || true
-    - composer clear-cache
 
 install:
+  - composer config --global discard-changes true
   - travis_retry composer install
   - if [[ "$DEPS" = 'high' || "$DEPS" = 'dev' ]]; then travis_retry composer $DEFAULT_COMPOSER_FLAGS update; fi
   - if [[ "$DEPS" = 'high' ]]; then composer require $DEFAULT_COMPOSER_FLAGS --prefer-stable --update-with-dependencies vimeo/psalm; fi
@@ -29,7 +29,8 @@ env:
 
 cache:
   directories:
-    - ./vendor
+    - $HOME/.composer/cache/files
+    - $HOME/.composer/cache/vcs
 
 allow_failures:
     - php: 7.1
