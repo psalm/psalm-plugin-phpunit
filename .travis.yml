@@ -26,6 +26,7 @@ env:
         - DEPS="dev"
     global:
         - DEFAULT_COMPOSER_FLAGS="--no-interaction --no-suggest"
+
 cache:
   directories:
     - $HOME/.composer/cache/files
