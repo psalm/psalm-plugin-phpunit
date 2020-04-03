@@ -5,7 +5,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\MockBuilder;
 use Prophecy\Prophecy\ObjectProphecy;
 
-abstract class TestCase extends Assert implements Test, SelfDescribing
+abstract class TestCase extends Assert
 {
     /**
      * @template T
