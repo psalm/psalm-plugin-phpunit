@@ -32,7 +32,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Psalm\\PhpUnitPlugin\\Tests\\": ["tests/_support"]
+            "Psalm\\PhpUnitPlugin\\Tests\\": "tests"
         }
     },
     "scripts" : {

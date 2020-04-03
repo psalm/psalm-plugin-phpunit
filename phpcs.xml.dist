@@ -6,8 +6,8 @@
 
     <!-- Paths to check -->
     <file>src</file>
-    <file>tests/_support/Helper</file>
-    <file>tests/_support/AcceptanceTester.php</file>
+    <file>tests/Helper</file>
+    <file>tests/AcceptanceTester.php</file>
 
 
     <!-- inherit rules from: -->
