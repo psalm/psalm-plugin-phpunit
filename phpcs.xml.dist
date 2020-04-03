@@ -5,11 +5,9 @@
     <arg name="colors"/>
 
     <!-- Paths to check -->
-    <file>Plugin.php</file>
+    <file>src</file>
     <file>tests/_support/Helper</file>
     <file>tests/_support/AcceptanceTester.php</file>
-    <file>hooks</file>
-    <file>Exception</file>
 
 
     <!-- inherit rules from: -->
