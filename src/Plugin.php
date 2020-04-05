@@ -15,14 +15,14 @@ class Plugin implements PluginEntryPointInterface
     /** @return void */
     public function __invoke(RegistrationInterface $psalm, SimpleXMLElement $config = null)
     {
-        $psalm->addStubFile(__DIR__ . '/../stubs/Assert.php');
+        $psalm->addStubFile(__DIR__ . '/../stubs/Assert.phpstub');
         if ($this->packageVersionIs('phpunit/phpunit', '>=', '7.5')) {
-            $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.php');
+            $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
         }
-        $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.php');
-        $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder.php');
-        $psalm->addStubFile(__DIR__ . '/../stubs/InvocationMocker.php');
-        $psalm->addStubFile(__DIR__ . '/../stubs/Prophecy.php');
+        $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
+        $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder.phpstub');
+        $psalm->addStubFile(__DIR__ . '/../stubs/InvocationMocker.phpstub');
+        $psalm->addStubFile(__DIR__ . '/../stubs/Prophecy.phpstub');
 
         class_exists(Hooks\TestCaseHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);
