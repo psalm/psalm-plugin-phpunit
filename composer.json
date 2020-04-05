@@ -33,8 +33,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Psalm\\PhpUnitPlugin\\": "src",
-            "PHPUnit\\Framework\\": "stubs"
+            "Psalm\\PhpUnitPlugin\\": "src"
         }
     },
     "autoload-dev": {
