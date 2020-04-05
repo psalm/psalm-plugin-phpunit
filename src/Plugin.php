@@ -15,10 +15,7 @@ class Plugin implements PluginEntryPointInterface
     /** @return void */
     public function __invoke(RegistrationInterface $psalm, SimpleXMLElement $config = null)
     {
-        $psalm->addStubFile(__DIR__ . '/../stubs/Assert.phpstub');
-        if ($this->packageVersionIs('phpunit/phpunit', '>=', '7.5')) {
-            $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
-        }
+        $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
         $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder.phpstub');
         $psalm->addStubFile(__DIR__ . '/../stubs/InvocationMocker.phpstub');

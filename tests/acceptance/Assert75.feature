@@ -29,6 +29,25 @@ Feature: Assert (PHPUnit 7.5+)
       """
     And I have PHPUnit newer than "7.4.99999" (because of "new features in 7.5")
 
+  Scenario: Assert::assertInstanceOf()
+    Given I have the following code
+      """
+      function f(): \Exception {
+        return rand(0,1) ? new \RuntimeException : new \InvalidArgumentException;
+      }
+
+      /**
+       * @return void
+       */
+      function acceptsRuntimeException(\RuntimeException $_e) {}
+
+      $e = f();
+      Assert::assertInstanceOf(\RuntimeException::class, $e);
+      acceptsRuntimeException($e);
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Assert::assertIsArray()
     Given I have the following code
       """
