@@ -69,7 +69,7 @@ Feature: TestCase
         private $i;
 
         /** @return void */
-        public function setUp() {
+        public function setUp(): void {
           $this->i = $this->prophesize(I::class);
         }
 
@@ -712,7 +712,7 @@ Feature: TestCase
         private $i;
 
         /** @return void */
-        public function setUp() {
+        public function setUp(): void {
           $this->i = $this->prophesize(I::class);
         }
 
@@ -739,7 +739,7 @@ Feature: TestCase
         protected $i;
 
         /** @return void */
-        public function setUp() {
+        public function setUp(): void {
           $this->i = $this->prophesize(I::class);
         }
       }
