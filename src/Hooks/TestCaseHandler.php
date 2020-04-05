@@ -20,6 +20,8 @@ use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
+use Psalm\Type\Atomic\TIterable;
+use Psalm\Type\Union;
 
 class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -89,7 +91,7 @@ class TestCaseHandler implements
                 if (false !== strpos($provider, '::')) {
                     [$class_name] = explode('::', $provider);
                     $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
-                    $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
+                    self::queueClassLikeForScanning($codebase, $fq_class_name, $file_path);
                     $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
                 }
             }
@@ -514,5 +516,18 @@ class TestCaseHandler implements
             }
         }
         return [];
+    }
+
+    private static function queueClassLikeForScanning(
+        Codebase $codebase,
+        string $fq_class_name,
+        string $file_path
+    ): void {
+        if (method_exists($codebase, 'queueClassLikeForScanning')) {
+            $codebase->queueClassLikeForScanning($fq_class_name);
+        } else {
+            /** @psalm-suppress InvalidScalarArgument */
+            $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
+        }
     }
 }
