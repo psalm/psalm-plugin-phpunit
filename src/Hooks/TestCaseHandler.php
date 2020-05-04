@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
+use PhpParser\Comment\Doc;
 use PHPUnit\Framework\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -502,7 +503,10 @@ class TestCaseHandler implements
 
         if ($docblock) {
             try {
-                $parsed_comment = DocComment::parse((string)$docblock->getReformattedText(), $docblock->getLine());
+                $parsed_comment = DocComment::parse(
+                    (string)$docblock->getReformattedText(),
+                    self::getCommentLine($docblock)
+                );
             } catch (DocblockParseException $e) {
                 return [];
             }
@@ -529,5 +533,14 @@ class TestCaseHandler implements
             /** @psalm-suppress InvalidScalarArgument */
             $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
         }
+    }
+
+    private static function getCommentLine(Doc $docblock): int
+    {
+        if (method_exists($docblock, 'getStartLine')) {
+            return (int) $docblock->getStartLine();
+        }
+        /** @psalm-suppress DeprecatedMethod */
+        return $docblock->getLine();
     }
 }
