@@ -538,7 +538,7 @@ class TestCaseHandler implements
     private static function getCommentLine(Doc $docblock): int
     {
         if (method_exists($docblock, 'getStartLine')) {
-            return $docblock->getStartLine();
+            return (int) $docblock->getStartLine();
         }
         /** @psalm-suppress DeprecatedMethod */
         return $docblock->getLine();
