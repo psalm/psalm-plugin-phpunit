@@ -502,7 +502,7 @@ class TestCaseHandler implements
 
         if ($docblock) {
             try {
-                $parsed_comment = DocComment::parse((string)$docblock->getReformattedText(), $docblock->getLine());
+                $parsed_comment = DocComment::parse((string)$docblock->getReformattedText(), $docblock->getStartLine());
             } catch (DocblockParseException $e) {
                 return [];
             }
