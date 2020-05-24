@@ -17,7 +17,7 @@ namespace Prophecy {
     use Prophecy\Argument\Token;
     class Argument
     {
-        /** @param callable():bool $callback */
+        /** @param callable(mixed...):bool $callback */
         public static function that(callable $callback): Token\CallbackToken {}
 
         /** @param mixed ...$tokens */
