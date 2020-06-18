@@ -13,7 +13,7 @@ use PackageVersions\Versions;
 
 class Acceptance extends \Codeception\Module
 {
-    /** @var array<string,string */
+    /** @var array<string,string> */
     public const VERSION_OPERATORS = [
         'newer than' => '>',
         'older than' => '<',
