@@ -2,9 +2,6 @@
 
 namespace Psalm\PhpUnitPlugin;
 
-use Composer\Semver\Comparator;
-use Composer\Semver\VersionParser;
-use PackageVersions\Versions;
 use SimpleXMLElement;
 use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
@@ -13,7 +10,7 @@ use Psalm\Plugin\RegistrationInterface;
 class Plugin implements PluginEntryPointInterface
 {
     /** @return void */
-    public function __invoke(RegistrationInterface $psalm, SimpleXMLElement $config = null)
+    public function __invoke(RegistrationInterface $psalm, SimpleXMLElement $config = null): void
     {
         $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
@@ -23,17 +20,5 @@ class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\TestCaseHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);
-    }
-
-    private function packageVersionIs(string $package, string $op, string $ref): bool
-    {
-        $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
-
-        $parser = new VersionParser();
-
-        $currentVersion = $parser->normalize($currentVersion);
-        $ref = $parser->normalize($ref);
-
-        return Comparator::compare($currentVersion, $op, $ref);
     }
 }
