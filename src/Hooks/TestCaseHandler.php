@@ -12,7 +12,6 @@ use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
-use Psalm\Internal\PhpVisitor\ReflectorVisitor;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
@@ -21,8 +20,7 @@ use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
-use Psalm\Type\Atomic\TIterable;
-use Psalm\Type\Union;
+use RuntimeException;
 
 class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -127,7 +125,7 @@ class TestCaseHandler implements
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            list($declaring_method_class, $declaring_method_name) = explode('::', (string) $declaring_method_id);
+            [$declaring_method_class, $declaring_method_name] = explode('::', (string) $declaring_method_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
 
             $declaring_class_node = $class_node;
@@ -198,7 +196,7 @@ class TestCaseHandler implements
 
                 // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
-                    (string) $provider_method_id,
+                    $provider_method_id,
                     $provider_docblock_location,
                     (string) $declaring_method_id
                 );
@@ -295,7 +293,7 @@ class TestCaseHandler implements
                 }
 
                 $checkParam =
-                function (
+                static function (
                     Type\Union $potential_argument_type,
                     Type\Union $param_type,
                     bool $is_optional,
@@ -422,12 +420,12 @@ class TestCaseHandler implements
         if (method_exists($union, 'getAtomicTypes')) {
             /** @var non-empty-array<string, Type\Atomic> annotated for versions missing the method */
             return $union->getAtomicTypes();
-        } else {
-            /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
-            $types = $union->getTypes();
-            assert(!empty($types));
-            return $types;
         }
+
+        /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
+        $types = $union->getTypes();
+        assert(!empty($types));
+        return $types;
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
@@ -440,7 +438,7 @@ class TestCaseHandler implements
 
         foreach (self::getAtomics($iterables) as $type) {
             if (!$type->isIterable($codebase)) {
-                throw new \RuntimeException('should be iterable');
+                throw new RuntimeException('should be iterable');
             }
 
             if ($type instanceof Type\Atomic\TArray) {
@@ -450,18 +448,18 @@ class TestCaseHandler implements
                 $key_types[] = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
-                list($key_types[], $value_types[]) = $codebase->getKeyValueParamsForTraversableObject($type);
+                [$key_types[], $value_types[]] = $codebase->getKeyValueParamsForTraversableObject($type);
             } elseif ($type instanceof Type\Atomic\TList) {
                 $key_types[] = Type::getInt();
                 $value_types[] = $type->type_param;
             } else {
-                throw new \RuntimeException('unexpected type');
+                throw new RuntimeException('unexpected type');
             }
         }
 
         $combine =
             /** @param null|Type\Union $a */
-            function ($a, Type\Union $b) use ($codebase): Type\Union {
+            static function ($a, Type\Union $b) use ($codebase): Type\Union {
                 return $a ? Type::combineUnionTypes($a, $b, $codebase) : $b;
             };
 
@@ -503,6 +501,7 @@ class TestCaseHandler implements
 
         if ($docblock) {
             try {
+                /** @psalm-suppress DeprecatedMethod */
                 $parsed_comment = DocComment::parse(
                     (string)$docblock->getReformattedText(),
                     self::getCommentLine($docblock)
@@ -512,7 +511,7 @@ class TestCaseHandler implements
             }
             if (isset($parsed_comment['specials'])) {
                 return array_map(
-                    function (array $lines): array {
+                    static function (array $lines): array {
                         return array_map('trim', $lines);
                     },
                     $parsed_comment['specials']
@@ -538,6 +537,7 @@ class TestCaseHandler implements
     private static function getCommentLine(Doc $docblock): int
     {
         if (method_exists($docblock, 'getStartLine')) {
+            //typecasting is done on purpose, compatability with psalm old versions
             return (int) $docblock->getStartLine();
         }
         /** @psalm-suppress DeprecatedMethod */
