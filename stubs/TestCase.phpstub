@@ -12,7 +12,7 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      * @param class-string<T> $class
      * @return MockObject&T
      */
-    public function createMock($class) {}
+    protected function createMock($class) {}
 
     /**
      * Returns a builder object to create mock objects using a fluent interface.
