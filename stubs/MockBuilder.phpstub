@@ -3,6 +3,7 @@ namespace PHPUnit\Framework\MockObject;
 
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\Builder\InvocationMocker;
+use PHPUnit\Framework\Constraint\Constraint;
 
 /**
  * @template T
@@ -11,7 +12,7 @@ class MockBuilder
 {
     /**
      * @template-typeof T $type
-     * @param TestCase     $testCase
+     * @param TestCase $testCase
      * @param class-string $type
      */
     public function __construct(TestCase $testCase, $type) {}
