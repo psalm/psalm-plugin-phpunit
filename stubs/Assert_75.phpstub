@@ -8,7 +8,7 @@ abstract class Assert
      *
      * @param int|string $key
      * @param mixed $array
-     * @psalm-assert array $array
+     * @psalm-assert array{} $array
      * @return void
      */
     public static function assertArrayHasKey($key, $array, string $message = '') {}
