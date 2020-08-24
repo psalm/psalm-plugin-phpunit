@@ -14,6 +14,7 @@ use Psalm\Exception\DocblockParseException;
 use Psalm\FileSource;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\VersionUtils;
 use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\Hook\AfterClassLikeVisitInterface;
 use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
@@ -68,12 +69,14 @@ class TestCaseHandler implements
      * {@inheritDoc}
      */
     public static function afterClassLikeVisit(
-        ClassLike $class_node,
-        ClassLikeStorage $class_storage,
+        ClassLike $stmt,
+        ClassLikeStorage $storage,
         FileSource $statements_source,
         Codebase $codebase,
         array &$file_replacements = []
     ) {
+        $class_node = $stmt;
+        $class_storage = $storage;
         if (self::hasInitializers($class_storage, $class_node)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
@@ -101,12 +104,14 @@ class TestCaseHandler implements
      * {@inheritDoc}
      */
     public static function afterStatementAnalysis(
-        ClassLike $class_node,
-        ClassLikeStorage $class_storage,
+        ClassLike $stmt,
+        ClassLikeStorage $classlike_storage,
         StatementsSource $statements_source,
         Codebase $codebase,
         array &$file_replacements = []
     ) {
+        $class_node = $stmt;
+        $class_storage = $classlike_storage;
         if (!$codebase->classExtends($class_storage->name, TestCase::class)) {
             return null;
         }
@@ -498,27 +503,65 @@ class TestCaseHandler implements
     private static function getSpecials(ClassMethod $method): array
     {
         $docblock = $method->getDocComment();
-
-        if ($docblock) {
-            try {
-                /** @psalm-suppress DeprecatedMethod */
-                $parsed_comment = DocComment::parse(
-                    (string)$docblock->getReformattedText(),
-                    self::getCommentLine($docblock)
-                );
-            } catch (DocblockParseException $e) {
-                return [];
-            }
-            if (isset($parsed_comment['specials'])) {
-                return array_map(
-                    static function (array $lines): array {
-                        return array_map('trim', $lines);
-                    },
-                    $parsed_comment['specials']
-                );
-            }
+        if (!$docblock) {
+            return [];
         }
-        return [];
+
+        try {
+            $parsed_comment = self::getParsedComment($docblock);
+        } catch (DocblockParseException $e) {
+            return [];
+        }
+
+        if (!isset($parsed_comment['specials'])) {
+            return [];
+        }
+
+        return array_map(
+            function (array $lines) {
+                return array_map('trim', $lines);
+            },
+            $parsed_comment['specials']
+        );
+    }
+
+    /** @return array{description:string, specials:array<string,array<int,string>>} */
+    private static function getParsedComment(Doc $comment): array
+    {
+        if (VersionUtils::packageVersionIs('vimeo/psalm', '>=', '3.11.6')) {
+            // explanation for the suppressions below
+            // Oldest supported psalm versions did not have parsePreservingLength() at all
+            // Versions between 3.6 and 3.11.6 had that, but it was returning array
+
+            /** @psalm-suppress UndefinedMethod for oldest versions */
+            $parsed_docblock = DocComment::parsePreservingLength($comment);
+
+            /**
+             * @psalm-suppress InvalidPropertyFetch
+             * @var string
+             */
+            $description = $parsed_docblock->description;
+
+            /**
+             * @psalm-suppress InvalidPropertyFetch
+             * @var array<string,array<int,string>>
+             */
+            $specials = $parsed_docblock->tags;
+
+            return [
+                'description' => $description,
+                'specials' => $specials,
+            ];
+        } else {
+            // before 3.11.6 parsePreservingLength() was returning array,
+            // but parse() wasn't deprecated, so we just use that
+
+            /** @psalm-suppress DeprecatedMethod for newer Psalm versions */
+            return DocComment::parse(
+                (string) $comment->getReformattedText(),
+                self::getCommentLine($comment)
+            );
+        }
     }
 
     private static function queueClassLikeForScanning(
