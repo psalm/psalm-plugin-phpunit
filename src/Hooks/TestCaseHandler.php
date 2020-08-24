@@ -68,12 +68,14 @@ class TestCaseHandler implements
      * {@inheritDoc}
      */
     public static function afterClassLikeVisit(
-        ClassLike $class_node,
-        ClassLikeStorage $class_storage,
+        ClassLike $stmt,
+        ClassLikeStorage $storage,
         FileSource $statements_source,
         Codebase $codebase,
         array &$file_replacements = []
     ) {
+        $class_node = $stmt;
+        $class_storage = $storage;
         if (self::hasInitializers($class_storage, $class_node)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
@@ -101,12 +103,14 @@ class TestCaseHandler implements
      * {@inheritDoc}
      */
     public static function afterStatementAnalysis(
-        ClassLike $class_node,
-        ClassLikeStorage $class_storage,
+        ClassLike $stmt,
+        ClassLikeStorage $classlike_storage,
         StatementsSource $statements_source,
         Codebase $codebase,
         array &$file_replacements = []
     ) {
+        $class_node = $stmt;
+        $class_storage = $classlike_storage;
         if (!$codebase->classExtends($class_storage->name, TestCase::class)) {
             return null;
         }
