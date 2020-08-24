@@ -24,3 +24,16 @@ namespace Prophecy {
         public static function allOf(...$tokens): Token\LogicalAndToken {}
     }
 }
+
+namespace Prophecy\PhpUnit {
+    use Prophecy\Prophecy\ObjectProphecy;
+    trait ProphecyTrait
+    {
+        /**
+         * @template T
+         * @param class-string<T> $classOrInterface
+         * @return ObjectProphecy<T>
+         */
+        protected function prophesize($classOrInterface): ObjectProphecy {}
+    }
+}

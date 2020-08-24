@@ -89,4 +89,22 @@ Feature: Prophecy
       """
     When I run Psalm
     Then I see these errors
+      | Type                  | Message                                                                                                 |
       | InvalidScalarArgument | Argument 1 of Prophecy\Argument::that expects callable(mixed...):bool, Closure():string(hello) provided |
+    And I see no other errors
+
+  Scenario: prophesize() provided by ProphecyTrait is generic
+    Given I have the following code
+      """
+      use Prophecy\PhpUnit\ProphecyTrait;
+      class SUT { public function getString(): string { return "zzz"; } }
+      class MyTestCase extends TestCase
+      {
+        use ProphecyTrait;
+        public function testSomething(): void {
+          $this->prophesize(SUT::class)->reveal()->getString();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
