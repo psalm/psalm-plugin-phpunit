@@ -47,7 +47,7 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      * @param class-string<T> $classOrInterface
      * @return ObjectProphecy<T>
      */
-    public function prophesize($classOrInterface): ObjectProphecy {}
+    protected function prophesize($classOrInterface): ObjectProphecy {}
 
     /**
      * @param class-string<\Throwable> $exception
