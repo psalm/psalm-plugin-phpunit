@@ -546,7 +546,7 @@ class TestCaseHandler implements
              * @psalm-suppress InvalidPropertyFetch
              * @var array<string,array<int,string>>
              */
-            $specials = $parsed_docblock->combined_tags;
+            $specials = $parsed_docblock->tags;
 
             return [
                 'description' => $description,
