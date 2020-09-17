@@ -4,6 +4,7 @@ php:
   - 7.2
   - 7.3
   - 7.4
+  - nightly
 before_install:
   - phpenv config-rm xdebug.ini || true
 
@@ -42,3 +43,4 @@ jobs:
       env: DEPS="dev"
     - php: 7.4
       env: DEPS="dev"
+    - php: 8.0
