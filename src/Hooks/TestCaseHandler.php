@@ -572,7 +572,10 @@ class TestCaseHandler implements
         if (method_exists($codebase, 'queueClassLikeForScanning')) {
             $codebase->queueClassLikeForScanning($fq_class_name);
         } else {
-            /** @psalm-suppress InvalidScalarArgument */
+            /**
+             * @psalm-suppress InvalidScalarArgument
+             * @psalm-suppress InvalidArgument
+             */
             $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
         }
     }
