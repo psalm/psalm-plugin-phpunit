@@ -89,8 +89,8 @@ Feature: Prophecy
       """
     When I run Psalm
     Then I see these errors
-      | Type                  | Message                                                                                                 |
-      | InvalidScalarArgument | Argument 1 of Prophecy\Argument::that expects callable(mixed...):bool, Closure():string(hello) provided |
+      | Type                  | Message                                                                                                                  |
+      | InvalidScalarArgument | /Argument 1 of Prophecy\\Argument::that expects callable\(mixed...\):bool, (pure-)?Closure\(\):string\(hello\) provided/ |
     And I see no other errors
 
   Scenario: prophesize() provided by ProphecyTrait is generic
