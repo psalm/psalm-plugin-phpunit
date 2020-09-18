@@ -142,8 +142,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type               | Message                                                                  |
-      | MissingConstructor | NS\MyTestCase has an uninitialized variable $this->i, but no constructor |
+      | Type               | Message                                                                                  |
+      | MissingConstructor | /NS\\MyTestCase has an uninitialized (variable\|property) \$this->i, but no constructor/ |
     And I see no other errors
 
   Scenario: Missing data provider is reported
