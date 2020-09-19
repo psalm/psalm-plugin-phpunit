@@ -43,4 +43,11 @@ jobs:
       env: DEPS="dev"
     - php: 7.4
       env: DEPS="dev"
-    - php: 8.0
+    - php: nightly
+      env: DEPS="low"
+    - php: nightly
+      env: DEPS="high"
+    - php: nightly
+      env: DEPS="stable"
+    - php: nightly
+      env: DEPS="dev"
