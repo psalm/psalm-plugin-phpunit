@@ -159,26 +159,24 @@ abstract class Assert
 
     /**
      * Asserts that a variable is of a given type.
+     * @template T
      *
-     * @param class-string $expected
+     * @param class-string<T> $expected
      * @param mixed  $actual
      * @param string $message
      *
-     * @template T
-     * @template-typeof T $expected
      * @psalm-assert T $actual
      */
     public static function assertInstanceOf($expected, $actual, $message = '') {}
 
     /**
      * Asserts that a variable is of a given type.
+     * @template T
      *
-     * @param class-string $expected
+     * @param class-string<T> $expected
      * @param mixed  $actual
      * @param string $message
      *
-     * @template T
-     * @template-typeof T $expected
      * @psalm-assert !T $actual
      */
     public static function assertNotInstanceOf($expected, $actual, $message = '') {}
