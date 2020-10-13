@@ -343,7 +343,7 @@ class TestCaseHandler implements
                     }
                 };
 
-                /** @var Type\Atomic\TArray|Type\Atomic\ObjectLike|Type\Atomic\TList $dataset_type */
+                /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray|Type\Atomic\TList $dataset_type */
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
                 if ($dataset_type instanceof Type\Atomic\TArray) {
@@ -363,7 +363,7 @@ class TestCaseHandler implements
                         }
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
-                } else { // ObjectLike
+                } else { // TKeyedArray
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
@@ -449,7 +449,7 @@ class TestCaseHandler implements
             if ($type instanceof Type\Atomic\TArray) {
                 $key_types[] = $type->type_params[0] ?? Type::getMixed();
                 $value_types[] = $type->type_params[1] ?? Type::getMixed();
-            } elseif ($type instanceof Type\Atomic\ObjectLike) {
+            } elseif ($type instanceof Type\Atomic\TKeyedArray) {
                 $key_types[] = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
