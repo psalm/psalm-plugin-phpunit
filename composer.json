@@ -14,12 +14,12 @@
         "sort-packages": true
     },
     "require": {
-        "php": "^7.1.3 || ^8.0",
+        "php": "^7.3 || ^8.0",
         "ext-simplexml": "*",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
         "composer/package-versions-deprecated": "^1.10",
         "phpunit/phpunit": "^7.5 || ^8.0 || ^9.0",
-        "vimeo/psalm": "^3.6.2 || dev-master || dev-4.x"
+        "vimeo/psalm": "dev-master || dev-4.x"
     },
     "require-dev": {
         "codeception/codeception": "^4.0.3",
