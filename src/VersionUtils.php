@@ -11,6 +11,7 @@ abstract class VersionUtils
     public static function packageVersionIs(string $package, string $op, string $ref): bool
     {
         /**
+         * @psalm-suppress RedundantCondition
          * @psalm-suppress DeprecatedClass
          * @psalm-suppress ArgumentTypeCoercion
          */
