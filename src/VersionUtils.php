@@ -13,6 +13,8 @@ abstract class VersionUtils
         /**
          * @psalm-suppress DeprecatedClass
          * @psalm-suppress ArgumentTypeCoercion
+         * @psalm-suppress RedundantCast
+         * @psalm-suppress RedundantCondition
          */
         $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
 
