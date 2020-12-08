@@ -427,10 +427,16 @@ class TestCaseHandler implements
             return $union->getAtomicTypes();
         }
 
-        /** @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method */
-        $types = $union->getTypes();
-        assert(!empty($types));
-        return $types;
+        if (method_exists($union, 'getTypes')) {
+            /**
+             * @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method
+             * @var non-empty-array<string, Type\Atomic> annotated for versions missing the method
+             */
+            $types = $union->getTypes();
+            return $types;
+        }
+
+        throw new RuntimeException('Unexpected: union has no way to get it constituent types');
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
@@ -584,8 +590,7 @@ class TestCaseHandler implements
     {
         if (method_exists($docblock, 'getStartLine')) {
             //typecasting is done on purpose, compatability with psalm old versions
-            /** @psalm-suppress RedundantCondition */
-            return (int) $docblock->getStartLine();
+            return $docblock->getStartLine();
         }
         /** @psalm-suppress DeprecatedMethod */
         return $docblock->getLine();
