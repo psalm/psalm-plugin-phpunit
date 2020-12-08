@@ -183,11 +183,7 @@ class TestCaseHandler implements
                     }
                     $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
                 } else {
-                    /**
-                     * @psalm-suppress RedundantConditionGivenDocblockType
-                     * @psalm-suppress RedundantCastGivenDocblockType
-                     */
-                    $apparent_provider_method_name = $class_storage->name . '::' . (string) $provider;
+                    $apparent_provider_method_name = $class_storage->name . '::' . $provider;
                 }
 
                 $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
@@ -594,11 +590,7 @@ class TestCaseHandler implements
     {
         if (method_exists($docblock, 'getStartLine')) {
             //typecasting is done on purpose, compatability with psalm old versions
-            /**
-             * @psalm-suppress RedundantCondition
-             * @psalm-suppress RedundantCast
-             */
-            return (int) $docblock->getStartLine();
+            return $docblock->getStartLine();
         }
         /** @psalm-suppress DeprecatedMethod */
         return $docblock->getLine();
