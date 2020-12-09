@@ -10,14 +10,18 @@ abstract class VersionUtils
 {
     public static function packageVersionIs(string $package, string $op, string $ref): bool
     {
-        /**
-         * @psalm-suppress RedundantCondition
-         * @psalm-suppress DeprecatedClass
-         * @psalm-suppress ArgumentTypeCoercion
-         * @psalm-suppress RedundantCast
-         * @psalm-suppress RedundantCondition
-         */
-        $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
+        try {
+            /**
+             * @psalm-suppress RedundantCondition
+             * @psalm-suppress DeprecatedClass
+             * @psalm-suppress ArgumentTypeCoercion
+             * @psalm-suppress RedundantCast
+             * @psalm-suppress RedundantCondition
+             */
+            $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
+        } catch (\OutOfBoundsException $exception) {
+            return false;
+        }
 
         $parser = new VersionParser();
 
