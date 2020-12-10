@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Psalm\PhpUnitPlugin\Hooks;
 
 use PhpParser\Comment\Doc;
-use PHPUnit\Framework\TestCase;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use Psalm\Codebase;
@@ -35,7 +34,7 @@ class TestCaseHandler implements
     {
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-            if ($codebase->classExtends($name, TestCase::class) && ($meta['hasInitializers'] ?? false)) {
+            if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
 
                 foreach (self::getDescendants($codebase, $name) as $dependent_name) {
@@ -112,7 +111,7 @@ class TestCaseHandler implements
     ) {
         $class_node = $stmt;
         $class_storage = $classlike_storage;
-        if (!$codebase->classExtends($class_storage->name, TestCase::class)) {
+        if (!$codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase')) {
             return null;
         }
 
