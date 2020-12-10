@@ -393,9 +393,9 @@ class TestCaseHandler implements
                         }
                         $potential_argument_type = $potential_argument_types[$param_offset];
 
-                        assert(null !== $param->type);
+                        $param_type = $param->type === null ? Type::getMixed() : $param->type;
                         if ($param->is_variadic) {
-                            $param_types = self::getAtomics($param->type);
+                            $param_types = self::getAtomics($param_type);
                             $variadic_param_type = new Type\Union(array_values($param_types));
 
                             // check remaining argument types
@@ -411,7 +411,7 @@ class TestCaseHandler implements
                             break;
                         }
 
-                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
+                        $checkParam($potential_argument_type, $param_type, $param->is_optional, $param_offset);
                     }
                 }
             }

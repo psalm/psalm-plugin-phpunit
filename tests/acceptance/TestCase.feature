@@ -1048,6 +1048,26 @@ Feature: TestCase
       | Type            | Message                    |
       | InvalidDocblock | %@psalm-force-push-master% |
 
+  Scenario: Missing param type on a test with tuple data provider does not crash psalm
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /**
+         * @dataProvider provide
+         * @psalm-suppress MissingParamType
+         */
+        public function testSomething($data): void {}
+
+        /** @return iterable<string, array{int}> */
+        public function provide(): iterable {
+          return ['case 1' => [1]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see exit code 0
+    And I see no errors
+
   Scenario: Providers referenced in shorthand docblocks are not marked as unused
     Given I have the following code
       """
