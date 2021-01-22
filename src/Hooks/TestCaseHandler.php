@@ -20,6 +20,7 @@ use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
+use Psalm\Type\Atomic\TNull;
 use RuntimeException;
 
 class TestCaseHandler implements
@@ -230,22 +231,42 @@ class TestCaseHandler implements
                     Type::getArray(),
                 ]);
 
+                $non_null_provider_return_types = [];
                 foreach (self::getAtomics($provider_return_type) as $type) {
+                    // PHPUnit allows returning null from providers and treats it as an empty set
+                    // resulting in the test being skipped
+                    if ($type instanceof TNull) {
+                        continue;
+                    }
+
                     if (!$type->isIterable($codebase)) {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
                         ));
-                        continue;
+                        continue 2;
                     }
+                    $non_null_provider_return_types[] = $type;
+                }
+
+                if ([] === $non_null_provider_return_types) {
+                    IssueBuffer::accepts(new Issue\InvalidReturnType(
+                        'Providers must return ' . $expected_provider_return_type->getId()
+                        . ', ' . $provider_return_type_string . ' provided',
+                        $provider_return_type_location
+                    ));
+                    continue;
                 }
 
                 // unionize iterable so that instead of array<int,string>|Traversable<object|int>
                 // we get iterable<int|object,string|int>
                 //
                 // TODO: this may get implemented in a future Psalm version, remove it then
-                $provider_return_type = self::unionizeIterables($codebase, $provider_return_type);
+                $provider_return_type = self::unionizeIterables(
+                    $codebase,
+                    new Type\Union($non_null_provider_return_types)
+                );
 
                 $provider_key_type_is_compatible = $codebase->isTypeContainedByType(
                     $provider_return_type->type_params[0],

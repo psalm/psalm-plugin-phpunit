@@ -1261,3 +1261,36 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list<string>>) |
+
+  Scenario: Providers returning nullable generator are ok
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return ?\Generator<array-key, array<array-key,int>> */
+        public function provide(): ?\Generator {
+          return null;
+        }
+        /** @dataProvider provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Providers returning null are flagged
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @return null */
+        public function provide() {
+          return null;
+        }
+        /** @dataProvider provide */
+        public function testSomething(): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                                           |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, null provided |
+    And I see no other errors
