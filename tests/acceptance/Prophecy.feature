@@ -33,7 +33,7 @@ Feature: Prophecy
       {
         /** @return void */
         public function testSomething() {
-          $argument = Argument::that(function () {
+          $_argument = Argument::that(function () {
             return true;
           });
         }
@@ -49,7 +49,7 @@ Feature: Prophecy
       {
         /** @return void */
         public function testSomething() {
-          $argument = Argument::that(function (int $i) {
+          $_argument = Argument::that(function (int $i) {
             return $i > 0;
           });
         }
@@ -65,7 +65,7 @@ Feature: Prophecy
       {
         /** @return void */
         public function testSomething() {
-          $argument = Argument::that(function (int $i, int $j, int $k) {
+          $_argument = Argument::that(function (int $i, int $j, int $k) {
             return ($i + $j + $k) > 0;
           });
         }
@@ -81,7 +81,7 @@ Feature: Prophecy
       {
         /** @return void */
         public function testSomething() {
-          $argument = Argument::that(function (): string {
+          $_argument = Argument::that(function (): string {
             return 'hello';
           });
         }
@@ -89,8 +89,8 @@ Feature: Prophecy
       """
     When I run Psalm
     Then I see these errors
-      | Type                  | Message                                                                                                                  |
-      | InvalidScalarArgument | /Argument 1 of Prophecy\\Argument::that expects callable\(mixed...\):bool, (pure-)?Closure\(\):string\(hello\) provided/ |
+      | Type                  | Message                                                                                                                             |
+      | InvalidScalarArgument | /Argument 1 of Prophecy\\Argument::that expects callable\(mixed...\):bool, (pure-)?Closure\(\):(string\(hello\)\|"hello") provided/ |
     And I see no other errors
 
   Scenario: prophesize() provided by ProphecyTrait is generic
