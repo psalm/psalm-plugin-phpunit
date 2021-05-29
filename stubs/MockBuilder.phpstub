@@ -50,7 +50,7 @@ interface MockObject
      *
      * @return InvocationMocker
      *
-     * @throws RuntimeException
+     * @throws \RuntimeException
      */
     public function method($constraint);
 }
