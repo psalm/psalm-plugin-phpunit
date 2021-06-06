@@ -10,14 +10,15 @@ use PhpParser\Node\Stmt\ClassMethod;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
-use Psalm\FileSource;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\VersionUtils;
-use Psalm\Plugin\Hook\AfterClassLikeAnalysisInterface;
-use Psalm\Plugin\Hook\AfterClassLikeVisitInterface;
-use Psalm\Plugin\Hook\AfterCodebasePopulatedInterface;
-use Psalm\StatementsSource;
+use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
+use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
+use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
+use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
+use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
+use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
@@ -31,8 +32,10 @@ class TestCaseHandler implements
     /**
      * {@inheritDoc}
      */
-    public static function afterCodebasePopulated(Codebase $codebase)
+    public static function afterCodebasePopulated(AfterCodebasePopulatedEvent $event)
     {
+        $codebase = $event->getCodebase();
+
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
             if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
@@ -68,15 +71,13 @@ class TestCaseHandler implements
     /**
      * {@inheritDoc}
      */
-    public static function afterClassLikeVisit(
-        ClassLike $stmt,
-        ClassLikeStorage $storage,
-        FileSource $statements_source,
-        Codebase $codebase,
-        array &$file_replacements = []
-    ) {
-        $class_node = $stmt;
-        $class_storage = $storage;
+    public static function afterClassLikeVisit(AfterClassLikeVisitEvent $event)
+    {
+        $class_node = $event->getStmt();
+        $class_storage = $event->getStorage();
+        $statements_source = $event->getStatementsSource();
+        $codebase = $event->getCodebase();
+
         if (self::hasInitializers($class_storage, $class_node)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
@@ -103,15 +104,13 @@ class TestCaseHandler implements
     /**
      * {@inheritDoc}
      */
-    public static function afterStatementAnalysis(
-        ClassLike $stmt,
-        ClassLikeStorage $classlike_storage,
-        StatementsSource $statements_source,
-        Codebase $codebase,
-        array &$file_replacements = []
-    ) {
-        $class_node = $stmt;
-        $class_storage = $classlike_storage;
+    public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
+    {
+        $class_node = $event->getStmt();
+        $class_storage = $event->getClasslikeStorage();
+        $codebase = $event->getCodebase();
+        $statements_source = $event->getStatementsSource();
+
         if (!$codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase')) {
             return null;
         }
