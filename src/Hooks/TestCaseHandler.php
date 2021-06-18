@@ -12,7 +12,6 @@ use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
-use Psalm\PhpUnitPlugin\VersionUtils;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -441,21 +440,7 @@ class TestCaseHandler implements
     /** @return non-empty-array<string,Type\Atomic> */
     private static function getAtomics(Type\Union $union): array
     {
-        if (method_exists($union, 'getAtomicTypes')) {
-            /** @var non-empty-array<string, Type\Atomic> annotated for versions missing the method */
-            return $union->getAtomicTypes();
-        }
-
-        if (method_exists($union, 'getTypes')) {
-            /**
-             * @psalm-suppress DeprecatedMethod annotated for newer versions that deprecated the method
-             * @var non-empty-array<string, Type\Atomic> annotated for versions missing the method
-             */
-            $types = $union->getTypes();
-            return $types;
-        }
-
-        throw new RuntimeException('Unexpected: union has no way to get it constituent types');
+        return $union->getAtomicTypes();
     }
 
     private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
@@ -553,40 +538,15 @@ class TestCaseHandler implements
     /** @return array{description:string, specials:array<string,array<int,string>>} */
     private static function getParsedComment(Doc $comment): array
     {
-        if (VersionUtils::packageVersionIs('vimeo/psalm', '>=', '3.11.6')) {
-            // explanation for the suppressions below
-            // Oldest supported psalm versions did not have parsePreservingLength() at all
-            // Versions between 3.6 and 3.11.6 had that, but it was returning array
+        $parsed_docblock = DocComment::parsePreservingLength($comment);
 
-            /** @psalm-suppress UndefinedMethod for oldest versions */
-            $parsed_docblock = DocComment::parsePreservingLength($comment);
+        $description = $parsed_docblock->description;
+        $specials = $parsed_docblock->tags;
 
-            /**
-             * @psalm-suppress InvalidPropertyFetch
-             * @var string
-             */
-            $description = $parsed_docblock->description;
-
-            /**
-             * @psalm-suppress InvalidPropertyFetch
-             * @var array<string,array<int,string>>
-             */
-            $specials = $parsed_docblock->tags;
-
-            return [
-                'description' => $description,
-                'specials' => $specials,
-            ];
-        } else {
-            // before 3.11.6 parsePreservingLength() was returning array,
-            // but parse() wasn't deprecated, so we just use that
-
-            /** @psalm-suppress DeprecatedMethod for newer Psalm versions */
-            return DocComment::parse(
-                (string) $comment->getReformattedText(),
-                self::getCommentLine($comment)
-            );
-        }
+        return [
+            'description' => $description,
+            'specials' => $specials,
+        ];
     }
 
     private static function queueClassLikeForScanning(
@@ -603,15 +563,5 @@ class TestCaseHandler implements
              */
             $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
         }
-    }
-
-    private static function getCommentLine(Doc $docblock): int
-    {
-        if (method_exists($docblock, 'getStartLine')) {
-            //typecasting is done on purpose, compatability with psalm old versions
-            return $docblock->getStartLine();
-        }
-        /** @psalm-suppress DeprecatedMethod */
-        return $docblock->getLine();
     }
 }
