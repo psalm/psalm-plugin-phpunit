@@ -345,7 +345,7 @@ class TestCaseHandler implements
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             'Argument ' . ($param_offset + 1) . ' of ' . $method_name
-                            . ' has no default value, but possibly undefined '
+                            . ' is not optional, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
                             $provider_docblock_location
