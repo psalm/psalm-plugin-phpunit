@@ -7,7 +7,7 @@ Feature: Prophecy
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm totallyTyped="true" %s>
+      <psalm errorLevel="1" %s>
         <projectFiles>
           <directory name="."/>
           <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>

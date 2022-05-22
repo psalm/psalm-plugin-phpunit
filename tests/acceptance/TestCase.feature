@@ -7,7 +7,7 @@ Feature: TestCase
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm totallyTyped="true" %s>
+      <psalm errorLevel="1" %s>
         <projectFiles>
           <directory name="."/>
           <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
@@ -693,8 +693,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                                                                                                                             |
-      | InvalidArgument   | Argument 1 of NS\MyTestCase::testSomething has no default value, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?: int}>) |
+      | Type            | Message                                                                                                                                                        |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?: int}>) |
     And I see no other errors
 
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
