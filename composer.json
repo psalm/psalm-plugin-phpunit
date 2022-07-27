@@ -11,13 +11,16 @@
     ],
     "config": {
         "optimize-autoloader": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
     },
     "require": {
         "php": "^7.1 || ^8.0",
         "ext-simplexml": "*",
+        "composer-runtime-api": "^2.0.0",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
-        "composer/package-versions-deprecated": "^1.10",
         "vimeo/psalm": "dev-master || dev-4.x || ^4.5"
     },
     "conflict": {
