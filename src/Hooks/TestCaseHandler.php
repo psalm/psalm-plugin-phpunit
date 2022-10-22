@@ -164,8 +164,7 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                $provider_docblock_location = clone $method_storage->location;
-                $provider_docblock_location->setCommentLine($line);
+                $provider_docblock_location = $method_storage->location->setCommentLine($line);
 
                 if (false !== strpos($provider, '::')) {
                     [$class_name, $method_id] = explode('::', $provider);
@@ -328,9 +327,8 @@ class TestCaseHandler implements
                     $provider_return_type_string,
                     $provider_docblock_location
                 ): void {
-                    $param_type = clone $param_type;
                     if ($is_optional) {
-                        $param_type->possibly_undefined = true;
+                        $param_type = $param_type->setPossiblyUndefined(true);
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
                         // ok
