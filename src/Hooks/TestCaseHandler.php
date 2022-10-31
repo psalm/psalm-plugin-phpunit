@@ -167,12 +167,12 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                if (VersionUtils::packageVersionIs('vimeo/psalm', '>=', '5.0')) {
-                    /** @var CodeLocation */
-                    $provider_docblock_location = $method_storage->location->setCommentLine($line);
-                } else {
+                if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
                     $provider_docblock_location = clone $method_storage->location;
                     $provider_docblock_location->setCommentLine($line);
+                } else {
+                    /** @var CodeLocation */
+                    $provider_docblock_location = $method_storage->location->setCommentLine($line);
                 }
 
                 if (false !== strpos($provider, '::')) {
