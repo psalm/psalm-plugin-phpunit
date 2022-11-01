@@ -337,12 +337,12 @@ class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
-                        if (method_exists($param_type, 'setPossiblyUndefined')) {
-                            /** @var Union */
-                            $param_type = $param_type->setPossiblyUndefined(true);
-                        } else {
+                        if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
                             $param_type = clone $param_type;
                             $param_type->possibly_undefined = true;
+                        } else {
+                            /** @var Union */
+                            $param_type = $param_type->setPossiblyUndefined(true);
                         }
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
