@@ -8,10 +8,12 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use Psalm\Codebase;
+use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\VersionUtils;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -21,6 +23,7 @@ use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
+use Psalm\Type\Union;
 use RuntimeException;
 
 class TestCaseHandler implements
@@ -164,8 +167,13 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                $provider_docblock_location = clone $method_storage->location;
-                $provider_docblock_location->setCommentLine($line);
+                if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
+                    $provider_docblock_location = clone $method_storage->location;
+                    $provider_docblock_location->setCommentLine($line);
+                } else {
+                    /** @var CodeLocation */
+                    $provider_docblock_location = $method_storage->location->setCommentLine($line);
+                }
 
                 if (false !== strpos($provider, '::')) {
                     [$class_name, $method_id] = explode('::', $provider);
@@ -328,9 +336,14 @@ class TestCaseHandler implements
                     $provider_return_type_string,
                     $provider_docblock_location
                 ): void {
-                    $param_type = clone $param_type;
                     if ($is_optional) {
-                        $param_type->possibly_undefined = true;
+                        if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
+                            $param_type = clone $param_type;
+                            $param_type->possibly_undefined = true;
+                        } else {
+                            /** @var Union */
+                            $param_type = $param_type->setPossiblyUndefined(true);
+                        }
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
                         // ok
