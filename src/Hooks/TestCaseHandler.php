@@ -167,7 +167,7 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
+                if (VersionUtils::packageVersionIs('vimeo/psalm', '<=', '4.99')) {
                     $provider_docblock_location = clone $method_storage->location;
                     $provider_docblock_location->setCommentLine($line);
                 } else {
@@ -337,7 +337,7 @@ class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
-                        if (VersionUtils::packageVersionIs('vimeo/psalm', '<', '5.0')) {
+                        if (VersionUtils::packageVersionIs('vimeo/psalm', '<=', '4.99')) {
                             $param_type = clone $param_type;
                             $param_type->possibly_undefined = true;
                         } else {
