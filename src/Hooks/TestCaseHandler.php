@@ -171,7 +171,7 @@ class TestCaseHandler implements
                 try {
                     $provider_docblock_location = clone $method_storage->location;
                     $provider_docblock_location->setCommentLine($line);
-                } catch (Error $_) {
+                } catch (Error $e) {
                     /** @var CodeLocation */
                     $provider_docblock_location = $method_storage->location->setCommentLine($line);
                 }
