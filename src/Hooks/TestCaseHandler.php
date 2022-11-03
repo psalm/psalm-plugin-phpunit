@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
+use Error;
 use PhpParser\Comment\Doc;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -167,10 +168,10 @@ class TestCaseHandler implements
             }
 
             foreach ($specials['dataProvider'] as $line => $provider) {
-                if (VersionUtils::packageVersionIs('vimeo/psalm', '<=', '4.99')) {
+                try {
                     $provider_docblock_location = clone $method_storage->location;
                     $provider_docblock_location->setCommentLine($line);
-                } else {
+                } catch (Error $_) {
                     /** @var CodeLocation */
                     $provider_docblock_location = $method_storage->location->setCommentLine($line);
                 }
@@ -337,12 +338,12 @@ class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
-                        if (VersionUtils::packageVersionIs('vimeo/psalm', '<=', '4.99')) {
-                            $param_type = clone $param_type;
-                            $param_type->possibly_undefined = true;
-                        } else {
+                        if (method_exists($param_type, 'setPossiblyUndefined')) {
                             /** @var Union */
                             $param_type = $param_type->setPossiblyUndefined(true);
+                        } else {
+                            $param_type = clone $param_type;
+                            $param_type->possibly_undefined = true;
                         }
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
