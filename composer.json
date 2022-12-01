@@ -9,10 +9,6 @@
             "email": "github@muglug.com"
         }
     ],
-    "config": {
-        "optimize-autoloader": true,
-        "sort-packages": true
-    },
     "require": {
         "php": "^7.1 || ^8.0",
         "ext-simplexml": "*",
@@ -56,5 +52,9 @@
         "cs-check": "phpcs",
         "cs-fix": "phpcbf",
         "test": "codecept run -v"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
     }
 }
