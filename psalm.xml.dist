@@ -11,7 +11,7 @@
 
     <issueHandlers>
         <LessSpecificReturnType errorLevel="info" />
-	<UnnecessaryVarAnnotation errorLevel="suppress" />
+        <UnnecessaryVarAnnotation errorLevel="suppress" />
     </issueHandlers>
 
     <plugins>

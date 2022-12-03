@@ -9,16 +9,12 @@
             "email": "github@muglug.com"
         }
     ],
-    "config": {
-        "optimize-autoloader": true,
-        "sort-packages": true
-    },
     "require": {
         "php": "^7.1 || ^8.0",
         "ext-simplexml": "*",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
         "composer/package-versions-deprecated": "^1.10",
-        "vimeo/psalm": "dev-master || dev-4.x || ^4.5 || ^5@beta"
+        "vimeo/psalm": "dev-master || dev-4.x || ^4.7.1 || ^5@beta || ^5.0"
     },
     "conflict": {
         "phpunit/phpunit": "<7.5"
@@ -56,5 +52,12 @@
         "cs-check": "phpcs",
         "cs-fix": "phpcbf",
         "test": "codecept run -v"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
     }
 }

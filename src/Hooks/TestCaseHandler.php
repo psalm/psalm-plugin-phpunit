@@ -169,10 +169,15 @@ class TestCaseHandler implements
 
             foreach ($specials['dataProvider'] as $line => $provider) {
                 try {
+                    // for older Psalm versions
+                    /**
+                     * @psalm-suppress InvalidClone
+                     * @var CodeLocation
+                     */
                     $provider_docblock_location = clone $method_storage->location;
+                    /** @psalm-suppress UnusedMethodCall */
                     $provider_docblock_location->setCommentLine($line);
                 } catch (Error $e) {
-                    /** @var CodeLocation */
                     $provider_docblock_location = $method_storage->location->setCommentLine($line);
                 }
 
@@ -338,11 +343,18 @@ class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
+                        /** @psalm-suppress RedundantCondition */
                         if (method_exists($param_type, 'setPossiblyUndefined')) {
                             /** @var Union */
                             $param_type = $param_type->setPossiblyUndefined(true);
                         } else {
+                            // for older Psalm versions
+                            /**
+                             * @psalm-suppress InvalidClone
+                             * @var Union
+                             */
                             $param_type = clone $param_type;
+                            /** @psalm-suppress InaccessibleProperty */
                             $param_type->possibly_undefined = true;
                         }
                     }
