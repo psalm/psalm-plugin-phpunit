@@ -15,6 +15,13 @@ Feature: TestCase
         <plugins>
           <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
         </plugins>
+        <issueHandlers>
+          <DeprecatedMethod>
+              <errorLevel type="suppress">
+                  <referencedMethod name="PhpUnit\Framework\TestCase::prophesize"/>
+              </errorLevel>
+          </DeprecatedMethod>
+        </issueHandlers>
       </psalm>
       """
     And I have the following code preamble
@@ -38,8 +45,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                     |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::expectException expects class-string<Throwable>, NS\MyTestCase::class provided |
+      | Type            | Message                                                                                                                |
+      | InvalidArgument | /Argument 1 of NS\\MyTestCase::expectException expects class-string<Throwable>, (but )?NS\\MyTestCase::class provided/ |
     And I see no other errors
 
   Scenario: TestCase::expectException() accepts throwables
@@ -421,8 +428,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                               |
-      | InvalidArgument | /Argument 1 of NS\\MyTestCase::testSomething expects int, string provided by NS\\MyTestCase::provide\(\):\(iterable<string, array\{(0: )?string\}>\)/ |
+      | Type            | Message                                                                                                                                                                 |
+      | InvalidArgument | /Argument 1 of NS\\MyTestCase::testSomething expects int, string provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?string\}\|list\{string\})>\)/ |
     And I see no other errors
 
   Scenario: Invalid dataset array is reported
@@ -469,8 +476,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                                                  |
-      | TooFewArguments | /Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, array\{(0: )?int\}>\)/ |
+      | Type            | Message                                                                                                                                                                                 |
+      | TooFewArguments | /Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?int\}\|list\{int\})>\)/ |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -605,7 +612,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 4]
     Given I have the following code
       """
       class MyTestCase extends TestCase
@@ -625,6 +632,31 @@ Feature: TestCase
         }
       }
       """
+    And I have Psalm older than "5.0" (because of "sealed shapes")
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 5]
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase
+      {
+        /** @var string */
+        const S = "s";
+        /** @return iterable<string,list{int,...}> */
+        public function provide() {
+          yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
+        }
+        /**
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething(int $int, string $_str = self::S) {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    And I have Psalm newer than "4.99" (because of "sealed shapes")
     When I run Psalm
     Then I see no errors
 
@@ -960,8 +992,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                                                                  |
-      | TooFewArguments | /Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, array\{(0: )?int\}>\)/ |
+      | Type            | Message                                                                                                                                                                                 |
+      | TooFewArguments | /Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?int\}\|list\{int\})>\)/ |
     And I see no other errors
 
   Scenario: Providers generating incompatible datasets for variadic tests are reported
