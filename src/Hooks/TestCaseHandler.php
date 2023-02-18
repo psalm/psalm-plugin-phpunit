@@ -387,20 +387,14 @@ class TestCaseHandler implements
                     }
                 };
 
-                /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray|Type\Atomic\TList $dataset_type */
+                /**
+                 * @psalm-suppress DeprecatedClass
+                 * @var Type\Atomic\TArray|Type\Atomic\TKeyedArray|Type\Atomic\TList $dataset_type
+                 */
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
-                if ($dataset_type instanceof Type\Atomic\TArray) {
+                if ($potential_argument_type = self::getItemType($dataset_type)) {
                     // check that all of the required (?) params accept value type
-                    $potential_argument_type = $dataset_type->type_params[1];
-                    foreach ($method_storage->params as $param_offset => $param) {
-                        if (!$param->type) {
-                            continue;
-                        }
-                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
-                    }
-                } elseif ($dataset_type instanceof Type\Atomic\TList) {
-                    $potential_argument_type = $dataset_type->type_param;
                     foreach ($method_storage->params as $param_offset => $param) {
                         if (!$param->type) {
                             continue;
@@ -408,6 +402,9 @@ class TestCaseHandler implements
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 } else { // TKeyedArray
+                    if (!$dataset_type instanceof Type\Atomic\TKeyedArray) {
+                        throw new RuntimeException('expected TKeyedArray here');
+                    }
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
@@ -460,6 +457,27 @@ class TestCaseHandler implements
                     }
                 }
             }
+        }
+    }
+
+    private static function getItemType(Type\Atomic $atomic): ?Type\Union
+    {
+        if ($atomic instanceof Type\Atomic\TArray) {
+            return $atomic->type_params[1];
+        } elseif (
+            /** @psalm-suppress DeprecatedClass */
+            $atomic instanceof Type\Atomic\TList
+        ) {
+            return $atomic->type_param;
+        } elseif (
+            // list-like keyed array
+            $atomic instanceof Type\Atomic\TKeyedArray
+            && $atomic->properties === []
+            && $atomic->fallback_params !== null
+        ) {
+            return $atomic->fallback_params[1];
+        } else {
+            return null;
         }
     }
 
