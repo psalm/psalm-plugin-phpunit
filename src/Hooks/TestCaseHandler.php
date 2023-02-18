@@ -472,7 +472,6 @@ class TestCaseHandler implements
         } elseif (
             // list-like keyed array
             $atomic instanceof Type\Atomic\TKeyedArray
-            && $atomic->properties === []
             && $atomic->fallback_params !== null
         ) {
             return $atomic->fallback_params[1];
