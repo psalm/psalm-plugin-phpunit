@@ -1000,7 +1000,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string,array{float,1?:string}> */
+        /** @return iterable<string,array{0:float,1?:string}> */
         public function provide() {
           yield "data set" => [1., "a"];
         }
