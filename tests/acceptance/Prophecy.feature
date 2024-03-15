@@ -74,25 +74,6 @@ Feature: Prophecy
     When I run Psalm
     Then I see no errors
 
-  Scenario: Argument::that() only accepts callable with boolean return type
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase
-      {
-        /** @return void */
-        public function testSomething() {
-          $_argument = Argument::that(function (): string {
-            return 'hello';
-          });
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type                  | Message                                                                                                                                             |
-      | InvalidScalarArgument | /Argument 1 of Prophecy\\Argument::that expects callable\(mixed...\):bool, (but )?(pure-)?Closure\(\):(string\(hello\)\|"hello"\|'hello') provided/ |
-    And I see no other errors
-
   Scenario: Argument::that() only accepts callable with boolean return type [Psalm 5]
     Given I have the following code
       """

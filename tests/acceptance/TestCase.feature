@@ -612,29 +612,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase
-      {
-        /** @var string */
-        const S = "s";
-        /** @return iterable<string,array{0:int}> */
-        public function provide() {
-          yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
-        }
-        /**
-         * @return void
-         * @dataProvider provide
-         */
-        public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
   Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 5]
     Given I have the following code
       """
@@ -1280,7 +1257,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string, list<string>> */
+        /** @return iterable<string, non-empty-list<string>> */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
         }
