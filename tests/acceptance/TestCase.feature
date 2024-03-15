@@ -310,7 +310,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                                 |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different array<array-key, mixed> provided |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different array<array-key, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified iterable data provider is reported
@@ -334,7 +334,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                                |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
     And I see no other errors
 
   Scenario: Underspecified generator data provider is reported
@@ -358,7 +358,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                   |
-      | MixedInferredReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different Generator provided |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different Generator provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed

@@ -292,7 +292,7 @@ class TestCaseHandler implements
                         || $provider_return_type->type_params[0]->hasArrayKey();
 
                     if ($provider_key_type_is_uncertain) {
-                        IssueBuffer::accepts(new Issue\MixedInferredReturnType(
+                        IssueBuffer::accepts(new Issue\MixedReturnStatement(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
@@ -314,7 +314,7 @@ class TestCaseHandler implements
 
                 if (!$provider_value_type_is_compatible) {
                     if ($provider_return_type->type_params[1]->hasMixed()) {
-                        IssueBuffer::accepts(new Issue\MixedInferredReturnType(
+                        IssueBuffer::accepts(new Issue\MixedReturnStatement(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
