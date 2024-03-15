@@ -74,7 +74,7 @@ Feature: Prophecy
     When I run Psalm
     Then I see no errors
 
-  Scenario: Argument::that() only accepts callable with boolean return type [Psalm 5]
+  Scenario: Argument::that() only accepts callable with boolean return type
     Given I have the following code
       """
       class MyTestCase extends TestCase

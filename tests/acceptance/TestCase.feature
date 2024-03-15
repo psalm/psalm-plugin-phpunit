@@ -612,7 +612,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 5]
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
       class MyTestCase extends TestCase
@@ -1150,21 +1150,6 @@ Feature: TestCase
     Then I see no errors
 
   @ExternalProviders
-  Scenario: Missing external provider classes are reported
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
-        public function testSomething(int $_p): void {}
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type           | Message                          |
-      | UndefinedClass | Class NS\External does not exist |
-
-
-  @ExternalProviders
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
@@ -1235,6 +1220,20 @@ Feature: TestCase
       | NS\External   | ext.php  |
     When I run Psalm on "test.php"
     Then I see no errors
+
+  @ExternalProviders
+  Scenario: Missing external provider classes are reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                          |
+      | UndefinedClass | Class NS\External does not exist |
 
   @List
   Scenario: Providers returning list are ok
