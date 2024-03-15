@@ -976,7 +976,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string,array{float,1?:string}> */
+        /** @return iterable<string,array{0: float, 1?:string}> */
         public function provide() {
           yield "data set" => [1., "a"];
         }
@@ -1241,7 +1241,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string, list<int>> */
+        /** @return iterable<string, non-empty-list<int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
@@ -1268,7 +1268,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                              |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list<string>>) |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, non-empty-list<string>>) |
 
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
