@@ -612,31 +612,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 4]
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase
-      {
-        /** @var string */
-        const S = "s";
-        /** @return iterable<string,array{0:int}> */
-        public function provide() {
-          yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
-        }
-        /**
-         * @return void
-         * @dataProvider provide
-         */
-        public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
-        }
-      }
-      """
-    And I have Psalm older than "5.0" (because of "sealed shapes")
-    When I run Psalm
-    Then I see no errors
-
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 5]
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
       class MyTestCase extends TestCase
@@ -1000,7 +976,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string,array{float,1?:string}> */
+        /** @return iterable<string,array{0: float, 1?:string}> */
         public function provide() {
           yield "data set" => [1., "a"];
         }
@@ -1174,21 +1150,6 @@ Feature: TestCase
     Then I see no errors
 
   @ExternalProviders
-  Scenario: Missing external provider classes are reported
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
-        public function testSomething(int $_p): void {}
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type           | Message                          |
-      | UndefinedClass | Class NS\External does not exist |
-
-
-  @ExternalProviders
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
@@ -1260,12 +1221,26 @@ Feature: TestCase
     When I run Psalm on "test.php"
     Then I see no errors
 
+  @ExternalProviders
+  Scenario: Missing external provider classes are reported
+    Given I have the following code
+      """
+      class MyTestCase extends TestCase {
+        /** @dataProvider External::provide */
+        public function testSomething(int $_p): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                          |
+      | UndefinedClass | Class NS\External does not exist |
+
   @List
   Scenario: Providers returning list are ok
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string, list<int>> */
+        /** @return iterable<string, non-empty-list<int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
@@ -1281,7 +1256,7 @@ Feature: TestCase
     Given I have the following code
       """
       class MyTestCase extends TestCase {
-        /** @return iterable<string, list<string>> */
+        /** @return iterable<string, non-empty-list<string>> */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
         }
@@ -1292,7 +1267,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                              |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list<string>>) |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, non-empty-list<string>>) |
 
   Scenario: Providers returning nullable generator are ok
     Given I have the following code

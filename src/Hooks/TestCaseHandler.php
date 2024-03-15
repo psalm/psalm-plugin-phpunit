@@ -106,6 +106,8 @@ class TestCaseHandler implements
 
     /**
      * {@inheritDoc}
+     *
+     * @psalm-suppress DeprecatedClass TList will be removed soon
      */
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
