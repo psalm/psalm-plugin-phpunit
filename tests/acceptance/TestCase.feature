@@ -612,7 +612,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants) [Psalm 4]
+  Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
       class MyTestCase extends TestCase
@@ -632,7 +632,6 @@ Feature: TestCase
         }
       }
       """
-    And I have Psalm older than "5.0" (because of "sealed shapes")
     When I run Psalm
     Then I see no errors
 

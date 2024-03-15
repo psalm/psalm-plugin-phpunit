@@ -387,6 +387,7 @@ class TestCaseHandler implements
                     }
                 };
 
+                /** @psalm-suppress DeprecatedClass Will be removed soon */
                 /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray|Type\Atomic\TList $dataset_type */
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 

@@ -10,11 +10,11 @@
         }
     ],
     "require": {
-        "php": "^7.1 || ^8.0",
+        "php": "^7.4 || ^8.0",
         "ext-simplexml": "*",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
         "composer/package-versions-deprecated": "^1.10",
-        "vimeo/psalm": "dev-master || dev-4.x || ^4.7.1 || ^5@beta || ^5.0"
+        "vimeo/psalm": "dev-master || ^5@beta || ^5.0"
     },
     "conflict": {
         "phpunit/phpunit": "<7.5"
