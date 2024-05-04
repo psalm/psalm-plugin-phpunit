@@ -155,6 +155,18 @@ class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
+
+            // New logic to also recognize the #[Test] attribute as a marker for test methods
+            $attributes = $stmt_method->getAttrGroups();
+            foreach ($attributes as $attr_group) {
+                foreach ($attr_group->attrs as $attr) {
+                    if ($attr->name->toString() === 'Test') {
+                        $is_test = true;
+                        break 2;
+                    }
+                }
+            }
+
             if (!$is_test) {
                 continue; // skip non-test methods
             }
