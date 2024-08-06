@@ -167,11 +167,20 @@ Feature: TestCase
         public function testSomething($int) {
           $this->assertEquals(1, $int);
         }
+
+        /**
+         * @psalm-suppress UnusedMethod
+         */
+        #[\PHPUnit\Framework\Attributes\DataProvider('provide')]
+        public function test2(mixed $int): void {
+          $this->assertEquals(1, $int);
+        }
       }
     """
     When I run Psalm
     Then I see these errors
       | Type            | Message                                               |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
       | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
     And I see no other errors
 
@@ -535,11 +544,17 @@ Feature: TestCase
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
+
         /**
          * @return void
          * @test
          */
         public function somethingElse(int $int) {
+          $this->assertEquals(1, $int);
+        }
+
+        #[\PHPUnit\Framework\Attributes\Test]
+        public function anotherOne(int $int): void {
           $this->assertEquals(1, $int);
         }
       }
