@@ -22,6 +22,7 @@ use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
 use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Storage\ClassLikeStorage;
+use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Union;
@@ -88,8 +89,12 @@ class TestCaseHandler implements
         $file_path = $statements_source->getFilePath();
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
-        foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method);
+        foreach ($event->getStorage()->methods as $method_name_lc => $method_storage) {
+            $method_node = $class_node->getMethod($method_name_lc);
+            if ($method_node === null) {
+                continue;
+            }
+            $specials = self::getSpecials($method_storage, $method_node);
             if (!isset($specials['dataProvider'])) {
                 continue;
             }
@@ -152,7 +157,7 @@ class TestCaseHandler implements
                 continue;
             }
 
-            $specials = self::getSpecials($stmt_method);
+            $specials = self::getSpecials($method_storage, $stmt_method);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -519,62 +524,68 @@ class TestCaseHandler implements
             return true;
         }
 
-        foreach ($storage->methods as $method => $_) {
-            $stmt_method = $stmt->getMethod($method);
+        foreach ($storage->methods as $method_name_lc => $method_storage) {
+            $stmt_method = $stmt->getMethod($method_name_lc);
             if (!$stmt_method) {
                 continue;
             }
-            if (self::isBeforeInitializer($stmt_method)) {
+            if (self::isBeforeInitializer($method_storage, $stmt_method)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static function isBeforeInitializer(ClassMethod $method): bool
+    private static function isBeforeInitializer(MethodStorage $method_storage, ClassMethod $method): bool
     {
-        $specials = self::getSpecials($method);
+        $specials = self::getSpecials($method_storage, $method);
         return isset($specials['before']);
     }
 
-    /** @return array<string, array<int,string>> */
-    private static function getSpecials(ClassMethod $method): array
+    /**
+     * @return array<string, list<string>>
+     */
+    private static function getSpecials(MethodStorage $method_storage, ClassMethod $method): array
     {
+        $specials = [];
+
+        foreach ($method_storage->attributes as $attribute_storage) {
+            if ($attribute_storage->fq_class_name === 'PHPUnit\Framework\Attributes\DataProvider') {
+                $first_arg_type = $attribute_storage->args[0]->type;
+                if (!$first_arg_type instanceof Union) {
+                    continue;
+                }
+                $specials['dataProvider'] ??= [];
+                $specials['dataProvider'][] = $first_arg_type->getSingleStringLiteral()->value;
+            } elseif ($attribute_storage->fq_class_name === 'PHPUnit\Framework\Attributes\Before') {
+                $specials['before'] ??= [];
+                $specials['before'][] = '';
+            } elseif ($attribute_storage->fq_class_name === 'PHPUnit\Framework\Attributes\Test') {
+                $specials['test'] ??= [];
+                $specials['test'][] = '';
+            }
+        }
+
         $docblock = $method->getDocComment();
-        if (!$docblock) {
-            return [];
+        if ($docblock === null) {
+            return $specials;
         }
 
         try {
-            $parsed_comment = self::getParsedComment($docblock);
+            $parsed_docblock = DocComment::parsePreservingLength($docblock);
+            $tags = $parsed_docblock->tags;
         } catch (DocblockParseException $e) {
-            return [];
+            $tags = [];
         }
 
-        if (!isset($parsed_comment['specials'])) {
-            return [];
+        foreach ($tags as $name => $lines) {
+            foreach ($lines as $line) {
+                $specials[$name] ??= [];
+                $specials[$name][] = \trim($line);
+            }
         }
 
-        return array_map(
-            function (array $lines) {
-                return array_map('trim', $lines);
-            },
-            $parsed_comment['specials']
-        );
-    }
-
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
-    {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
-
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
+        return $specials;
     }
 
     private static function queueClassLikeForScanning(
