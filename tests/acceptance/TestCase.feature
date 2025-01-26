@@ -17,6 +17,7 @@ Feature: TestCase
         </plugins>
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
@@ -425,7 +426,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                 |
-      | InvalidArgument | Argument 1 of NS\\MyTestCase::testSomething expects int, string provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?string\}\|list\{string\})>\)/ |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list{string}>) |
     And I see no other errors
 
   Scenario: Invalid dataset array is reported
@@ -473,7 +474,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                                 |
-      | TooFewArguments | Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?int\}\|list\{int\})>\)/ |
+      | TooFewArguments |Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, list{int}>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -965,7 +966,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                                 |
-      | TooFewArguments | Too few arguments for NS\\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\\MyTestCase::provide\(\):\(iterable<string, (array\{(0: )?int\}\|list\{int\})>\)/ |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, list{int}>) |
     And I see no other errors
 
   Scenario: Providers generating incompatible datasets for variadic tests are reported
