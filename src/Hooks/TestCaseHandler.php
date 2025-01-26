@@ -106,8 +106,6 @@ class TestCaseHandler implements
 
     /**
      * {@inheritDoc}
-     *
-     * @psalm-suppress DeprecatedClass TList will be removed soon
      */
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
@@ -389,20 +387,12 @@ class TestCaseHandler implements
                     }
                 };
 
-                /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray|Type\Atomic\TList $dataset_type */
+                /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray $dataset_type */
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
-                    foreach ($method_storage->params as $param_offset => $param) {
-                        if (!$param->type) {
-                            continue;
-                        }
-                        $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
-                    }
-                } elseif ($dataset_type instanceof Type\Atomic\TList) {
-                    $potential_argument_type = $dataset_type->type_param;
                     foreach ($method_storage->params as $param_offset => $param) {
                         if (!$param->type) {
                             continue;
@@ -492,9 +482,6 @@ class TestCaseHandler implements
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
                 [$key_types[], $value_types[]] = $codebase->getKeyValueParamsForTraversableObject($type);
-            } elseif ($type instanceof Type\Atomic\TList) {
-                $key_types[] = Type::getInt();
-                $value_types[] = $type->type_param;
             } else {
                 throw new RuntimeException('unexpected type');
             }

@@ -7,7 +7,7 @@ Feature: Assert (PHPUnit 7.5+)
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm>
+      <psalm findUnusedCode="false">
         <projectFiles><directory name="." /></projectFiles>
         <plugins>
           <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
