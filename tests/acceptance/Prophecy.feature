@@ -15,6 +15,9 @@ Feature: Prophecy
         <plugins>
           <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
         </plugins>
+        <issueHandlers>
+            <MissingClassConstType errorLevel="suppress" />
+        </issueHandlers>
       </psalm>
       """
     And I have the following code preamble
