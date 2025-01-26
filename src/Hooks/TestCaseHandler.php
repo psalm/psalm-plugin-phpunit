@@ -199,6 +199,7 @@ class TestCaseHandler implements
                 }
 
                 $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
+                assert($apparent_provider_method_name !== null);
 
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 

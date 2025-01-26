@@ -7,7 +7,7 @@ Feature: TestCase
     Given I have the following config
       """
       <?xml version="1.0"?>
-      <psalm errorLevel="1" %s>
+      <psalm errorLevel="1" findUnusedCode="false" %s>
         <projectFiles>
           <directory name="."/>
           <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
