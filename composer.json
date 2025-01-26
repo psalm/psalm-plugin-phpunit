@@ -3,6 +3,7 @@
     "description": "Psalm plugin for PHPUnit",
     "type": "psalm-plugin",
     "license": "MIT",
+    "minimum-stability": "dev",
     "authors": [
         {
             "name": "Matt Brown",
