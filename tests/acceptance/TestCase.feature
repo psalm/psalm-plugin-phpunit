@@ -20,8 +20,8 @@ Feature: TestCase
               <errorLevel type="suppress">
                   <referencedMethod name="PhpUnit\Framework\TestCase::prophesize"/>
               </errorLevel>
-              <MissingClassConstType errorLevel="suppress" />
           </DeprecatedMethod>
+          <MissingClassConstType errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
