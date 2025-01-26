@@ -47,7 +47,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                |
-      | InvalidArgument | /Argument 1 of NS\\MyTestCase::expectException expects class-string<Throwable>, (but )?NS\\MyTestCase::class provided/ |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::expectException expects class-string<Throwable>, but NS\MyTestCase::class provided |
     And I see no other errors
 
   Scenario: TestCase::expectException() accepts throwables
@@ -151,7 +151,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type               | Message                                                                                                        |
-      | MissingConstructor | /NS\\MyTestCase has an uninitialized (variable\|property) (\$this->\|NS\\MyTestCase::\$)i, but no constructor/ |
+      | MissingConstructor | NS\MyTestCase has an uninitialized property NS\MyTestCase::$i, but no constructor |
     And I see no other errors
 
   Scenario: Missing data provider is reported

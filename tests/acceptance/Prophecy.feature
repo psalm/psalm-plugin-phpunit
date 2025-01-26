@@ -94,7 +94,7 @@ Feature: Prophecy
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                             |
-      | InvalidArgument | /Argument 1 of Prophecy\\Argument::that expects callable\(mixed...\):bool, (but )?(pure-)?Closure\(\):(string\(hello\)\|"hello"\|'hello') provided/ |
+      | InvalidArgument | Argument 1 of Prophecy\Argument::that expects callable(mixed...):bool, but pure-Closure():'hello' provided |
     And I see no other errors
 
 
