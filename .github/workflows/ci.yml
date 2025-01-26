@@ -1,6 +1,8 @@
 name: CI
 on: 
     push:
+      branches:
+        - master
     pull_request:
     schedule:
         - cron: '0 4 * * 6' # Every Saturday on 4am
@@ -16,7 +18,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '7.4'
+                  php-version: '8.1'
                   tools: composer:v2
                   coverage: none
               env:
@@ -56,7 +58,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '7.4'
+                  php-version: '8.1'
                   tools: composer:v2, cs2pr
                   coverage: none
               env:
@@ -92,7 +94,7 @@ jobs:
         continue-on-error: ${{matrix.php == '8.0'}}
         strategy:
             matrix:
-                php: ['7.4', '8.0', '8.1']
+                php: ['8.1', '8.2', '8.3', '8.4']
                 deps: ['high', 'low', 'stable']
             fail-fast: false
         steps:

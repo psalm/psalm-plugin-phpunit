@@ -10,7 +10,7 @@ use Psalm\Plugin\RegistrationInterface;
 class Plugin implements PluginEntryPointInterface
 {
     /** @return void */
-    public function __invoke(RegistrationInterface $psalm, SimpleXMLElement $config = null): void
+    public function __invoke(RegistrationInterface $psalm, ?SimpleXMLElement $config = null): void
     {
         if (VersionUtils::packageVersionIs('phpunit/phpunit', '<', '8.0')) {
             $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
