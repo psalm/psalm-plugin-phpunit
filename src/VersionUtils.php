@@ -2,9 +2,9 @@
 
 namespace Psalm\PhpUnitPlugin;
 
+use Composer\InstalledVersions;
 use Composer\Semver\Comparator;
 use Composer\Semver\VersionParser;
-use PackageVersions\Versions;
 
 abstract class VersionUtils
 {
@@ -13,13 +13,8 @@ abstract class VersionUtils
     {
         try {
             /**
-             * @psalm-suppress RedundantCondition
-             * @psalm-suppress DeprecatedClass
-             * @psalm-suppress ArgumentTypeCoercion
-             * @psalm-suppress RedundantCast
-             * @psalm-suppress RedundantCondition
              */
-            $currentVersion = (string) explode('@', Versions::getVersion($package))[0];
+            $currentVersion = (string) InstalledVersions::getPrettyVersion($package);
         } catch (\OutOfBoundsException $exception) {
             return false;
         }

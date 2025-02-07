@@ -14,7 +14,6 @@ use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
-use Psalm\PhpUnitPlugin\VersionUtils;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -574,7 +573,6 @@ class TestCaseHandler implements
             $codebase->queueClassLikeForScanning($fq_class_name);
         } else {
             /**
-             * @psalm-suppress InvalidScalarArgument
              * @psalm-suppress InvalidArgument
              */
             $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);

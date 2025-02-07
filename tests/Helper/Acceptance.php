@@ -4,9 +4,9 @@ namespace Psalm\PhpUnitPlugin\Tests\Helper;
 
 use Codeception\Exception\Skip;
 use Codeception\Exception\TestRuntimeException;
+use Composer\InstalledVersions;
 use Composer\Semver\Comparator;
 use Composer\Semver\VersionParser;
-use PackageVersions\Versions;
 
 // here you can define custom actions
 // all public methods declared in helper class will be available in $I
@@ -32,7 +32,7 @@ class Acceptance extends \Codeception\Module
 
         $op = (string) self::VERSION_OPERATORS[$operator];
 
-        $currentVersion = (string) explode('@', Versions::getVersion('phpunit/phpunit'))[0];
+        $currentVersion = (string) InstalledVersions::getPrettyVersion('phpunit/phpunit');
         $this->debug(sprintf("Current version: %s", $currentVersion));
 
         $parser = new VersionParser();

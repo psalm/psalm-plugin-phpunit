@@ -13,9 +13,9 @@
     "require": {
         "php": ">=8.1",
         "ext-simplexml": "*",
+        "composer-runtime-api": "^2.0",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
-        "composer/package-versions-deprecated": "^1.10",
-        "vimeo/psalm": "dev-master || ^6 || ^7"
+        "vimeo/psalm": "dev-master || ^6"
     },
     "conflict": {
         "phpunit/phpunit": "<7.5"
