@@ -4,6 +4,26 @@ namespace PHPUnit\Framework;
 abstract class Assert
 {
     /**
+     * Asserts that an array has a specified key.
+     *
+     * @param int|string $key
+     * @param mixed $array
+     * @psalm-assert array{} $array
+     * @return void
+     */
+    public static function assertArrayHasKey($key, $array, string $message = '') {}
+
+    /**
+     * Asserts that an array does not have a specified key.
+     *
+     * @param int|string $key
+     * @param mixed $array
+     * @psalm-assert array $array
+     * @return void
+     */
+    public static function assertArrayNotHasKey($key, $array, string $message = '') {}
+
+    /**
      * @param mixed $actual
      * @psalm-assert array $actual
      * @return void
