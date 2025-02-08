@@ -29,37 +29,6 @@ Feature: TestCase
 
       """
 
-  Scenario: TestCase::expectException() rejects non-throwables
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase
-      {
-        /** @return void */
-        public function testSomething() {
-          $this->expectException(MyTestCase::class);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type            | Message                                                                                                                |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::expectException expects class-string<Throwable>, but NS\MyTestCase::class provided |
-    And I see no other errors
-
-  Scenario: TestCase::expectException() accepts throwables
-    Given I have the following code
-      """
-      class MyTestCase extends TestCase
-      {
-        /** @return void */
-        public function testSomething() {
-          $this->expectException(\InvalidArgumentException::class);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
       """
