@@ -18,7 +18,8 @@
         "vimeo/psalm": "dev-master || ^6"
     },
     "conflict": {
-        "phpunit/phpunit": "<8.5.1"
+        "phpunit/phpunit": "<8.5.1",
+        "phpspec/prophecy": "<1.20.0"
     },
     "require-dev": {
         "php": "^7.3 || ^8.0",
