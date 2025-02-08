@@ -135,8 +135,20 @@ jobs:
               env:
                   COMPOSER_ROOT_VERSION: dev-master
 
+            - name: Install composer tool dependencies (high deps)
+              run: cd tools/codeception && composer update --prefer-dist --no-interaction
+              if: ${{matrix.deps == 'high'}}
+              env:
+                  COMPOSER_ROOT_VERSION: dev-master
+
             - name: Install composer dependencies (low deps)
               run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
+              if: ${{matrix.deps == 'low'}}
+              env:
+                  COMPOSER_ROOT_VERSION: dev-master
+
+            - name: Install composer tool dependencies (low deps)
+              run: cd tools/codeception && composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
               if: ${{matrix.deps == 'low'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -147,8 +159,14 @@ jobs:
               env:
                   COMPOSER_ROOT_VERSION: dev-master
 
+            - name: Install composer tool dependencies (stable deps)
+              run: cd tools/codeception && composer update --prefer-dist --no-interaction --prefer-stable
+              if: ${{matrix.deps == 'stable'}}
+              env:
+                  COMPOSER_ROOT_VERSION: dev-master
+
             - name: Show Psalm version
               run: vendor/bin/psalm --version
 
             - name: Run tests
-              run: vendor/bin/codecept run -v
+              run: tools/codeception/vendor/bin/codecept run -v
