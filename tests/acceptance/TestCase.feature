@@ -65,14 +65,43 @@ Feature: TestCase
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
 
-        /**
-         * @before
-         * @return void
-         */
-        public function myInit() {
+        /** @before */
+        public function myInit(): void {
           $this->i = $this->createStub(I::class);
         }
 
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      interface I { public function work(): int; }
+
+      class BaseTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        protected $i;
+
+        #[Attributes\Before]
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      class MyTestCase extends Intermediate
+      {
         /** @return void */
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
@@ -168,11 +197,32 @@ Feature: TestCase
         public function provide() {
           yield [1];
         }
+
         /**
-         * @return void
          * @dataProvider provide
          */
-        public function testSomething(int $int) {
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Valid iterable #[DataProvider] is allowed
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      class MyTestCase extends TestCase
+      {
+        /** @return iterable<int,array<int,int>> */
+        public function provide() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
       }
@@ -487,19 +537,23 @@ Feature: TestCase
   Scenario: Test method are never marked as unused
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       class MyTestCase extends TestCase
       {
-        /**
-         * @return void
-         */
-        public function testSomething(int $int) {
+        public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
+
         /**
-         * @return void
          * @test
          */
-        public function somethingElse(int $int) {
+        public function somethingElse(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+
+        #[Attributes\Test]
+        public function somethingElseWithAttribute(int $int): void {
           $this->assertEquals(1, $int);
         }
       }
@@ -732,11 +786,8 @@ Feature: TestCase
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         protected $i;
 
-        /**
-         * @before
-         * @return void
-         */
-        public function myInit() {
+        /** @before */
+        public function myInit(): void {
           $this->i = $this->createStub(I::class);
         }
       }
@@ -745,8 +796,38 @@ Feature: TestCase
 
       class MyTestCase extends Intermediate
       {
-        /** @return void */
-        public function testSomething() {
+        public function testSomething(): void {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      interface I { public function work(): int; }
+
+      class BaseTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        protected $i;
+
+        #[Attributes\Before]
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      class MyTestCase extends Intermediate
+      {
+        public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
 
           $this->assertEquals(1, $this->i->work());
