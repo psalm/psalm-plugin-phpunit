@@ -13,8 +13,6 @@
     "require": {
         "php": ">=8.1",
         "ext-simplexml": "*",
-        "composer-runtime-api": "^2.0",
-        "composer/semver": "^1.4 || ^2.0 || ^3.0",
         "vimeo/psalm": "dev-master || ^6"
     },
     "conflict": {
