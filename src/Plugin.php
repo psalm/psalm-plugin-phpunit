@@ -13,7 +13,6 @@ class Plugin implements PluginEntryPointInterface
     public function __invoke(RegistrationInterface $psalm, ?SimpleXMLElement $config = null): void
     {
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
-        $psalm->addStubFile(__DIR__ . '/../stubs/Prophecy.phpstub');
 
         class_exists(Hooks\TestCaseHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);

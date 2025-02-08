@@ -32,25 +32,23 @@ Feature: TestCase
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       interface I { public function work(): int; }
 
       class MyTestCase extends TestCase
       {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
 
         /** @return void */
         public function setUp(): void {
-          $this->i = $this->prophesize(I::class);
+          $this->i = $this->createStub(I::class);
         }
 
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
@@ -60,13 +58,11 @@ Feature: TestCase
   Scenario: Stateful test case with @before produces no MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       interface I { public function work(): int; }
 
       class MyTestCase extends TestCase
       {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
 
         /**
@@ -74,14 +70,14 @@ Feature: TestCase
          * @return void
          */
         public function myInit() {
-          $this->i = $this->prophesize(I::class);
+          $this->i = $this->createStub(I::class);
         }
 
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
@@ -91,25 +87,23 @@ Feature: TestCase
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       interface I { public function work(): int; }
 
       class MyTestCase extends TestCase
       {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
 
         /** @return void */
-        public function myInit() {
-          $this->i = $this->prophesize(I::class);
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
         }
 
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
@@ -674,27 +668,25 @@ Feature: TestCase
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       class BaseTestCase extends TestCase {}
 
       interface I { public function work(): int; }
 
       class MyTestCase extends BaseTestCase
       {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
 
         /** @return void */
         public function setUp(): void {
-          $this->i = $this->prophesize(I::class);
+          $this->i = $this->createStub(I::class);
         }
 
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
@@ -704,17 +696,15 @@ Feature: TestCase
   Scenario: Descendant of a test that has setUp produces no MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       interface I { public function work(): int; }
 
       class BaseTestCase extends TestCase {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         protected $i;
 
         /** @return void */
         public function setUp(): void {
-          $this->i = $this->prophesize(I::class);
+          $this->i = $this->createStub(I::class);
         }
       }
 
@@ -724,9 +714,9 @@ Feature: TestCase
       {
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
@@ -736,12 +726,10 @@ Feature: TestCase
   Scenario: Descendant of a test that has @before produces no MissingConstructor
     Given I have the following code
       """
-      use Prophecy\Prophecy\ObjectProphecy;
-
       interface I { public function work(): int; }
 
       class BaseTestCase extends TestCase {
-        /** @var ObjectProphecy<I> */
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
         protected $i;
 
         /**
@@ -749,7 +737,7 @@ Feature: TestCase
          * @return void
          */
         public function myInit() {
-          $this->i = $this->prophesize(I::class);
+          $this->i = $this->createStub(I::class);
         }
       }
 
@@ -759,9 +747,9 @@ Feature: TestCase
       {
         /** @return void */
         public function testSomething() {
-          $this->i->work()->willReturn(1);;
-          $i = $this->i->reveal();
-          $this->assertEquals(1, $i->work());
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertEquals(1, $this->i->work());
         }
       }
       """
