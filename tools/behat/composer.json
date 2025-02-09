@@ -1,0 +1,23 @@
+{
+  "description": "Psalm plugin for PHPUnit - tools/behat locked dependencies - used to run tests only!",
+  "autoload": {
+    "psr-4": {
+      "PsalmTest\\PhpUnitPlugin\\": "src"
+    }
+  },
+  "require": {
+    "php": "~8.1.0 || ~8.2.0 || ~8.3.0 || ~8.4.0",
+    "azjezz/psl": "^2.9.1 || ^3.2.0",
+    "behat/behat": "^3.18.1",
+    "php-standard-library/psalm-plugin": "^2.3",
+    "vimeo/psalm": "^6"
+  },
+  "scripts": {
+    "test": "codecept run -v"
+  },
+  "config": {
+    "platform": {
+      "php": "8.1.99"
+    }
+  }
+}

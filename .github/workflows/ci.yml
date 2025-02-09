@@ -88,6 +88,30 @@ jobs:
             - name: Run PHPCodeSniffer
               run: vendor/bin/phpcs --report=checkstyle -q --parallel=1 | cs2pr
 
+    test-static-analysis:
+        name: Run static analysis on the tests themselves
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: 8.2
+                  tools: composer:v2
+                  coverage: none
+                  extensions: intl, mbstring, bcmath, sodium
+              env:
+                  fail-fast: true
+
+            - name: Install composer dependencies (high deps)
+              run: cd tools/behat && composer install
+
+            - name: Static analysis
+              run: cd tools/behat && vendor/bin/psalm
+
     tests:
         name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
         runs-on: ubuntu-20.04
@@ -136,7 +160,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer tool dependencies (high deps)
-              run: cd tools/codeception && composer update --prefer-dist --no-interaction
+              run: cd tools/behat && composer update --prefer-dist --no-interaction
               if: ${{matrix.deps == 'high'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -148,7 +172,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer tool dependencies (low deps)
-              run: cd tools/codeception && composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
+              run: cd tools/behat && composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
               if: ${{matrix.deps == 'low'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -160,7 +184,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer tool dependencies (stable deps)
-              run: cd tools/codeception && composer update --prefer-dist --no-interaction --prefer-stable
+              run: cd tools/behat && composer update --prefer-dist --no-interaction --prefer-stable
               if: ${{matrix.deps == 'stable'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -169,4 +193,4 @@ jobs:
               run: vendor/bin/psalm --version
 
             - name: Run tests
-              run: tools/codeception/vendor/bin/codecept run -v
+              run: cd tools/behat && vendor/bin/behat run -vvv

@@ -646,7 +646,6 @@ Feature: TestCase
         }
       }
       """
-    And I have Psalm newer than "4.99" (because of "sealed shapes")
     When I run Psalm
     Then I see no errors
 
@@ -1055,7 +1054,8 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message         |
-      | InvalidDocblock | %@psalm-ignore% |
+      | InvalidDocblock | Unrecognised annotation @psalm-ignore |
+      | InvalidDocblock | Unrecognised annotation @psalm-ignore in docblock for NS\\MyTestCase |
 
   Scenario: Invalid psalm annotation on an before initializer does not crash psalm
     Given I have the following code
@@ -1072,7 +1072,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message              |
-      | InvalidDocblock | %@psalm-rm-Rf-slash% |
+      | InvalidDocblock | Unrecognised annotation @psalm-rm-Rf-slash |
 
   Scenario: Invalid psalm annotation on a test does not crash psalm
     Given I have the following code
@@ -1089,7 +1089,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                    |
-      | InvalidDocblock | %@psalm-force-push-master% |
+      | InvalidDocblock | Unrecognised annotation @psalm-force-push-master |
 
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code
@@ -1249,10 +1249,43 @@ Feature: TestCase
         }
       }
       """
-    And I have the following classmap
-      | Class         | File     |
-      | NS\MyTestCase | test.php |
-      | NS\External   | ext.php  |
+    And I have the following code in "autoload.php"
+      """
+      <?php
+      spl_autoload_register(function(string $class) {
+          /** @var ?array<string,string> $classes */
+          static $classes = null;
+
+          if (null === $classes) {
+              $classes = [
+                  'NS\\MyTestCase' => 'test.php',
+                  'NS\\External'   => 'ext.php',
+              ];
+          }
+
+          if (array_key_exists($class, $classes)) {
+              /** @psalm-suppress UnresolvableInclude */
+              include $classes[$class];
+          }
+      });
+      """
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
     When I run Psalm on "test.php"
     Then I see no errors
 
