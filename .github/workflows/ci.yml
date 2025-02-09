@@ -193,4 +193,4 @@ jobs:
               run: vendor/bin/psalm --version
 
             - name: Run tests
-              run: cd tools/behat && vendor/bin/behat run -vvv
+              run: cd tools/behat && vendor/bin/behat -vvv
