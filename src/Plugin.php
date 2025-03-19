@@ -16,8 +16,12 @@ class Plugin implements PluginEntryPointInterface
             $psalm->addStubFile(__DIR__ . '/../stubs/Assert_75.phpstub');
         }
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
-        $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder.phpstub');
-        $psalm->addStubFile(__DIR__ . '/../stubs/InvocationMocker.phpstub');
+        if (VersionUtils::packageVersionIs('phpunit/phpunit', '<', '12.0.9')) {
+            $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder.phpstub');
+            $psalm->addStubFile(__DIR__ . '/../stubs/InvocationMocker.phpstub');
+        } else {
+            $psalm->addStubFile(__DIR__ . '/../stubs/MockBuilder_120.phpstub');
+        }
         $psalm->addStubFile(__DIR__ . '/../stubs/Prophecy.phpstub');
 
         class_exists(Hooks\TestCaseHandler::class, true);
