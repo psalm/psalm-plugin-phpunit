@@ -15,7 +15,7 @@
         "ext-simplexml": "*",
         "composer/semver": "^1.4 || ^2.0 || ^3.0",
         "composer/package-versions-deprecated": "^1.10",
-        "vimeo/psalm": "dev-master || ^6"
+        "vimeo/psalm": "dev-master || ^6 || ^7"
     },
     "conflict": {
         "phpunit/phpunit": "<7.5"
