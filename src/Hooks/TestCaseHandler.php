@@ -556,32 +556,30 @@ class TestCaseHandler implements
      */
     private static function attributeValue(ClassMethod $method, Aliases $aliases, string $attributeClass): array|null
     {
-        return array_values(array_merge(
-            ...array_map(
-                static fn(AttributeGroup $group): array => array_map(
-                    static function (Attribute $attribute): array|null {
-                    // For our purposes, we only care about string literals: everything else is currently out of scope.
-                    // If you need more complex expressions supported, add a constant expression evaluator here.
-                    return array_map(
-                        static fn(String_ $string): string => $string->value,
-                        array_filter(
-                            array_column($attribute->args, 'value'),
-                            static fn(Expr $expression): bool => $expression instanceof String_,
-                        )
-                    );
-                    },
-                    array_filter(
-                        $group->attrs,
-                        static fn(Attribute $attribute): bool
-                        => $attributeClass === Type::getFQCLNFromString(
-                            $attribute->name->toString(),
-                            $aliases,
-                        ),
-                    ),
-                ),
-                array_values($method->getAttrGroups()),
+        $onlyStringLiteralExpressions = static fn (Attribute $attribute): array => array_map(
+            static fn(String_ $string): string => $string->value,
+            array_filter(
+                array_column($attribute->args, 'value'),
+                // For our purposes, we only care about string literals: everything else is currently out of scope.
+                // If you need more complex expressions supported, add a constant expression evaluator here.
+                static fn(Expr $expression): bool => $expression instanceof String_,
             ),
-        ))[0] ?? null;
+        );
+        $attributesInGroupMatchingRequestedAttributeName = static fn(AttributeGroup $group): array => array_filter(
+            $group->attrs,
+            static fn(Attribute $attribute): bool => $attributeClass === Type::getFQCLNFromString(
+                $attribute->name->toString(),
+                $aliases,
+            ),
+        );
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($attributesInGroupMatchingRequestedAttributeName($group) as $attribute) {
+                return $onlyStringLiteralExpressions($attribute);
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, array<int,string>> */
