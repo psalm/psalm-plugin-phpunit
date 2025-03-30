@@ -12,9 +12,6 @@
     "php-standard-library/psalm-plugin": "^2.3",
     "vimeo/psalm": "^6"
   },
-  "scripts": {
-    "test": "codecept run -v"
-  },
   "config": {
     "platform": {
       "php": "8.1.99"

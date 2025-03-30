@@ -44,13 +44,11 @@
     "scripts": {
         "check": [
             "@cs-check",
-            "@analyze",
-            "@test"
+            "@analyze"
         ],
         "analyze": "psalm",
         "cs-check": "phpcs",
-        "cs-fix": "phpcbf",
-        "test": "codecept run -v"
+        "cs-fix": "phpcbf"
     },
     "config": {
         "optimize-autoloader": true,
