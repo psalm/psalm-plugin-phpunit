@@ -6,15 +6,22 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Error;
 use PhpParser\Comment\Doc;
+use PhpParser\Node\Attribute;
+use PhpParser\Node\AttributeGroup;
+use PhpParser\Node\Expr;
+use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use PHPUnit\Framework\Attributes\Before;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
-use Psalm\PhpUnitPlugin\VersionUtils;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -26,6 +33,12 @@ use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Union;
 use RuntimeException;
+
+use function array_column;
+use function array_filter;
+use function array_map;
+use function array_merge;
+use function array_values;
 
 class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -76,20 +89,21 @@ class TestCaseHandler implements
      */
     public static function afterClassLikeVisit(AfterClassLikeVisitEvent $event)
     {
-        $class_node = $event->getStmt();
-        $class_storage = $event->getStorage();
+        $class_node        = $event->getStmt();
+        $class_storage     = $event->getStorage();
         $statements_source = $event->getStatementsSource();
-        $codebase = $event->getCodebase();
+        $codebase          = $event->getCodebase();
+        $aliases           = $statements_source->getAliases();
 
-        if (self::hasInitializers($class_storage, $class_node)) {
+        if (self::hasInitializers($class_storage, $class_node, $aliases)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
 
-        $file_path = $statements_source->getFilePath();
+        $file_path    = $statements_source->getFilePath();
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method);
+            $specials = self::getSpecials($method, $aliases);
             if (!isset($specials['dataProvider'])) {
                 continue;
             }
@@ -109,10 +123,11 @@ class TestCaseHandler implements
      */
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
-        $class_node = $event->getStmt();
-        $class_storage = $event->getClasslikeStorage();
-        $codebase = $event->getCodebase();
+        $class_node        = $event->getStmt();
+        $class_storage     = $event->getClasslikeStorage();
+        $codebase          = $event->getCodebase();
         $statements_source = $event->getStatementsSource();
+        $aliases           = $statements_source->getAliases();
 
         if (!$codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase')) {
             return null;
@@ -130,9 +145,9 @@ class TestCaseHandler implements
         }
 
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
-            $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
+            $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            [$declaring_method_class, $declaring_method_name] = explode('::', (string) $declaring_method_id);
+            [$declaring_method_class, $declaring_method_name] = explode('::', (string)$declaring_method_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
 
             $declaring_class_node = $class_node;
@@ -150,7 +165,7 @@ class TestCaseHandler implements
                 continue;
             }
 
-            $specials = self::getSpecials($stmt_method);
+            $specials = self::getSpecials($stmt_method, $aliases);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -158,7 +173,7 @@ class TestCaseHandler implements
             }
 
             $codebase->methodExists(
-                (string) $declaring_method_id,
+                (string)$declaring_method_id,
                 null,
                 'PHPUnit\Framework\TestSuite::run'
             );
@@ -476,10 +491,10 @@ class TestCaseHandler implements
             }
 
             if ($type instanceof Type\Atomic\TArray) {
-                $key_types[] = $type->type_params[0] ?? Type::getMixed();
+                $key_types[]   = $type->type_params[0] ?? Type::getMixed();
                 $value_types[] = $type->type_params[1] ?? Type::getMixed();
             } elseif ($type instanceof Type\Atomic\TKeyedArray) {
-                $key_types[] = $type->getGenericKeyType();
+                $key_types[]   = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
                 [$key_types[], $value_types[]] = $codebase->getKeyValueParamsForTraversableObject($type);
@@ -501,7 +516,7 @@ class TestCaseHandler implements
     }
 
 
-    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt): bool
+    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
     {
         if (isset($storage->methods['setup'])) {
             return true;
@@ -512,21 +527,73 @@ class TestCaseHandler implements
             if (!$stmt_method) {
                 continue;
             }
-            if (self::isBeforeInitializer($stmt_method)) {
+            if (self::isBeforeInitializer($stmt_method, $aliases)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static function isBeforeInitializer(ClassMethod $method): bool
+    private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
     {
-        $specials = self::getSpecials($method);
-        return isset($specials['before']);
+        return isset(self::getSpecials($method, $aliases)['before']);
     }
 
     /** @return array<string, array<int,string>> */
-    private static function getSpecials(ClassMethod $method): array
+    private static function getSpecials(ClassMethod $method, Aliases $aliases): array
+    {
+        return array_merge(
+            self::getDocblockSpecials($method),
+            // Attributes take priority over docblocks
+            self::getAttributeSpecials($method, $aliases),
+        );
+    }
+
+    /**
+     * @template T of object
+     * @param class-string<T> $attributeClass
+     * @return array<int, string>|null
+     */
+    private static function attributeValue(ClassMethod $method, Aliases $aliases, string $attributeClass): array|null
+    {
+        $onlyStringLiteralExpressions = static fn (Attribute $attribute): array => array_map(
+            static fn(String_ $string): string => $string->value,
+            array_filter(
+                array_column($attribute->args, 'value'),
+                // For our purposes, we only care about string literals: everything else is currently out of scope.
+                // If you need more complex expressions supported, add a constant expression evaluator here.
+                static fn(Expr $expression): bool => $expression instanceof String_,
+            ),
+        );
+        $attributesInGroupMatchingRequestedAttributeName = static fn(AttributeGroup $group): array => array_filter(
+            $group->attrs,
+            static fn(Attribute $attribute): bool => $attributeClass === Type::getFQCLNFromString(
+                $attribute->name->toString(),
+                $aliases,
+            ),
+        );
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($attributesInGroupMatchingRequestedAttributeName($group) as $attribute) {
+                return $onlyStringLiteralExpressions($attribute);
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array<string, array<int,string>> */
+    private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
+    {
+        return array_filter([
+            'before'       => self::attributeValue($method, $aliases, Before::class),
+            'test'         => self::attributeValue($method, $aliases, Test::class),
+            'dataProvider' => self::attributeValue($method, $aliases, DataProvider::class),
+        ], static fn(array|null $special): bool => $special !== null);
+    }
+
+    /** @return array<string, array<int,string>> */
+    private static function getDocblockSpecials(ClassMethod $method): array
     {
         $docblock = $method->getDocComment();
         if (!$docblock) {
@@ -574,7 +641,6 @@ class TestCaseHandler implements
             $codebase->queueClassLikeForScanning($fq_class_name);
         } else {
             /**
-             * @psalm-suppress InvalidScalarArgument
              * @psalm-suppress InvalidArgument
              */
             $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
