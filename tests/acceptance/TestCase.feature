@@ -40,6 +40,7 @@ Feature: TestCase
         private $i;
 
         /** @return void */
+        #[\Override]
         public function setUp(): void {
           $this->i = $this->createStub(I::class);
         }
@@ -731,6 +732,7 @@ Feature: TestCase
         private $i;
 
         /** @return void */
+        #[\Override]
         public function setUp(): void {
           $this->i = $this->createStub(I::class);
         }
@@ -756,6 +758,7 @@ Feature: TestCase
         protected $i;
 
         /** @return void */
+        #[\Override]
         public function setUp(): void {
           $this->i = $this->createStub(I::class);
         }
