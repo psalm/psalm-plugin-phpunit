@@ -566,14 +566,19 @@ final class TestCaseHandler implements
                 $aliases,
             ),
         );
+        $matchingAttributes = array_merge(...array_map(
+            $attributesInGroupMatchingRequestedAttributeName,
+            $method->getAttrGroups(),
+        ));
 
-        foreach ($method->getAttrGroups() as $group) {
-            foreach ($attributesInGroupMatchingRequestedAttributeName($group) as $attribute) {
-                return $onlyStringLiteralExpressions($attribute);
-            }
+        if ($matchingAttributes === []) {
+            return null;
         }
 
-        return null;
+        return array_merge(...array_map(
+            $onlyStringLiteralExpressions,
+            $matchingAttributes,
+        ));
     }
 
     /** @return array<string, array<int,string>> */

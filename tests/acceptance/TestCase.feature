@@ -231,6 +231,62 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: Multiple valid iterable @dataProvider are allowed, and all are used
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase
+      {
+        /** @return iterable<int,array<int,int>> */
+        public function provider1() {
+          yield [1];
+        }
+
+        /** @return iterable<int,array<int,int>> */
+        public function provider2() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provider1
+         * @dataProvider provider2
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Multiple valid iterable #[DataProvider]s are allowed, and all are used
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase
+      {
+        /** @return iterable<int,array<int,int>> */
+        public function provider1() {
+          yield [1];
+        }
+
+        /** @return iterable<int,array<int,int>> */
+        public function provider2() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provider1')]
+        #[Attributes\DataProvider('provider2')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
   Scenario: Invalid generator data provider is reported
     Given I have the following code
       """
