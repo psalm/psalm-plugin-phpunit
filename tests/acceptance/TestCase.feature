@@ -34,7 +34,7 @@ Feature: TestCase
       """
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
@@ -60,7 +60,7 @@ Feature: TestCase
       """
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
@@ -100,7 +100,7 @@ Feature: TestCase
 
       class Intermediate extends BaseTestCase {}
 
-      class MyTestCase extends Intermediate
+      final class MyTestCase extends Intermediate
       {
         /** @return void */
         public function testSomething() {
@@ -118,7 +118,7 @@ Feature: TestCase
       """
       interface I { public function work(): int; }
 
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
@@ -145,7 +145,7 @@ Feature: TestCase
   Scenario: Missing data provider is reported
     Given I have the following code
     """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /**
          * @param mixed $int
@@ -167,7 +167,7 @@ Feature: TestCase
   Scenario: Invalid iterable data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<int,int> */
         public function provide() {
@@ -191,7 +191,7 @@ Feature: TestCase
   Scenario: Valid iterable data provider is allowed
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<int,array<int,int>> */
         public function provide() {
@@ -214,7 +214,7 @@ Feature: TestCase
       """
       use PHPUnit\Framework\Attributes;
 
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<int,array<int,int>> */
         public function provide() {
@@ -233,7 +233,7 @@ Feature: TestCase
   Scenario: Invalid generator data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return \Generator<int,int,mixed,void> */
         public function provide() {
@@ -257,7 +257,7 @@ Feature: TestCase
   Scenario: Valid generator data provider is allowed
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return \Generator<int,array<int,int>,mixed,void> */
         public function provide() {
@@ -278,7 +278,7 @@ Feature: TestCase
   Scenario: Invalid array data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return array<int,int> */
         public function provide() {
@@ -302,7 +302,7 @@ Feature: TestCase
   Scenario: Underspecified array data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return array */
         public function provide() {
@@ -326,7 +326,7 @@ Feature: TestCase
   Scenario: Underspecified iterable data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable */
         public function provide() {
@@ -350,7 +350,7 @@ Feature: TestCase
   Scenario: Underspecified generator data provider is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return \Generator */
         public function provide() {
@@ -374,7 +374,7 @@ Feature: TestCase
   Scenario: Valid array data provider is allowed
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return array<string, array<int,int>> */
         public function provide() {
@@ -397,7 +397,7 @@ Feature: TestCase
   Scenario: Valid object data provider is allowed
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return \ArrayObject<string,array<int,int>> */
         public function provide() {
@@ -421,7 +421,7 @@ Feature: TestCase
   Scenario: Invalid dataset shape is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{string}> */
         public function provide() {
@@ -445,7 +445,7 @@ Feature: TestCase
   Scenario: Invalid dataset array is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array<int, string|int>> */
         public function provide() {
@@ -469,7 +469,7 @@ Feature: TestCase
   Scenario: Shape dataset with missing params is reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{int}> */
         public function provide() {
@@ -493,7 +493,7 @@ Feature: TestCase
   Scenario: Referenced providers are not marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{int}> */
         public function provide() {
@@ -514,7 +514,7 @@ Feature: TestCase
   Scenario: Unreferenced providers are marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{int}> */
         public function provide() {
@@ -539,7 +539,7 @@ Feature: TestCase
       """
       use PHPUnit\Framework\Attributes;
 
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
@@ -564,7 +564,7 @@ Feature: TestCase
   Scenario: Unreferenced non-test methods are marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /**
          * @return void
@@ -583,7 +583,7 @@ Feature: TestCase
   Scenario: Unreferenced TestCase descendants are never marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
       }
       """
@@ -606,7 +606,7 @@ Feature: TestCase
   Scenario: Provider returning optional offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @var string */
         const S = "s";
@@ -629,7 +629,7 @@ Feature: TestCase
   Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @var string */
         const S = "s";
@@ -652,7 +652,7 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset is fine when test method has default for that param
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
         public function provide() {
@@ -673,7 +673,7 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset with mismatching type is reported even when test method has default for that param
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:string}> */
         public function provide() {
@@ -697,7 +697,7 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset is marked when test method has no default for that param
     Given I have the following code
       """
-      class MyTestCase extends TestCase
+      final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
         public function provide() {
@@ -725,7 +725,7 @@ Feature: TestCase
 
       interface I { public function work(): int; }
 
-      class MyTestCase extends BaseTestCase
+      final class MyTestCase extends BaseTestCase
       {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
         private $i;
@@ -763,7 +763,7 @@ Feature: TestCase
 
       class Intermediate extends BaseTestCase {}
 
-      class MyTestCase extends Intermediate
+      final class MyTestCase extends Intermediate
       {
         /** @return void */
         public function testSomething() {
@@ -793,7 +793,7 @@ Feature: TestCase
 
       class Intermediate extends BaseTestCase {}
 
-      class MyTestCase extends Intermediate
+      final class MyTestCase extends Intermediate
       {
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
@@ -824,7 +824,7 @@ Feature: TestCase
 
       class Intermediate extends BaseTestCase {}
 
-      class MyTestCase extends Intermediate
+      final class MyTestCase extends Intermediate
       {
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
@@ -843,7 +843,7 @@ Feature: TestCase
         /** @return void */
         public function testSomething() {}
       }
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         use MyTestTrait;
       }
       """
@@ -857,7 +857,7 @@ Feature: TestCase
         /** @return void */
         public function testSomething() {}
       }
-      class MyTestCase extends IntermediateTest {
+      final class MyTestCase extends IntermediateTest {
       }
       """
     When I run Psalm with dead code detection
@@ -870,7 +870,7 @@ Feature: TestCase
         /** @return iterable<int,array{int}> */
         public function provide() { return [[1]]; }
       }
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         use MyTestTrait;
         /**
          * @return void
@@ -892,7 +892,7 @@ Feature: TestCase
          */
         public function testSomething(int $_i) {}
       }
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         use MyTestTrait;
         /** @return iterable<int,array{int}> */
         public function provide() { return [[1]]; }
@@ -911,7 +911,7 @@ Feature: TestCase
          */
         public function foo(int $_i) {}
       }
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         use MyTestTrait { foo as testAnything; }
       }
       """
@@ -936,7 +936,7 @@ Feature: TestCase
         public function provide() { return [[1]]; }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         use MyTestTrait;
       }
       """
@@ -949,7 +949,7 @@ Feature: TestCase
   Scenario: Providers may omit variadic part for variadic tests
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string,array{int}> */
         public function provide() {
           yield "data set" => [1];
@@ -968,7 +968,7 @@ Feature: TestCase
   Scenario: Providers may omit non-variadic params with default for variadic tests
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string,array{int}> */
         public function provide() {
           yield "data set" => [1];
@@ -987,7 +987,7 @@ Feature: TestCase
   Scenario: Providers may not omit non-variadic params with no default for variadic tests
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string,array{int}> */
         public function provide() {
           yield "data set" => [1];
@@ -1009,7 +1009,7 @@ Feature: TestCase
   Scenario: Providers generating incompatible datasets for variadic tests are reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string,array{0: float, 1?:string}> */
         public function provide() {
           yield "data set" => [1., "a"];
@@ -1030,7 +1030,7 @@ Feature: TestCase
   Scenario: Untyped providers returns are not checked against test method signatures
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @psalm-suppress MissingReturnType */
         public function provide() {
           yield "data set" => ["a"];
@@ -1049,7 +1049,7 @@ Feature: TestCase
     Given I have the following code
       """
       /** @psalm-ignore Everything */
-      class MyTestCase extends TestCase {}
+      final class MyTestCase extends TestCase {}
       """
     When I run Psalm
     Then I see these errors
@@ -1060,7 +1060,7 @@ Feature: TestCase
   Scenario: Invalid psalm annotation on an before initializer does not crash psalm
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /**
          * @before
          * @psalm-rm-Rf-slash
@@ -1077,7 +1077,7 @@ Feature: TestCase
   Scenario: Invalid psalm annotation on a test does not crash psalm
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /**
          * @test
          * @psalm-force-push-master
@@ -1094,7 +1094,7 @@ Feature: TestCase
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /**
          * @dataProvider provide
          * @psalm-suppress MissingParamType
@@ -1114,7 +1114,7 @@ Feature: TestCase
   Scenario: Providers referenced in shorthand docblocks are not marked as unused
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1138,7 +1138,7 @@ Feature: TestCase
         }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1157,7 +1157,7 @@ Feature: TestCase
         }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide() */
         public function testSomething(int $_p): void {}
       }
@@ -1176,7 +1176,7 @@ Feature: TestCase
         }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider \NS\External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1195,7 +1195,7 @@ Feature: TestCase
         }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1214,7 +1214,7 @@ Feature: TestCase
         }
       }
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1232,7 +1232,7 @@ Feature: TestCase
       namespace NS;
       use PHPUnit\Framework\TestCase;
 
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1293,7 +1293,7 @@ Feature: TestCase
   Scenario: Missing external provider classes are reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @dataProvider External::provide */
         public function testSomething(int $_p): void {}
       }
@@ -1307,7 +1307,7 @@ Feature: TestCase
   Scenario: Providers returning list are ok
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string, non-empty-list<int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1323,7 +1323,7 @@ Feature: TestCase
   Scenario: Providers returning mismatching list are reported
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return iterable<string, non-empty-list<string>> */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
@@ -1340,7 +1340,7 @@ Feature: TestCase
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return ?\Generator<array-key, array<array-key,int>> */
         public function provide(): ?\Generator {
           return null;
@@ -1355,7 +1355,7 @@ Feature: TestCase
   Scenario: Providers returning null are flagged
     Given I have the following code
       """
-      class MyTestCase extends TestCase {
+      final class MyTestCase extends TestCase {
         /** @return null */
         public function provide() {
           return null;
