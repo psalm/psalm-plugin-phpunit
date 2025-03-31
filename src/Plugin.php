@@ -7,9 +7,9 @@ use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
 
 /** @psalm-suppress UnusedClass */
-class Plugin implements PluginEntryPointInterface
+final class Plugin implements PluginEntryPointInterface
 {
-    /** @return void */
+    #[\Override]
     public function __invoke(RegistrationInterface $psalm, ?SimpleXMLElement $config = null): void
     {
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');

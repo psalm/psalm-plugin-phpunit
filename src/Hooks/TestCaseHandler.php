@@ -40,14 +40,12 @@ use function array_map;
 use function array_merge;
 use function array_values;
 
-class TestCaseHandler implements
+final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
     AfterClassLikeAnalysisInterface,
     AfterCodebasePopulatedInterface
 {
-    /**
-     * {@inheritDoc}
-     */
+    #[\Override]
     public static function afterCodebasePopulated(AfterCodebasePopulatedEvent $event)
     {
         $codebase = $event->getCodebase();
@@ -84,9 +82,7 @@ class TestCaseHandler implements
         return $ret;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    #[\Override]
     public static function afterClassLikeVisit(AfterClassLikeVisitEvent $event)
     {
         $class_node        = $event->getStmt();
@@ -118,9 +114,7 @@ class TestCaseHandler implements
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    #[\Override]
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
         $class_node        = $event->getStmt();

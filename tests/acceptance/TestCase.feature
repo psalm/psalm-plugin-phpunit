@@ -594,7 +594,7 @@ Feature: TestCase
   Scenario: Unreferenced non-test classes are marked as unused
     Given I have the following code
       """
-      class UtilityClass
+      final class UtilityClass
       {
       }
       """
@@ -1134,7 +1134,7 @@ Feature: TestCase
   Scenario: External providers are allowed
     Given I have the following code
       """
-      class External {
+      final class External {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1153,7 +1153,7 @@ Feature: TestCase
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
-      class External {
+      final class External {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1172,7 +1172,7 @@ Feature: TestCase
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
-      class External {
+      final class External {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1191,7 +1191,7 @@ Feature: TestCase
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
-      class External {
+      final class External {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1210,7 +1210,7 @@ Feature: TestCase
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
-      class External {
+      final class External {
         /** @return iterable<string, array<int,string>> */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
@@ -1245,7 +1245,7 @@ Feature: TestCase
       <?php
       namespace NS;
 
-      class External {
+      final class External {
         /** @return iterable<string, array<int,int>> */
         public function provide(): iterable {
           yield "dataset name" => [1];
