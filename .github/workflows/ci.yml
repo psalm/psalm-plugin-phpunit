@@ -31,7 +31,7 @@ jobs:
                   echo "vcs_cache=$(composer config cache-vcs-dir)" >> $GITHUB_OUTPUT
 
             - name: Retrieve cached packages
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                     ${{ steps.composer-cache.outputs.files_cache }}
@@ -71,7 +71,7 @@ jobs:
                   echo "vcs_cache=$(composer config cache-vcs-dir)" >> $GITHUB_OUTPUT
 
             - name: Retrieve cached packages
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                     ${{ steps.composer-cache.outputs.files_cache }}
@@ -144,7 +144,7 @@ jobs:
                   echo "vcs_cache=$(composer config cache-vcs-dir)" >> $GITHUB_OUTPUT
 
             - name: Retrieve cached packages
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                     ${{ steps.composer-cache.outputs.files_cache }}
