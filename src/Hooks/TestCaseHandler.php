@@ -161,7 +161,6 @@ class TestCaseHandler implements
 
             $codebase->methodExists(
                 (string) $declaring_method_id,
-                null,
                 'PHPUnit\Framework\TestSuite::run'
             );
 
@@ -216,7 +215,6 @@ class TestCaseHandler implements
                 // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
                     $provider_method_id,
-                    $provider_docblock_location,
                     (string) $declaring_method_id
                 );
 
