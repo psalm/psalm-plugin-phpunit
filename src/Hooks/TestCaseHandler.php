@@ -223,7 +223,8 @@ final class TestCaseHandler implements
                 // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
                     $provider_method_id,
-                    (string) $declaring_method_id
+                    (string) $declaring_method_id,
+                    $provider_docblock_location,
                 );
 
                 if (!$provider_method_exists) {
