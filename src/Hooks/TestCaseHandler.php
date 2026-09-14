@@ -63,7 +63,11 @@ final class TestCaseHandler implements
         }
     }
 
-    /** @return string[] */
+    /**
+     * @return string[]
+     *
+     * @psalm-mutation-free
+     */
     private static function getDescendants(Codebase $codebase, string $name): array
     {
         if (!$codebase->classlike_storage_provider->has($name)) {
@@ -466,7 +470,11 @@ final class TestCaseHandler implements
         }
     }
 
-    /** @return non-empty-array<string,Type\Atomic> */
+    /**
+     * @return non-empty-array<string,Type\Atomic>
+     *
+     * @psalm-mutation-free
+     */
     private static function getAtomics(Type\Union $union): array
     {
         return $union->getAtomicTypes();
@@ -499,7 +507,11 @@ final class TestCaseHandler implements
         }
 
         $combine =
-            /** @param null|Type\Union $a */
+            /**
+             * @param null|Type\Union $a
+             *
+             * @psalm-external-mutation-free
+             */
             static function ($a, Type\Union $b) use ($codebase): Type\Union {
                 return $a ? Type::combineUnionTypes($a, $b, $codebase) : $b;
             };
