@@ -18,6 +18,10 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
+          <MissingPureAnnotation errorLevel="suppress" />
+          <MissingAbstractPureAnnotation errorLevel="suppress" />
+          <MissingImmutableAnnotation errorLevel="suppress" />
+          <MissingInterfaceImmutableAnnotation errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
@@ -1431,6 +1435,10 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
+          <MissingPureAnnotation errorLevel="suppress" />
+          <MissingAbstractPureAnnotation errorLevel="suppress" />
+          <MissingImmutableAnnotation errorLevel="suppress" />
+          <MissingInterfaceImmutableAnnotation errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """

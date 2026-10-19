@@ -10,7 +10,7 @@ on:
 jobs:
     psalm:
         name: Static analysis
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -50,7 +50,7 @@ jobs:
 
     phpcs:
         name: Code style
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -114,7 +114,7 @@ jobs:
 
     tests:
         name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
         continue-on-error: ${{matrix.php == '8.0'}}
         strategy:
             matrix:

@@ -13,7 +13,7 @@
     "require": {
         "php": ">=8.1",
         "ext-simplexml": "*",
-        "psalm/psalm-plugin-api": "^0.1|^0.2|^0.3"
+        "psalm/psalm-plugin-api": "^0.4"
     },
     "conflict": {
         "phpunit/phpunit": "<8.5.1",
@@ -25,7 +25,7 @@
         "phpunit/phpunit": "^10.0 || ^11.0 || ^12.0",
         "squizlabs/php_codesniffer": "^3.3.1",
         "weirdan/prophecy-shim": "^1.0 || ^2.0",
-        "vimeo/psalm": "dev-master || ^6.10.0"
+        "vimeo/psalm": "^7|dev-master"
     },
     "extra": {
         "psalm": {
