@@ -473,7 +473,7 @@ final class TestCaseHandler implements
     /**
      * @return non-empty-array<string,Type\Atomic>
      *
-     * @psalm-mutation-free
+     * @psalm-pure
      */
     private static function getAtomics(Type\Union $union): array
     {
