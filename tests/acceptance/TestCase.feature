@@ -188,7 +188,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<int,int>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield 1;
@@ -215,7 +215,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield [1];
@@ -241,7 +241,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield [1];
@@ -265,7 +265,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provider1() {
           yield [1];
@@ -273,7 +273,7 @@ Feature: TestCase
 
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provider2() {
           yield [1];
@@ -300,7 +300,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provider1() {
           yield [1];
@@ -308,7 +308,7 @@ Feature: TestCase
 
         /**
          * @return iterable<int,array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provider2() {
           yield [1];
@@ -331,7 +331,7 @@ Feature: TestCase
       {
         /**
          * @return \Generator<int,int,mixed,void>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield 1;
@@ -358,7 +358,7 @@ Feature: TestCase
       {
         /**
          * @return \Generator<int,array<int,int>,mixed,void>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield [1];
@@ -463,7 +463,7 @@ Feature: TestCase
       {
         /**
          * @return \Generator
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield 1 => [1];
@@ -543,7 +543,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<string,array{string}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set name" => ["str"];
@@ -570,7 +570,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<string,array<int, string|int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set name" => ["str"];
@@ -597,7 +597,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set name" => [1];
@@ -624,7 +624,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set name" => [1];
@@ -648,7 +648,7 @@ Feature: TestCase
       {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set name" => [1];
@@ -1222,7 +1222,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set" => [1];
@@ -1245,7 +1245,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set" => [1];
@@ -1268,7 +1268,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set" => [1];
@@ -1294,7 +1294,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{0: float, 1?:string}>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set" => [1., "a"];
@@ -1319,7 +1319,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @psalm-suppress MissingReturnType
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide() {
           yield "data set" => ["a"];
@@ -1413,7 +1413,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1433,11 +1433,11 @@ Feature: TestCase
   Scenario: External providers are allowed
     Given I have the following code
       """
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1459,11 +1459,11 @@ Feature: TestCase
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1485,11 +1485,11 @@ Feature: TestCase
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1511,11 +1511,11 @@ Feature: TestCase
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1537,11 +1537,11 @@ Feature: TestCase
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,string>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
@@ -1582,11 +1582,11 @@ Feature: TestCase
       <?php
       namespace NS;
 
-      /** @psalm-immutable */
+      /** @psalm-pure */
       final class External {
         /**
          * @return iterable<string, array<int,int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1657,7 +1657,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string, non-empty-list<int>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => [1];
@@ -1679,7 +1679,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string, non-empty-list<string>>
-         * @psalm-capabilities read-props
+         * @psalm-pure
          */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
