@@ -18,10 +18,6 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-          <MissingAbstractPureAnnotation errorLevel="suppress" />
-          <MissingImmutableAnnotation errorLevel="suppress" />
-          <MissingInterfaceImmutableAnnotation errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
@@ -36,7 +32,11 @@ Feature: TestCase
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
       """
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       final class MyTestCase extends TestCase
       {
@@ -63,7 +63,11 @@ Feature: TestCase
   Scenario: Stateful test case with @before produces no MissingConstructor
     Given I have the following code
       """
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       final class MyTestCase extends TestCase
       {
@@ -91,7 +95,11 @@ Feature: TestCase
       """
       use PHPUnit\Framework\Attributes;
 
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       class BaseTestCase extends TestCase {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
@@ -121,7 +129,11 @@ Feature: TestCase
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       final class MyTestCase extends TestCase
       {
@@ -174,7 +186,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<int,int> */
+        /**
+         * @return iterable<int,int>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield 1;
         }
@@ -190,7 +205,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type              | Message                                                                                         |
-      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable<int, int> provided |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable[pure]<int, int> provided |
     And I see no other errors
 
   Scenario: Valid iterable data provider is allowed
@@ -198,7 +213,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield [1];
         }
@@ -221,7 +239,10 @@ Feature: TestCase
 
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield [1];
         }
@@ -242,12 +263,18 @@ Feature: TestCase
 
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provider1() {
           yield [1];
         }
 
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provider2() {
           yield [1];
         }
@@ -271,12 +298,18 @@ Feature: TestCase
 
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provider1() {
           yield [1];
         }
 
-        /** @return iterable<int,array<int,int>> */
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provider2() {
           yield [1];
         }
@@ -296,7 +329,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return \Generator<int,int,mixed,void> */
+        /**
+         * @return \Generator<int,int,mixed,void>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield 1;
         }
@@ -312,7 +348,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type              | Message                                                                                                       |
-      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, Generator<int, int, mixed, void> provided |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, Generator[pure]<int, int, mixed, void> provided |
     And I see no other errors
 
   Scenario: Valid generator data provider is allowed
@@ -320,7 +356,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return \Generator<int,array<int,int>,mixed,void> */
+        /**
+         * @return \Generator<int,array<int,int>,mixed,void>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield [1];
         }
@@ -341,7 +380,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return array<int,int> */
+        /**
+         * @return array<int,int>
+         * @psalm-pure
+         */
         public function provide() {
           return [1 => 1];
         }
@@ -365,7 +407,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return array */
+        /**
+         * @return array
+         * @psalm-pure
+         */
         public function provide() {
           return [1 => [1]];
         }
@@ -389,7 +434,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable */
+        /**
+         * @return iterable
+         * @psalm-pure
+         */
         public function provide() {
           return [1 => [1]];
         }
@@ -413,7 +461,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return \Generator */
+        /**
+         * @return \Generator
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield 1 => [1];
         }
@@ -429,7 +480,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                   |
-      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different Generator provided |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different Generator[pure]<mixed, mixed, mixed, mixed> provided |
     And I see no other errors
 
   Scenario: Valid array data provider is allowed
@@ -437,7 +488,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return array<string, array<int,int>> */
+        /**
+         * @return array<string, array<int,int>>
+         * @psalm-pure
+         */
         public function provide() {
           return [
             "data set name" => [1],
@@ -460,7 +514,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return \ArrayObject<string,array<int,int>> */
+        /**
+         * @return \ArrayObject<string,array<int,int>>
+         * @psalm-pure
+         */
         public function provide() {
           /** @var \ArrayObject<string,array<int,int>> */
           return new \ArrayObject([
@@ -484,7 +541,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<string,array{string}> */
+        /**
+         * @return iterable<string,array{string}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set name" => ["str"];
         }
@@ -500,7 +560,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                 |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, list{string}>) |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
     And I see no other errors
 
   Scenario: Invalid dataset array is reported
@@ -508,7 +568,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<string,array<int, string|int>> */
+        /**
+         * @return iterable<string,array<int, string|int>>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set name" => ["str"];
         }
@@ -524,7 +587,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                                                                                                              |
-      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, int\|string provided by NS\MyTestCase::provide():(iterable<string, array<int, int\|string>>) |
+      | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, int\|string provided by NS\MyTestCase::provide():(iterable[pure]<string, array<int, int\|string>>) |
     And I see no other errors
 
   Scenario: Shape dataset with missing params is reported
@@ -532,7 +595,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set name" => [1];
         }
@@ -548,7 +614,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                                 |
-      | TooFewArguments |Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, list{int}>) |
+      | TooFewArguments |Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
   Scenario: Referenced providers are not marked as unused
@@ -556,7 +622,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set name" => [1];
         }
@@ -577,7 +646,10 @@ Feature: TestCase
       """
       final class MyTestCase extends TestCase
       {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set name" => [1];
         }
@@ -654,6 +726,7 @@ Feature: TestCase
   Scenario: Unreferenced non-test classes are marked as unused
     Given I have the following code
       """
+      /** @psalm-pure */
       final class UtilityClass
       {
       }
@@ -784,7 +857,11 @@ Feature: TestCase
       """
       class BaseTestCase extends TestCase {}
 
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       final class MyTestCase extends BaseTestCase
       {
@@ -811,7 +888,11 @@ Feature: TestCase
   Scenario: Descendant of a test that has setUp produces no MissingConstructor
     Given I have the following code
       """
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       class BaseTestCase extends TestCase {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
@@ -842,7 +923,11 @@ Feature: TestCase
   Scenario: Descendant of a test that has @before produces no MissingConstructor
     Given I have the following code
       """
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       class BaseTestCase extends TestCase {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
@@ -873,7 +958,11 @@ Feature: TestCase
       """
       use PHPUnit\Framework\Attributes;
 
-      interface I { public function work(): int; }
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
 
       class BaseTestCase extends TestCase {
         /** @var I&\PHPUnit\Framework\MockObject\Stub */
@@ -902,8 +991,12 @@ Feature: TestCase
   Scenario: Test methods in traits are not marked as unused
     Given I have the following code
       """
+      /** @psalm-immutable */
       trait MyTestTrait {
-        /** @return void */
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         */
         public function testSomething() {}
       }
       final class MyTestCase extends TestCase {
@@ -919,7 +1012,9 @@ Feature: TestCase
       <?php
       namespace NS;
       use PHPUnit\Framework\Attributes\Test;
+      /** @psalm-immutable */
       trait MyTestTrait {
+        /** @psalm-capabilities read-props */
         #[Test]
         public function itDoesSomething(): void {}
       }
@@ -942,7 +1037,9 @@ Feature: TestCase
       <?php
       namespace NS;
       use PHPUnit\Framework\Attributes;
+      /** @psalm-immutable */
       trait MyTestTrait {
+        /** @psalm-capabilities read-props */
         #[Attributes\Test]
         public function itDoesSomething(): void {}
       }
@@ -965,7 +1062,9 @@ Feature: TestCase
       <?php
       namespace NS;
       use PHPUnit\Framework\Attributes\Test as PHPUnitTest;
+      /** @psalm-immutable */
       trait MyTestTrait {
+        /** @psalm-capabilities read-props */
         #[PHPUnitTest]
         public function itDoesSomething(): void {}
       }
@@ -995,6 +1094,7 @@ Feature: TestCase
       <?php
       namespace NS;
       final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
         #[\PHPUnit\Framework\Attributes\Test]
         public function itDoesSomething(): void {}
       }
@@ -1006,7 +1106,10 @@ Feature: TestCase
     Given I have the following code
       """
       abstract class IntermediateTest extends TestCase {
-        /** @return void */
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         */
         public function testSomething() {}
       }
       final class MyTestCase extends IntermediateTest {
@@ -1018,8 +1121,12 @@ Feature: TestCase
   Scenario: Data providers in traits are not marked as unused
     Given I have the following code
       """
+      /** @psalm-pure */
       trait MyTestTrait {
-        /** @return iterable<int,array{int}> */
+        /**
+         * @return iterable<int,array{int}>
+         * @psalm-pure
+         */
         public function provide() { return [[1]]; }
       }
       final class MyTestCase extends TestCase {
@@ -1027,6 +1134,7 @@ Feature: TestCase
         /**
          * @return void
          * @dataProvider provide
+         * @psalm-capabilities read-props
          */
         public function testSomething(int $_i) {}
       }
@@ -1037,16 +1145,21 @@ Feature: TestCase
   Scenario: Data providers in test case when test methods are in trait are not marked as unused
     Given I have the following code
       """
+      /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
          * @dataProvider provide
+         * @psalm-capabilities read-props
          */
         public function testSomething(int $_i) {}
       }
       final class MyTestCase extends TestCase {
         use MyTestTrait;
-        /** @return iterable<int,array{int}> */
+        /**
+         * @return iterable<int,array{int}>
+         * @psalm-pure
+         */
         public function provide() { return [[1]]; }
       }
       """
@@ -1056,10 +1169,12 @@ Feature: TestCase
   Scenario: Renamed imported test methods are validated
     Given I have the following code
       """
+      /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
          * @dataProvider provide
+         * @psalm-capabilities read-props
          */
         public function foo(int $_i) {}
       }
@@ -1076,14 +1191,17 @@ Feature: TestCase
   Scenario: Test methods and providers in trait used by a test case are validated
     Given I have the following code
       """
+      /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
          * @dataProvider provide
+         * @psalm-capabilities read-props
          */
         public function testSomething(string $_p) {}
         /**
          * @return iterable<int,int[]>
+         * @psalm-pure
          */
         public function provide() { return [[1]]; }
       }
@@ -1102,7 +1220,10 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set" => [1];
         }
@@ -1110,6 +1231,7 @@ Feature: TestCase
          * @dataProvider provide
          * @param int ...$rest
          * @return void
+         * @psalm-capabilities read-props
          */
         public function testSomething(int $i, ...$rest) {}
       }
@@ -1121,7 +1243,10 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set" => [1];
         }
@@ -1129,6 +1254,7 @@ Feature: TestCase
          * @dataProvider provide
          * @param int ...$rest
          * @return void
+         * @psalm-capabilities read-props
          */
         public function testSomething(int $i, string $s = "", ...$rest) {}
       }
@@ -1140,7 +1266,10 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string,array{int}> */
+        /**
+         * @return iterable<string,array{int}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set" => [1];
         }
@@ -1148,6 +1277,7 @@ Feature: TestCase
          * @dataProvider provide
          * @param int ...$rest
          * @return void
+         * @psalm-capabilities read-props
          */
         public function testSomething(int $i, string $s, ...$rest) {}
       }
@@ -1155,20 +1285,24 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                                                                 |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<string, list{int}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
   Scenario: Providers generating incompatible datasets for variadic tests are reported
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string,array{0: float, 1?:string}> */
+        /**
+         * @return iterable<string,array{0: float, 1?:string}>
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set" => [1., "a"];
         }
         /**
          * @dataProvider provide
          * @return void
+         * @psalm-capabilities read-props
          */
         public function testSomething(float ...$rest) {}
       }
@@ -1176,20 +1310,24 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                               |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable<string, array{0: float, 1?: string}>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable[pure]<string, array{0: float, 1?: string}>) |
     And I see no other errors
 
   Scenario: Untyped providers returns are not checked against test method signatures
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @psalm-suppress MissingReturnType */
+        /**
+         * @psalm-suppress MissingReturnType
+         * @psalm-capabilities read-props
+         */
         public function provide() {
           yield "data set" => ["a"];
         }
         /**
          * @dataProvider provide
          * @return void
+         * @psalm-capabilities read-props
          */
         public function testSomething(string $_s) {}
       }
@@ -1217,6 +1355,7 @@ Feature: TestCase
          * @before
          * @psalm-rm-Rf-slash
          * @return void
+         * @psalm-capabilities read-props
          */
         public function preparation() {}
       }
@@ -1234,6 +1373,7 @@ Feature: TestCase
          * @test
          * @psalm-force-push-master
          * @return void
+         * @psalm-capabilities read-props
          */
         public function doThings() {}
       }
@@ -1250,10 +1390,14 @@ Feature: TestCase
         /**
          * @dataProvider provide
          * @psalm-suppress MissingParamType
+         * @psalm-capabilities read-props
          */
         public function testSomething($data): void {}
 
-        /** @return iterable<string, array{int}> */
+        /**
+         * @return iterable<string, array{int}>
+         * @psalm-pure
+         */
         public function provide(): iterable {
           return ['case 1' => [1]];
         }
@@ -1267,11 +1411,17 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
-        /** @dataProvider provide */
+        /**
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1283,15 +1433,22 @@ Feature: TestCase
   Scenario: External providers are allowed
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
+        /**
+         * @dataProvider External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1302,15 +1459,22 @@ Feature: TestCase
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide() */
+        /**
+         * @dataProvider External::provide()
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1321,15 +1485,22 @@ Feature: TestCase
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider \NS\External::provide */
+        /**
+         * @dataProvider \NS\External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1340,15 +1511,22 @@ Feature: TestCase
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
+        /**
+         * @dataProvider External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1359,22 +1537,29 @@ Feature: TestCase
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,string>> */
+        /**
+         * @return iterable<string, array<int,string>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
         }
       }
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
+        /**
+         * @dataProvider External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                                  |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable<string, array<int, string>>) |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
 
   @ExternalProviders
   Scenario: External providers are available even when Psalm is asked to analyze single test case
@@ -1385,7 +1570,10 @@ Feature: TestCase
       use PHPUnit\Framework\TestCase;
 
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
+        /**
+         * @dataProvider External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1394,8 +1582,12 @@ Feature: TestCase
       <?php
       namespace NS;
 
+      /** @psalm-immutable */
       final class External {
-        /** @return iterable<string, array<int,int>> */
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
@@ -1435,10 +1627,6 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-          <MissingAbstractPureAnnotation errorLevel="suppress" />
-          <MissingImmutableAnnotation errorLevel="suppress" />
-          <MissingInterfaceImmutableAnnotation errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
@@ -1450,7 +1638,10 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @dataProvider External::provide */
+        /**
+         * @dataProvider External::provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1464,11 +1655,17 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string, non-empty-list<int>> */
+        /**
+         * @return iterable<string, non-empty-list<int>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => [1];
         }
-        /** @dataProvider provide */
+        /**
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1480,28 +1677,40 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return iterable<string, non-empty-list<string>> */
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-capabilities read-props
+         */
         public function provide(): iterable {
           yield "dataset name" => ["1"];
         }
-        /** @dataProvider provide */
+        /**
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
     When I run Psalm
     Then I see these errors
       | Type            | Message                                                                                                                              |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable<string, non-empty-list<string>>) |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
 
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return ?\Generator<array-key, array<array-key,int>> */
+        /**
+         * @return ?\Generator<array-key, array<array-key,int>>
+         * @psalm-pure
+         */
         public function provide(): ?\Generator {
           return null;
         }
-        /** @dataProvider provide */
+        /**
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(int $_p): void {}
       }
       """
@@ -1512,11 +1721,17 @@ Feature: TestCase
     Given I have the following code
       """
       final class MyTestCase extends TestCase {
-        /** @return null */
+        /**
+         * @return null
+         * @psalm-pure
+         */
         public function provide() {
           return null;
         }
-        /** @dataProvider provide */
+        /**
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
         public function testSomething(): void {}
       }
       """
