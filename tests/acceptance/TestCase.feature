@@ -1811,3 +1811,157 @@ Feature: TestCase
       | UnusedFunctionCall | The call to json_encode is not used     |
       | UnusedMethodCall   | The call to NS\Other::get is not used   |
     And I see no other errors
+
+  Scenario: assertSame with a null expectation suggests assertNull
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $this->assertSame(null, $value);
+          $this->assertNotSame(NULL, $value);
+          self::assertSame(\null, $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type             | Message                                                 |
+      | PreferAssertNull | Use assertNull() instead of assertSame(null, ...)       |
+      | PreferAssertNull | Use assertNotNull() instead of assertNotSame(null, ...) |
+      | PreferAssertNull | Use assertNull() instead of assertSame(null, ...)       |
+    And I see no other errors
+
+  Scenario: assertSame with a boolean expectation suggests assertTrue and assertFalse
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testBool(): void {
+          $flag = random_int(0, 1) === 1;
+          $this->assertSame(true, $flag);
+          $this->assertSame(false, $flag);
+          $this->assertNotSame(true, $flag);
+          self::assertNotSame(FALSE, $flag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                  |
+      | PreferAssertBoolean | Use assertTrue() instead of assertSame(true, ...)        |
+      | PreferAssertBoolean | Use assertFalse() instead of assertSame(false, ...)      |
+      | PreferAssertBoolean | Use assertNotTrue() instead of assertNotSame(true, ...)  |
+      | PreferAssertBoolean | Use assertNotFalse() instead of assertNotSame(false, ...) |
+    And I see no other errors
+
+  Scenario: assertSame and assertEquals with count() suggest assertCount
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testCount(): void {
+          $lines = ['a', 'b', 'c'];
+          $collection = new \ArrayObject($lines);
+          $this->assertSame(3, count($lines));
+          $this->assertEquals(3, \count($lines));
+          $this->assertNotSame(2, count($lines));
+          $this->assertNotEquals(2, count($lines));
+          $this->assertSame(3, $collection->count());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                                    |
+      | PreferAssertCount | Use assertCount() instead of assertSame(..., count(...))   |
+      | PreferAssertCount | Use assertCount() instead of assertEquals(..., count(...)) |
+      | PreferAssertCount | Use assertNotCount() instead of assertNotSame(..., count(...)) |
+      | PreferAssertCount | Use assertNotCount() instead of assertNotEquals(..., count(...)) |
+      | PreferAssertCount | Use assertCount() instead of assertSame(..., count(...))   |
+    And I see no other errors
+
+  Scenario: Assertions without a literal expectation or a plain count are not reported
+    Given I have the following code
+      """
+      final class Bag {
+        /** @psalm-pure */
+        public function count(): int { return 1; }
+      }
+
+      final class MyTestCase extends TestCase {
+        private const NOTHING = null;
+
+        private function maybe(): ?int {
+          return random_int(0, 1) ? 1 : null;
+        }
+
+        public function testOthers(): void {
+          $flag = random_int(0, 1) === 1;
+          $lines = [['a'], ['b']];
+          $this->assertNull($this->maybe());
+          $this->assertTrue($flag);
+          $this->assertCount(2, $lines);
+          $this->assertSame(1, $this->maybe());
+          $this->assertSame(self::NOTHING, $this->maybe());
+          $this->assertSame($flag, true);
+          $this->assertEquals(null, $this->maybe());
+          $this->assertSame(2, count($lines, COUNT_RECURSIVE));
+          $this->assertSame(2, (new Bag())->count());
+          $this->assertSame(2, strlen('ab'));
+          $this->assertNotSame('2', count($lines));
+          $this->assertSame(message: 'no', actual: $this->maybe(), expected: null);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: count() that is not the global function is not reported
+    Given I have the following code
+      """
+      use function strlen as count;
+
+      final class MyTestCase extends TestCase {
+        public function testAliasedCount(): void {
+          $this->assertSame(2, count('ab'));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: count() declared in the test namespace is not reported
+    Given I have the following code
+      """
+      /** @psalm-pure */
+      function count(string $text): int {
+        return strlen($text);
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testNamespacedCount(): void {
+          $this->assertSame(2, count('ab'));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Assertion suggestions can be suppressed
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testSuppressed(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $lines = ['a'];
+          /** @psalm-suppress PreferAssertNull */
+          $this->assertSame(null, $value);
+          /** @psalm-suppress PreferAssertBoolean */
+          $this->assertSame(true, $flag);
+          /** @psalm-suppress PreferAssertCount */
+          $this->assertSame(1, count($lines));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

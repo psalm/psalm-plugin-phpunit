@@ -16,5 +16,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\TestCaseHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);
+
+        class_exists(Hooks\AssertSameSuggestionHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\AssertSameSuggestionHandler::class);
     }
 }

@@ -9,6 +9,9 @@ Layout:
 - `src/Plugin.php`: entry point. Registers `stubs/TestCase.phpstub` and `Hooks\TestCaseHandler`.
 - `src/Hooks/TestCaseHandler.php`: all the hooks (`AfterClassLikeVisit`,
   `AfterClassLikeAnalysis`, `AfterCodebasePopulated`, `AfterMethodCallAnalysis`).
+- `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/PreferAssert*.php`: the
+  `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
+  `assertFalse()` and `assertCount()` over `assertSame()`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
