@@ -1,4 +1,8 @@
 default:
+  # behat-parallel.sh runs one process per scenario; a shared Gherkin cache is written
+  # non-atomically and concurrent readers then fail with CacheException.
+  gherkin:
+    cache: ~
   suites:
     default:
       contexts:
