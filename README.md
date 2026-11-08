@@ -13,6 +13,7 @@ Psalm does not understand PHPUnit conventions on its own. This plugin makes Psal
 * **Reports broken providers.** Missing providers, wrong return types, mismatched dataset types, and providers returning `null` are flagged before the suite ever runs.
 * **Fixes unused-code detection for tests.** Test methods, providers referenced from docblocks or attributes, and `TestCase` descendants are no longer reported as unused, while genuinely dead test helpers still are.
 * **Allows throw-only statements after `expectException*()`.** Once a test calls `expectException()` (or `expectExceptionCode()`, `expectExceptionMessage()`, `expectExceptionMessageMatches()`, `expectExceptionObject()`), later statements in the same method are not reported as `UnusedFunctionCall` or `UnusedMethodCall`.
+* **Ignores PHPUnit's own exceptions under `checkForThrowsDocblock`.** Exceptions declared by PHPUnit's API (assertions, `createMock()`, `createStub()` and so on) are not reported as `MissingThrowsDocblock`. Your own `<ignoreExceptions>` entries keep working.
 * **Types `prophesize()`.** `$this->prophesize(Foo::class)` is inferred as `ObjectProphecy<Foo>`, so calls on the prophecy are type-checked.
 
 ## Installation

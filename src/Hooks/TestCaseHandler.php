@@ -58,6 +58,18 @@ final class TestCaseHandler implements
     ];
 
     /**
+     * PHPUnit's own exceptions are handled by the test runner, nobody documents or catches them in tests.
+     * Psalm matches a thrown class only against listed parent classes, so classes that merely implement one of
+     * the interfaces are listed on their own.
+     */
+    private const IGNORED_EXCEPTIONS = [
+        'PHPUnit\\Exception',
+        'PHPUnit\\Framework\\Exception',
+        'PHPUnit\\Framework\\MockObject\\Exception',
+        'PHPUnit\\Event\\NoPreviousThrowableException',
+    ];
+
+    /**
      * Statements after expectException*() may exist only to throw, so their results are legitimately unused.
      */
     #[\Override]
@@ -74,6 +86,11 @@ final class TestCaseHandler implements
     public static function afterCodebasePopulated(AfterCodebasePopulatedEvent $event)
     {
         $codebase = $event->getCodebase();
+
+        foreach (self::IGNORED_EXCEPTIONS as $exception) {
+            $codebase->config->ignored_exceptions_and_descendants[$exception] = true;
+            $codebase->config->ignored_exceptions_and_descendants_in_global_scope[$exception] = true;
+        }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
