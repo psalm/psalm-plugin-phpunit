@@ -1993,9 +1993,20 @@ Feature: TestCase
       """
     And I have the following code
       """
-      interface Repository {}
+      interface Repository {
+        public function find(): int;
+      }
 
       final class MyTestCase extends TestCase {
+        public function testMockBuilder(): void {
+          $mock = $this->getMockBuilder(Repository::class)
+            ->onlyMethods(['find'])
+            ->disableOriginalConstructor()
+            ->getMock();
+          $mock->method('find')->willReturn(1);
+          $this->assertJson('{}');
+        }
+
         public function testAssertionsAndMocks(): void {
           $repository = $this->createMock(Repository::class);
           $stub = $this->createStub(Repository::class);
@@ -2018,7 +2029,7 @@ Feature: TestCase
         private function helper(): void {
           $this->assertTrue(true);
           $this->createMock(Repository::class);
-          throw new \PHPUnit\Framework\ExpectationFailedException('boom');
+          $this->fail('boom');
         }
       }
       """

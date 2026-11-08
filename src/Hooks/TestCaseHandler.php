@@ -70,8 +70,11 @@ final class TestCaseHandler implements
         'PHPUnit\\Exception',
         'PHPUnit\\Framework\\Exception',
         'PHPUnit\\Framework\\MockObject\\Exception',
+        'PHPUnit\\Framework\\MockObject\\ReflectionException',
+        'PHPUnit\\Framework\\MockObject\\RuntimeException',
         'PHPUnit\\Event\\NoPreviousThrowableException',
         'PHPUnit\\Util\\Exception',
+        'PHPUnit\\Util\\InvalidJsonException',
         'PHPUnit\\Util\\Xml\\XmlException',
     ];
 
