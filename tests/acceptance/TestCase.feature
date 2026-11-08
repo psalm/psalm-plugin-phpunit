@@ -1922,6 +1922,7 @@ Feature: TestCase
   Scenario: Assertions without a literal expectation or a plain count are not reported
     Given I have the following code
       """
+      /** @psalm-immutable */
       final class Bag {
         /** @psalm-pure */
         public function count(): int { return 1; }

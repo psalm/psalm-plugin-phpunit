@@ -88,6 +88,9 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         );
     }
 
+    /**
+     * @psalm-mutation-free
+     */
     private static function isPositional(Arg $arg): bool
     {
         return !$arg->unpack && $arg->name === null;
