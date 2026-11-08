@@ -28,6 +28,9 @@
         "vimeo/psalm": "^7|dev-master"
     },
     "extra": {
+        "branch-alias": {
+            "dev-master": "0.21.x-dev"
+        },
         "psalm": {
             "pluginClass": "Psalm\\PhpUnitPlugin\\Plugin"
         }
