@@ -10,7 +10,6 @@ use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
@@ -77,8 +76,7 @@ final class TestCaseHandler implements
         $expr = $event->getExpr();
         $isOwnExpectation = $expr instanceof MethodCall
             ? $expr->var instanceof Variable && $expr->var->name === 'this'
-            : $expr instanceof StaticCall
-                && $expr->class instanceof Name
+            : $expr->class instanceof Name
                 && in_array(strtolower($expr->class->toString()), ['self', 'static', 'parent'], true);
         if (!$isOwnExpectation) {
             return;
