@@ -2850,3 +2850,112 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: MissingThrowsDocblock is not reported for exceptions of PHPUnit's own API
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      /** @psalm-mutable */
+      interface Repository {
+        /** @psalm-impure */
+        public function find(): int;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMockBuilder(): void {
+          $mock = $this->getMockBuilder(Repository::class)
+            ->onlyMethods(['find'])
+            ->disableOriginalConstructor()
+            ->getMock();
+          $mock->method('find')->willReturn(1);
+          $this->assertJson('{}');
+        }
+
+        public function testAssertionsAndMocks(): void {
+          $repository = $this->createMock(Repository::class);
+          $stub = $this->createStub(Repository::class);
+          $this->assertSame(100, 100);
+          self::assertCount(1, [$repository, $stub]);
+          $this->assertXmlStringEqualsXmlString('<a/>', '<a/>');
+          $this->assertXmlFileNotEqualsXmlFile('a.xml', 'b.xml');
+          $this->assertInstanceOf(Repository::class, $repository);
+        }
+
+        public function testPhpUnitExceptionsOutsideTestMethods(): void {
+          $this->helper();
+        }
+
+        /** @psalm-pure */
+        public function testOtherExceptionsAreStillReported(): void {
+          throw new \RuntimeException('boom');
+        }
+
+        private function helper(): void {
+          $this->assertTrue(true);
+          $this->createMock(Repository::class);
+          $this->fail('boom');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                                                                     |
+      | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation |
+    And I see no other errors
+
+  Scenario: Exceptions configured in ignoreExceptions are still ignored
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <ignoreExceptions>
+          <classAndDescendants name="DomainException"/>
+        </ignoreExceptions>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testIgnoredByUser(): void {
+          $this->assertTrue(true);
+          throw new \DomainException('boom');
+        }
+
+        /** @psalm-pure */
+        public function testNotIgnored(): void {
+          throw new \RuntimeException('boom');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                                                                     |
+      | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation |
+    And I see no other errors
