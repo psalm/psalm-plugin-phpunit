@@ -29,9 +29,11 @@ use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -243,6 +245,9 @@ final class TestCaseHandler implements
             // Use the declaring class's aliases so trait-declared attributes resolve via the trait's imports.
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
+            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
+            $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
+                && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -312,6 +317,39 @@ final class TestCaseHandler implements
                         $apparent_provider_method_name
                     ));
                     continue;
+                }
+
+                $provider_method_storage = $codebase->methods->getStorage(MethodIdentifier::wrap($provider_method_id));
+
+                // Abstract providers are checked on the concrete classes implementing them
+                if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
+                    $provider_visibility = $provider_method_storage->visibility;
+                    $appearing_provider_id = $codebase->methods->getAppearingMethodId(
+                        MethodIdentifier::wrap($apparent_provider_method_name)
+                    );
+                    if (null !== $appearing_provider_id) {
+                        $provider_visibility = $codebase->classlike_storage_provider
+                            ->get($appearing_provider_id->fq_class_name)
+                            ->trait_visibility_map[$appearing_provider_id->method_name]
+                            ?? $provider_visibility;
+                    }
+                    $suppressed_issues = $method_storage->suppressed_issues
+                        + $declaring_class_storage->suppressed_issues
+                        + $statements_source->getSuppressedIssues();
+
+                    if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be public',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
+
+                    if (!$provider_method_storage->is_static) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be static',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
                 }
 
                 $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $_);
@@ -718,19 +756,34 @@ final class TestCaseHandler implements
     }
 
     /**
+     * PHPUnit's ParserChain ignores docblock annotations on a method that has any PHPUnit attribute.
+     */
+    private static function hasPhpUnitAttribute(ClassMethod $method, Aliases $aliases): bool
+    {
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if (str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Mirrors PHPUnit's ParserChain: docblock annotations are only read when the method has no PHPUnit attribute.
      *
      * @return list<string|null> "Class::method" per method dependency, null when the target is not a literal
      */
     private static function getDependencyTargets(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
     {
-        $has_phpunit_attribute = false;
+        $has_phpunit_attribute = self::hasPhpUnitAttribute($method, $aliases);
         $targets               = [];
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
-                $attribute_class       = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                $has_phpunit_attribute = $has_phpunit_attribute
-                    || str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\');
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
                 if (!isset(self::DEPENDS_ATTRIBUTES[$attribute_class])) {
                     continue;
                 }
