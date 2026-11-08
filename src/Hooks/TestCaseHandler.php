@@ -67,6 +67,8 @@ final class TestCaseHandler implements
         'PHPUnit\\Framework\\Exception',
         'PHPUnit\\Framework\\MockObject\\Exception',
         'PHPUnit\\Event\\NoPreviousThrowableException',
+        'PHPUnit\\Util\\Exception',
+        'PHPUnit\\Util\\Xml\\XmlException',
     ];
 
     /**

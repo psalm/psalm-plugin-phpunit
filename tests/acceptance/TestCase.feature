@@ -1827,8 +1827,6 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-          <InternalMethod errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
@@ -1842,6 +1840,8 @@ Feature: TestCase
           $stub = $this->createStub(Repository::class);
           $this->assertSame(100, 100);
           self::assertCount(1, [$repository, $stub]);
+          $this->assertXmlStringEqualsXmlString('<a/>', '<a/>');
+          $this->assertXmlFileNotEqualsXmlFile('a.xml', 'b.xml');
           $this->assertInstanceOf(Repository::class, $repository);
         }
 
@@ -1884,8 +1884,6 @@ Feature: TestCase
         <issueHandlers>
           <MissingClassConstType errorLevel="suppress" />
           <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-          <InternalMethod errorLevel="suppress" />
         </issueHandlers>
       </psalm>
       """
