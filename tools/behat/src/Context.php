@@ -35,7 +35,7 @@ final class Context implements BehatContext
     /** @var int<0, 255> */
     private int $exitCode = 0;
     private bool $processFailed = false;
-    /** @var list<array{type: non-empty-string, message: non-empty-string}> */
+    /** @var list<array{type: non-empty-string, message: non-empty-string, line: int|null}> */
     private array $errors = [];
 
     #[BeforeScenario]
@@ -102,10 +102,23 @@ final class Context implements BehatContext
             $this->exitCode      = Type\u8()->coerce($failed->getCode());
             $this->errors        = Json\typed(
                 $output,
-                Type\vec(Type\shape([
-                    'type'    => Type\non_empty_string(),
-                    'message' => Type\non_empty_string(),
-                ])),
+                Type\vec(Type\converted(
+                    Type\shape([
+                        'type'      => Type\non_empty_string(),
+                        'message'   => Type\non_empty_string(),
+                        'line_from' => Type\int(),
+                    ]),
+                    Type\shape([
+                        'type'    => Type\non_empty_string(),
+                        'message' => Type\non_empty_string(),
+                        'line'    => Type\nullable(Type\int()),
+                    ]),
+                    static fn(array $coerced) => [
+                        'type'    => $coerced['type'],
+                        'message' => $coerced['message'],
+                        'line'    => $coerced['line_from'],
+                    ],
+                )),
             );
         }
     }
@@ -147,47 +160,57 @@ final class Context implements BehatContext
     #[Then('I see these errors')]
     public function iSeeTheseErrors(TableNode $table): void
     {
-        // Just some fancy translation: wanted to avoid doing it the procedural way
+        // Just some fancy translation: wanted to avoid doing it the procedural way.
+        // The Line column is optional: a missing line matches any line.
         $expectedErrors = Type\vec(Type\converted(
             Type\shape([
                 'Type'    => Type\non_empty_string(),
                 'Message' => Type\non_empty_string(),
+                'Line'    => Type\optional(Type\int()),
             ]),
             Type\shape([
                 'type'    => Type\non_empty_string(),
                 'message' => Type\non_empty_string(),
+                'line'    => Type\nullable(Type\int()),
             ]),
             static fn(array $coerced) => [
                 'type'    => $coerced['Type'],
                 'message' => $coerced['Message'],
+                'line'    => $coerced['Line'] ?? null,
             ]
         ))->coerce($table->getColumnsHash());
 
         /**
-         * @template T of array{type: non-empty-string, message: non-empty-string}
-         *
-         * @param T $a
-         * @param T $b
+         * @param array{type: non-empty-string, message: non-empty-string, line: int|null} $expected
+         * @param array{type: non-empty-string, message: non-empty-string, line: int|null} $actual
          */
-        $equals = function (array $a, array $b): int {
-            return (int)($a !== $b);
-        };
+        $matches = static fn(array $expected, array $actual): bool => $expected['type'] === $actual['type']
+            && $expected['message'] === $actual['message']
+            && ($expected['line'] === null || $expected['line'] === $actual['line']);
 
-        /** @psalm-suppress InvalidArgument `array_uintersect` variadic type is not well-stubbed (yet) */
-        $intersection = array_uintersect($expectedErrors, $this->errors, $equals);
+        // Explicit matching: a wildcard line makes the comparison non-transitive, so it must not drive a sort.
+        $unmatchedExpected = array_filter(
+            $expectedErrors,
+            fn(array $expected): bool => [] === array_filter(
+                $this->errors,
+                static fn(array $actual): bool => $matches($expected, $actual),
+            ),
+        );
 
         invariant(
-            count($expectedErrors) === count($intersection),
+            [] === $unmatchedExpected,
             "Some errors didn't match expected ones.\nExpected:\n%s\n\nActual:\n\n%s",
             Json\encode($expectedErrors, true),
             Json\encode($this->errors, true),
         );
 
-        /**
-         * @psalm-suppress InvalidArgument `array_udiff` variadic type is not well-stubbed (yet)
-         * @psalm-suppress PropertyTypeCoercion `array_udiff` return type is not well-stubbed (yet)
-         */
-        $this->errors = array_udiff($this->errors, $expectedErrors, $equals);
+        $this->errors = array_values(array_filter(
+            $this->errors,
+            static fn(array $actual): bool => [] === array_filter(
+                $expectedErrors,
+                static fn(array $expected): bool => $matches($expected, $actual),
+            ),
+        ));
     }
 
     #[Then('I see no other errors')]
