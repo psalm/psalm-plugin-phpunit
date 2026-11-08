@@ -20,8 +20,11 @@ use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
+use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -265,6 +268,39 @@ final class TestCaseHandler implements
                         $apparent_provider_method_name
                     ));
                     continue;
+                }
+
+                $provider_method_storage = $codebase->methods->getStorage(MethodIdentifier::wrap($provider_method_id));
+
+                // Abstract providers are checked on the concrete classes implementing them
+                if (!$provider_method_storage->abstract) {
+                    $provider_visibility = $provider_method_storage->visibility;
+                    $appearing_provider_id = $codebase->methods->getAppearingMethodId(
+                        MethodIdentifier::wrap($apparent_provider_method_name)
+                    );
+                    if (null !== $appearing_provider_id) {
+                        $provider_visibility = $codebase->classlike_storage_provider
+                            ->get($appearing_provider_id->fq_class_name)
+                            ->trait_visibility_map[$appearing_provider_id->method_name]
+                            ?? $provider_visibility;
+                    }
+                    $suppressed_issues = $method_storage->suppressed_issues
+                        + $declaring_class_storage->suppressed_issues
+                        + $statements_source->getSuppressedIssues();
+
+                    if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be public',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
+
+                    if (!$provider_method_storage->is_static) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be static',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
                 }
 
                 $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $_);

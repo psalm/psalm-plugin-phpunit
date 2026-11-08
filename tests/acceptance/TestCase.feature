@@ -190,7 +190,7 @@ Feature: TestCase
          * @return iterable<int,int>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield 1;
         }
         /**
@@ -217,7 +217,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield [1];
         }
 
@@ -243,11 +243,351 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
+        public static function provide() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Non-static @dataProvider is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Non-static #[DataProvider] is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
         public function provide() {
           yield [1];
         }
 
         #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Non-public @dataProvider is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        protected static function provide() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be public |
+    And I see no other errors
+
+  Scenario: Non-public #[DataProvider] is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        private static function provide() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be public |
+    And I see no other errors
+
+  Scenario: Non-public non-static data provider is reported for both
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        protected function provide() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be public |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Non-static external data provider is reported
+    Given I have the following code
+      """
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @dataProvider External::provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                   |
+      | InvalidDataProvider | Data provider method NS\External::provide must be static |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Non-public external data provider is reported
+    Given I have the following code
+      """
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        protected static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @dataProvider External::provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                   |
+      | InvalidDataProvider | Data provider method NS\External::provide must be public |
+    And I see no other errors
+
+  Scenario: Data provider made public by a trait adaptation is allowed
+    Given I have the following code
+      """
+      trait Provides {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        protected static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Provides {
+          provide as public;
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Data provider made non-public by a trait adaptation is reported
+    Given I have the following code
+      """
+      trait Provides {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Provides {
+          provide as protected;
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be public |
+    And I see no other errors
+
+  Scenario: Abstract data provider is checked in the implementing class
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         */
+        abstract protected static function provide();
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public static function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Invalid data provider can be suppressed on the test method
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provide
+         * @psalm-suppress InvalidDataProvider
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Invalid data provider can be suppressed on the test class
+    Given I have the following code
+      """
+      /**
+       * @psalm-suppress InvalidDataProvider
+       */
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider provide
+         */
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -267,7 +607,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        public function provider1() {
+        public static function provider1() {
           yield [1];
         }
 
@@ -275,7 +615,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        public function provider2() {
+        public static function provider2() {
           yield [1];
         }
 
@@ -302,7 +642,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        public function provider1() {
+        public static function provider1() {
           yield [1];
         }
 
@@ -310,7 +650,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        public function provider2() {
+        public static function provider2() {
           yield [1];
         }
 
@@ -333,7 +673,7 @@ Feature: TestCase
          * @return \Generator<int,int,mixed,void>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield 1;
         }
         /**
@@ -360,7 +700,7 @@ Feature: TestCase
          * @return \Generator<int,array<int,int>,mixed,void>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield [1];
         }
         /**
@@ -384,7 +724,7 @@ Feature: TestCase
          * @return array<int,int>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           return [1 => 1];
         }
         /**
@@ -411,7 +751,7 @@ Feature: TestCase
          * @return array
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           return [1 => [1]];
         }
         /**
@@ -438,7 +778,7 @@ Feature: TestCase
          * @return iterable
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           return [1 => [1]];
         }
         /**
@@ -465,7 +805,7 @@ Feature: TestCase
          * @return \Generator
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield 1 => [1];
         }
         /**
@@ -492,7 +832,7 @@ Feature: TestCase
          * @return array<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           return [
             "data set name" => [1],
           ];
@@ -518,7 +858,7 @@ Feature: TestCase
          * @return \ArrayObject<string,array<int,int>>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           /** @var \ArrayObject<string,array<int,int>> */
           return new \ArrayObject([
             "data set name" => [1],
@@ -545,7 +885,7 @@ Feature: TestCase
          * @return iterable<string,array{string}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => ["str"];
         }
         /**
@@ -572,7 +912,7 @@ Feature: TestCase
          * @return iterable<string,array<int, string|int>>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => ["str"];
         }
         /**
@@ -599,7 +939,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => [1];
         }
         /**
@@ -626,7 +966,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => [1];
         }
         /**
@@ -650,7 +990,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => [1];
         }
         /**
@@ -745,7 +1085,7 @@ Feature: TestCase
         /** @var string */
         const S = "s";
         /** @return iterable<string,array{0:int,1?:string}> */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
         }
         /**
@@ -768,7 +1108,7 @@ Feature: TestCase
         /** @var string */
         const S = "s";
         /** @return iterable<string,list{int,...}> */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => rand(0,1) ? [1] : [1, "ss"];
         }
         /**
@@ -789,7 +1129,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => rand(0,1) ? [1] : [];
         }
         /**
@@ -810,7 +1150,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:string}> */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => rand(0,1) ? ["1"] : [];
         }
         /**
@@ -834,7 +1174,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
-        public function provide() {
+        public static function provide() {
           yield "data set name" => rand(0,1) ? [1] : [];
         }
         /**
@@ -1127,7 +1467,7 @@ Feature: TestCase
          * @return iterable<int,array{int}>
          * @psalm-pure
          */
-        public function provide() { return [[1]]; }
+        public static function provide() { return [[1]]; }
       }
       final class MyTestCase extends TestCase {
         use MyTestTrait;
@@ -1160,7 +1500,7 @@ Feature: TestCase
          * @return iterable<int,array{int}>
          * @psalm-pure
          */
-        public function provide() { return [[1]]; }
+        public static function provide() { return [[1]]; }
       }
       """
     When I run Psalm with dead code detection
@@ -1203,7 +1543,7 @@ Feature: TestCase
          * @return iterable<int,int[]>
          * @psalm-pure
          */
-        public function provide() { return [[1]]; }
+        public static function provide() { return [[1]]; }
       }
 
       final class MyTestCase extends TestCase {
@@ -1224,7 +1564,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set" => [1];
         }
         /**
@@ -1247,7 +1587,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set" => [1];
         }
         /**
@@ -1270,7 +1610,7 @@ Feature: TestCase
          * @return iterable<string,array{int}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set" => [1];
         }
         /**
@@ -1296,7 +1636,7 @@ Feature: TestCase
          * @return iterable<string,array{0: float, 1?:string}>
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set" => [1., "a"];
         }
         /**
@@ -1321,7 +1661,7 @@ Feature: TestCase
          * @psalm-suppress MissingReturnType
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           yield "data set" => ["a"];
         }
         /**
@@ -1398,7 +1738,7 @@ Feature: TestCase
          * @return iterable<string, array{int}>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           return ['case 1' => [1]];
         }
       }
@@ -1415,7 +1755,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
         /**
@@ -1439,7 +1779,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
@@ -1465,7 +1805,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
@@ -1491,7 +1831,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
@@ -1517,7 +1857,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
@@ -1543,7 +1883,7 @@ Feature: TestCase
          * @return iterable<string, array<int,string>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => ["1"];
         }
       }
@@ -1588,7 +1928,7 @@ Feature: TestCase
          * @return iterable<string, array<int,int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
       }
@@ -1659,7 +1999,7 @@ Feature: TestCase
          * @return iterable<string, non-empty-list<int>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => [1];
         }
         /**
@@ -1681,7 +2021,7 @@ Feature: TestCase
          * @return iterable<string, non-empty-list<string>>
          * @psalm-pure
          */
-        public function provide(): iterable {
+        public static function provide(): iterable {
           yield "dataset name" => ["1"];
         }
         /**
@@ -1704,7 +2044,7 @@ Feature: TestCase
          * @return ?\Generator<array-key, array<array-key,int>>
          * @psalm-pure
          */
-        public function provide(): ?\Generator {
+        public static function provide(): ?\Generator {
           return null;
         }
         /**
@@ -1725,7 +2065,7 @@ Feature: TestCase
          * @return null
          * @psalm-pure
          */
-        public function provide() {
+        public static function provide() {
           return null;
         }
         /**
