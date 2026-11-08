@@ -15,7 +15,14 @@ Teaches [Psalm](https://psalm.dev) the conventions of [PHPUnit](https://phpunit.
 
 ## Installation
 
-**Psalm 7:** nothing to install. The plugin ships with Psalm and is enabled automatically when your `composer.json` requires `phpunit/phpunit` (see [`loadLibraryPlugins`](https://psalm.dev/docs/running_psalm/configuration/#loadlibraryplugins)).
+**Psalm 7:**
+
+```bash
+# nothing to install.
+# The plugin ships with Psalm and is enabled automatically when your `composer.json` requires `phpunit/phpunit`
+```
+
+(see [`loadLibraryPlugins`](https://psalm.dev/docs/running_psalm/configuration/#loadlibraryplugins)).
 
 **Psalm 6 and older:**
 
