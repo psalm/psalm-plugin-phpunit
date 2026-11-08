@@ -1851,3 +1851,124 @@ Feature: TestCase
       | UnusedFunctionCall | The call to json_encode is not used     |
       | UnusedMethodCall   | The call to NS\Other::get is not used   |
     And I see no other errors
+
+  Scenario: MissingThrowsDocblock is not reported after expectException
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+          <MissingPureAnnotation errorLevel="suppress" />
+          <InternalMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testThrows(): void {
+          $this->expectException(\InvalidArgumentException::class);
+          throw new \InvalidArgumentException('boom');
+        }
+
+        public function testStaticExpectation(): void {
+          self::expectException(\InvalidArgumentException::class);
+          throw new \InvalidArgumentException('boom');
+        }
+
+        public function testDocumentedCalls(): void {
+          $this->expectException(\InvalidArgumentException::class);
+          self::fail2();
+          $this->fail3();
+        }
+
+        public function testDocumentedCallsWithoutExpectation(): void {
+          self::fail2();
+          $this->fail3();
+        }
+
+        public function testExpectationOnOtherInstance(): void {
+          $other = new self('other');
+          $other->expectException(\DomainException::class);
+          throw new \DomainException('boom');
+        }
+
+        public function testWithoutExpectation(): void {
+          throw new \RuntimeException('boom');
+        }
+
+        /** @throws \InvalidArgumentException */
+        private static function fail2(): void { throw new \InvalidArgumentException('boom'); }
+
+        /** @throws \InvalidArgumentException */
+        private function fail3(): void { throw new \InvalidArgumentException('boom'); }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                                                                               |
+      | MissingThrowsDocblock | InvalidArgumentException is thrown but not caught - please either catch or add a @throws annotation |
+      | MissingThrowsDocblock | InvalidArgumentException is thrown but not caught - please either catch or add a @throws annotation |
+      | MissingThrowsDocblock | DomainException is thrown but not caught - please either catch or add a @throws annotation            |
+      | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation           |
+    And I see no other errors
+
+  Scenario: MissingThrowsDocblock is not reported after expectException in a branch
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+          <MissingPureAnnotation errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testIf(bool $fail): void {
+          if ($fail) {
+            $this->expectException(\InvalidArgumentException::class);
+          }
+          throw new \InvalidArgumentException('boom');
+        }
+
+        public function testBothArms(bool $fail): void {
+          if ($fail) {
+            $this->expectException(\InvalidArgumentException::class);
+          } else {
+            $this->expectException(\DomainException::class);
+          }
+          throw new \InvalidArgumentException('boom');
+        }
+
+        public function testCatch(): void {
+          try {
+            $value = 1;
+          } catch (\Throwable) {
+            $this->expectException(\InvalidArgumentException::class);
+          }
+          throw new \InvalidArgumentException('boom');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

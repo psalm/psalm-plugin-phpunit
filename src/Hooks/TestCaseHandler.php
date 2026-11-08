@@ -8,6 +8,9 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -39,6 +42,7 @@ use function array_filter;
 use function array_map;
 use function array_merge;
 use function array_values;
+use function in_array;
 use function strtolower;
 use function substr_count;
 use function trim;
@@ -58,7 +62,8 @@ final class TestCaseHandler implements
     ];
 
     /**
-     * Statements after expectException*() may exist only to throw, so their results are legitimately unused.
+     * Statements after expectException*() may exist only to throw, so their results are unused and PHPUnit catches
+     * the exception.
      */
     #[\Override]
     public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
@@ -67,7 +72,21 @@ final class TestCaseHandler implements
             return;
         }
 
-        $event->getStatementsSource()->addSuppressedIssues(['UnusedFunctionCall', 'UnusedMethodCall']);
+        // PHPUnit stores the expectation on the receiver, so only the current test's own expectations count.
+        $expr = $event->getExpr();
+        $isOwnExpectation = $expr instanceof MethodCall
+            ? $expr->var instanceof Variable && $expr->var->name === 'this'
+            : $expr->class instanceof Name
+                && in_array(strtolower($expr->class->toString()), ['self', 'static', 'parent'], true);
+        if (!$isOwnExpectation) {
+            return;
+        }
+
+        $event->getStatementsSource()->addSuppressedIssues([
+            'UnusedFunctionCall',
+            'UnusedMethodCall',
+            'MissingThrowsDocblock',
+        ]);
     }
 
     #[\Override]
