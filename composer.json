@@ -40,11 +40,6 @@
             "Psalm\\PhpUnitPlugin\\": "src"
         }
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Psalm\\PhpUnitPlugin\\Tests\\": "tests"
-        }
-    },
     "scripts": {
         "check": [
             "@cs-check",
