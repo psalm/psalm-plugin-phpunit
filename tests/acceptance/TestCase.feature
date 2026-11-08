@@ -639,6 +639,125 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: Invalid data provider of a trait test can be suppressed on the test class
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      /** @psalm-immutable */
+      trait MyTestTrait {
+        /**
+         * @return void
+         * @dataProvider provide
+         * @psalm-capabilities read-props
+         */
+        public function testSomething(int $_i) {}
+      }
+
+      /**
+       * @psalm-suppress InvalidDataProvider
+       */
+      final class MyTestCase extends TestCase {
+        use MyTestTrait;
+
+        /**
+         * @return iterable<int,array{int}>
+         * @psalm-pure
+         */
+        public function provide() { return [[1]]; }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Docblock data provider is ignored when the test has a #[DataProvider] attribute
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function legacy() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider legacy
+         */
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Docblock data provider is ignored when the test has another PHPUnit attribute
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function legacy() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider legacy
+         */
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Multiple valid iterable @dataProvider are allowed, and all are used
     Given I have the following code
       """
