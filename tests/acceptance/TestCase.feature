@@ -2411,7 +2411,9 @@ Feature: TestCase
       """
     And I have the following code
       """
+      /** @psalm-mutable */
       interface Repository {
+        /** @psalm-impure */
         public function find(): int;
       }
 
