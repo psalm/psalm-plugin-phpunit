@@ -73,7 +73,7 @@ Check `vendor/bin/psalm --version` before trusting any result.
   decides the version.
 - A difference between them is either a plugin bug on one version or a Psalm change (for
   example, from 7.0.0-rc28 the purity suggestions `MissingPureAnnotation` and three others
-  are opt-in, skill `purity-capabilities`). Report which it is.
+  are opt-in via `suggestPurityAnnotations`). Report which it is.
 
 ## Reading CI logs
 

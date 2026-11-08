@@ -18,7 +18,6 @@ Layout:
   `tests/Helper/` are not run by CI.
 
 Domain skills (load them before touching the area):
-- `purity-capabilities`: Psalm 7 purity as it touches this plugin (fixtures, stubs, hooks)
 - `plugin-repro`: scratch-project repros, base vs branch, comparing Psalm versions
 - `pr-description`: the PR description format, and reformatting existing descriptions
 
@@ -121,7 +120,7 @@ Never hide an issue instead of fixing it:
 - no `ignoreFiles` to dodge `DuplicateClass`, and no `BeforeAddIssue` filtering plugins;
 - no changing a fixture to dodge a plugin bug, and no reading Psalm internals via reflection
   because an API is missing. (Annotating fixtures for purity is not a workaround: it is the
-  settled approach, skill `purity-capabilities`.)
+  settled approach, #166.)
 
 Fix the root cause in the plugin, its stub, or Psalm itself (report upstream bugs upstream), or
 add the missing plugin API. If a proper fix is out of reach, say so and ask. List any
@@ -162,8 +161,9 @@ workaround explicitly in the report.
     `with dead code detection`).
 - A failing scenario prints the issues Psalm found as JSON (`Psalm failures encountered:
   [...]`): copy the exact type and message from it.
-- Fixtures must pass on Psalm rc18 and on newer Psalm: annotate them for purity (skill
-  `purity-capabilities`).
+- Fixtures must pass on Psalm rc18 and on newer Psalm: annotate them for purity (#166):
+  data providers `@psalm-pure`, mocked interfaces `@psalm-mutable` with `@psalm-impure`
+  methods. Never suppress the `Missing*Annotation` issues instead.
 - Put each docblock tag on its own line, in fixtures and in `src/`. `/** @psalm-pure @param
   ... */` silently drops every tag after the first.
 - Never start a docblock line in `src/` with an example `@psalm-...` tag; Psalm parses it as
