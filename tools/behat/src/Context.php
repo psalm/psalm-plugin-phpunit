@@ -100,25 +100,24 @@ final class Context implements BehatContext
             $this->processOutput = $output;
             $this->processFailed = true;
             $this->exitCode      = Type\u8()->coerce($failed->getCode());
-            $this->errors        = Json\typed(
-                $output,
-                Type\vec(Type\converted(
-                    Type\shape([
+            $this->errors        = \array_map(
+                // Psalm >= 7.0.1 reports "seems to have no effect, its result is not used"
+                // for unused pure calls: older versions say "is not used". The suite runs on both.
+                static fn(array $error): array => [
+                    'type'    => $error['type'],
+                    'message' => Type\non_empty_string()->coerce(
+                        \str_replace(' seems to have no effect, its result is not used', ' is not used', $error['message']),
+                    ),
+                    'line'    => $error['line_from'],
+                ],
+                Json\typed(
+                    $output,
+                    Type\vec(Type\shape([
                         'type'      => Type\non_empty_string(),
                         'message'   => Type\non_empty_string(),
                         'line_from' => Type\int(),
-                    ]),
-                    Type\shape([
-                        'type'    => Type\non_empty_string(),
-                        'message' => Type\non_empty_string(),
-                        'line'    => Type\nullable(Type\int()),
-                    ]),
-                    static fn(array $coerced) => [
-                        'type'    => $coerced['type'],
-                        'message' => $coerced['message'],
-                        'line'    => $coerced['line_from'],
-                    ],
-                )),
+                    ])),
+                ),
             );
         }
     }
