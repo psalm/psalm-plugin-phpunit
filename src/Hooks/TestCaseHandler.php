@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use Error;
 use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
@@ -17,7 +16,6 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
-use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\IssueBuffer;
@@ -42,6 +40,8 @@ use function array_map;
 use function array_merge;
 use function array_values;
 use function strtolower;
+use function substr_count;
+use function trim;
 
 final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -120,6 +120,11 @@ final class TestCaseHandler implements
         $codebase          = $event->getCodebase();
         $aliases           = $statements_source->getAliases();
 
+        // Psalm 7 seals methods by default, so ObjectProphecy::__call() is ignored
+        if (strtolower($class_storage->name) === 'prophecy\\prophecy\\objectprophecy') {
+            $class_storage->sealed_methods = false;
+        }
+
         if (self::hasInitializers($class_storage, $class_node, $aliases)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
@@ -132,7 +137,7 @@ final class TestCaseHandler implements
             if (!isset($specials['dataProvider'])) {
                 continue;
             }
-            foreach ($specials['dataProvider'] as $provider) {
+            foreach ($specials['dataProvider'] as [, $provider]) {
                 if (false !== strpos($provider, '::')) {
                     [$class_name] = explode('::', $provider);
                     $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
@@ -206,19 +211,8 @@ final class TestCaseHandler implements
                 continue;
             }
 
-            foreach ($specials['dataProvider'] as $line => $provider) {
-                try {
-                    // for older Psalm versions
-                    /**
-                     * @psalm-suppress InvalidClone
-                     * @var CodeLocation
-                     */
-                    $provider_docblock_location = clone $method_storage->location;
-                    /** @psalm-suppress UnusedMethodCall */
-                    $provider_docblock_location->setCommentLine($line);
-                } catch (Error $e) {
-                    $provider_docblock_location = $method_storage->location->setCommentLine($line);
-                }
+            foreach ($specials['dataProvider'] as [$line, $provider]) {
+                $provider_docblock_location = $method_storage->location->setCommentLine($line);
 
                 if (false !== strpos($provider, '::')) {
                     [$class_name, $method_id] = explode('::', $provider);
@@ -571,7 +565,7 @@ final class TestCaseHandler implements
         return isset(self::getSpecials($method, $aliases)['before']);
     }
 
-    /** @return array<string, array<int,string>> */
+    /** @return array<string, list<array{int, string}>> Each entry is [file line, value] */
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
@@ -584,12 +578,12 @@ final class TestCaseHandler implements
     /**
      * @template T of object
      * @param class-string<T> $attributeClass
-     * @return array<int, string>|null
+     * @return list<array{int, string}>|null
      */
     private static function attributeValue(ClassMethod $method, Aliases $aliases, string $attributeClass): array|null
     {
         $onlyStringLiteralExpressions = static fn (Attribute $attribute): array => array_map(
-            static fn(String_ $string): string => $string->value,
+            static fn(String_ $string): array => [$string->getStartLine(), $string->value],
             array_filter(
                 array_column($attribute->args, 'value'),
                 // For our purposes, we only care about string literals: everything else is currently out of scope.
@@ -620,7 +614,7 @@ final class TestCaseHandler implements
         )));
     }
 
-    /** @return array<string, array<int,string>> */
+    /** @return array<string, list<array{int, string}>> */
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_filter([
@@ -630,7 +624,7 @@ final class TestCaseHandler implements
         ], static fn(array|null $special): bool => $special !== null);
     }
 
-    /** @return array<string, array<int,string>> */
+    /** @return array<string, list<array{int, string}>> */
     private static function getDocblockSpecials(ClassMethod $method): array
     {
         $docblock = $method->getDocComment();
@@ -648,9 +642,19 @@ final class TestCaseHandler implements
             return [];
         }
 
+        // Psalm keys tags by absolute file offset, which is useless for issue locations.
+        $start_pos = $docblock->getStartFilePos();
+        $to_line   = static fn(int $offset): int => $docblock->getStartLine()
+            + substr_count($docblock->getText(), "\n", 0, $offset - $start_pos);
+
         return array_map(
-            function (array $lines) {
-                return array_map('trim', $lines);
+            static function (array $tags) use ($to_line): array {
+                $entries = [];
+                foreach ($tags as $offset => $data) {
+                    $entries[] = [$to_line($offset), trim($data)];
+                }
+
+                return $entries;
             },
             $parsed_comment['specials']
         );

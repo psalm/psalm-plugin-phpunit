@@ -181,6 +181,46 @@ Feature: TestCase
       | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
     And I see no other errors
 
+  Scenario: Missing @dataProvider is reported on the line of the tag
+    Given I have the following code
+    """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @param mixed $int
+         * @return void
+         * @dataProvider provide
+         */
+        public function testSomething($int) {
+          $this->assertEquals(1, $int);
+        }
+      }
+    """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               | Line |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined | 10   |
+    And I see no other errors
+
+  Scenario: Missing #[DataProvider] is reported on the line of its own attribute
+    Given I have the following code
+    """
+      final class MyTestCase extends TestCase
+      {
+        #[\PHPUnit\Framework\Attributes\DataProvider('first')]
+        #[\PHPUnit\Framework\Attributes\DataProvider('second')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+    """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                            | Line |
+      | UndefinedMethod | Provider method NS\MyTestCase::first is not defined  | 7    |
+      | UndefinedMethod | Provider method NS\MyTestCase::second is not defined | 8    |
+    And I see no other errors
+
   Scenario: Invalid iterable data provider is reported
     Given I have the following code
       """
