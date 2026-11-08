@@ -913,6 +913,101 @@ Feature: TestCase
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSecond expects int, string provided by NS\MyTestCase::provide():(iterable<int, list{string, string}>) |
     And I see no other errors
 
+  Scenario: Dependencies differing only by a negated clone modifier pass a single value
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @dataProvider provide
+         * @depends testOne
+         * @depends !clone testOne
+         * @depends !shallowClone testOne
+         */
+        public function testSecond(string $foo, string $baz, string $bar): void {
+          $this->assertSame($foo, $bar . $baz);
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                  |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<int, list{string}>) |
+    And I see no other errors
+
+  Scenario: DependsExternal on the class sentinel passes no value
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\DependsExternal;
+
+      final class MyTestCase extends TestCase {
+        #[DataProvider('provide')]
+        #[DependsExternal(MyTestCase::class, 'class')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                  |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<int, list{string}>) |
+    And I see no other errors
+
+  Scenario: Optional dataset offsets are not guaranteed to cover dependency params
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @dataProvider provide
+         * @depends testOne
+         */
+        public function testSecond(string $foo, string $baz, string $bar): void {
+          $this->assertSame($foo, $bar . $baz);
+        }
+
+        /**
+         * @return iterable<int, array{0?: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSecond is not optional, but possibly undefined string provided by NS\MyTestCase::provide():(iterable<int, array{0?: string}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 1, but saw 0 provided by NS\MyTestCase::provide():(iterable<int, array{0?: string}>) |
+    And I see no other errors
+
   Scenario: @depends is ignored when the test has PHPUnit attributes
     Given I have the following code
       """

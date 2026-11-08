@@ -492,14 +492,14 @@ final class TestCaseHandler implements
                                 continue;
                             }
                             // the return values of depended-upon tests follow the provider values
-                            if ($param_offset < count($potential_argument_types) + $dependency_values) {
+                            if ($param_offset < $dataset_type->getMinCount() + $dependency_values) {
                                 continue;
                             }
 
                             IssueBuffer::accepts(new Issue\TooFewArguments(
                                 'Too few arguments for ' . $method_name
                                 . ' - expecting at least ' . ($param_offset + 1 - $dependency_values)
-                                . ', but saw ' . count($potential_argument_types)
+                                . ', but saw ' . $dataset_type->getMinCount()
                                 . ' provided by ' . $provider_method_id . '()'
                                 .  ':(' . $provider_return_type_string . ')',
                                 $provider_docblock_location,
@@ -723,6 +723,10 @@ final class TestCaseHandler implements
                 $target_class = $is_external
                     ? self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class)
                     : $class->name;
+                if ($target_name instanceof String_ && $target_name->value === 'class') {
+                    continue; // PHPUnit treats this as a class dependency, which passes no value
+                }
+
                 $targets[]    = $target_class !== null && $target_name instanceof String_
                     ? $target_class . '::' . $target_name->value
                     : null;
@@ -734,7 +738,7 @@ final class TestCaseHandler implements
         }
 
         foreach (self::getDocblockSpecials($method)['depends'] ?? [] as [, $value]) {
-            $is_target = preg_match('/^(?:(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
+            $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
             }
