@@ -149,6 +149,11 @@ final class TestCaseHandler implements
         $codebase          = $event->getCodebase();
         $aliases           = $statements_source->getAliases();
 
+        // Psalm 7 seals methods by default, so ObjectProphecy::__call() is ignored
+        if (strtolower($class_storage->name) === 'prophecy\\prophecy\\objectprophecy') {
+            $class_storage->sealed_methods = false;
+        }
+
         if (self::hasInitializers($class_storage, $class_node, $aliases)) {
             $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
         }
@@ -241,7 +246,6 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-
             foreach ($specials['dataProvider'] as [$line, $provider]) {
                 $provider_docblock_location = $method_storage->location->setCommentLine($line);
 
@@ -773,7 +777,6 @@ final class TestCaseHandler implements
 
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
-
     /** @return array<string, list<array{int, string}>> */
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
