@@ -639,7 +639,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Invalid data provider of a trait test can be suppressed on the test class
+  Scenario: Invalid data provider of a trait test can be suppressed on the trait method
     Given I have the following config
       """
       <?xml version="1.0"?>
@@ -664,14 +664,12 @@ Feature: TestCase
         /**
          * @return void
          * @dataProvider provide
+         * @psalm-suppress InvalidDataProvider
          * @psalm-capabilities read-props
          */
         public function testSomething(int $_i) {}
       }
 
-      /**
-       * @psalm-suppress InvalidDataProvider
-       */
       final class MyTestCase extends TestCase {
         use MyTestTrait;
 

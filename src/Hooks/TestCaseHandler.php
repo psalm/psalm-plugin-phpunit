@@ -335,7 +335,6 @@ final class TestCaseHandler implements
                     }
                     $suppressed_issues = $method_storage->suppressed_issues
                         + $declaring_class_storage->suppressed_issues
-                        + $class_storage->suppressed_issues
                         + $statements_source->getSuppressedIssues();
 
                     if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
