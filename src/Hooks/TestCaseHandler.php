@@ -9,6 +9,10 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
@@ -41,6 +45,7 @@ use function array_filter;
 use function array_map;
 use function array_merge;
 use function array_values;
+use function in_array;
 use function strtolower;
 
 final class TestCaseHandler implements
@@ -65,6 +70,17 @@ final class TestCaseHandler implements
     public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
     {
         if (!isset(self::EXPECT_EXCEPTION_METHODS[strtolower($event->getDeclaringMethodId())])) {
+            return;
+        }
+
+        // PHPUnit stores the expectation on the receiver, so only the current test's own expectations count.
+        $expr = $event->getExpr();
+        $isOwnExpectation = $expr instanceof MethodCall
+            ? $expr->var instanceof Variable && $expr->var->name === 'this'
+            : $expr instanceof StaticCall
+                && $expr->class instanceof Name
+                && in_array(strtolower($expr->class->toString()), ['self', 'static', 'parent'], true);
+        if (!$isOwnExpectation) {
             return;
         }
 
