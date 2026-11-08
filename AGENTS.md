@@ -42,22 +42,27 @@ CI (`.github/workflows/ci.yml`) is the source of truth:
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
 - `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
 - `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`.
-- `tests`: PHP 8.1 to 8.4 × deps high/low/stable. `composer update` (plus
+- `tests`: PHP 8.1 to 8.4 × deps high/low/stable (8.4 low excluded). `composer update` (plus
   `--prefer-lowest` or `--prefer-stable`) at the root **and** in `tools/behat`, then
   `cd tools/behat && vendor/bin/behat -vvv`.
 
+`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.1 - high
+deps"), not these YAML ids.
+
 Locally:
 - Install like CI: `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist -n` at the
-  root, and the same in `tools/behat`.
+  root, and the same in `tools/behat`. That rewrites the tracked `tools/behat/composer.lock`:
+  `git checkout tools/behat/composer.lock` afterwards.
 - **Running a single scenario is fine, and recommended** (~2 s) for reproducing an issue or
   showing that a new scenario fails on the base and passes on the branch:
   - by line of the `Scenario:` header:
-    `cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line>`;
+    `cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line>`
+    (a line that isn't a `Scenario:` header prints only Behat's usage, no error);
   - by title: `cd tools/behat && vendor/bin/behat --name 'Missing data provider is reported'`
     is a literal substring match. A regex needs delimiters:
     `--name '/^Missing data provider is reported$/'`. Without them, `.*` etc. match
     nothing ("No scenarios"). Check that the output says `1 scenario`.
-- The full suite (69 scenarios, ~2m10s) at most once, right before pushing. Never between
+- The full suite (a few minutes) at most once, right before pushing. Never between
   iterations, and never sweeps (re-running batches of scenarios, looping over fixtures).
 - `vendor/bin/phpcs -q` and `vendor/bin/psalm --no-cache` (~2 s) are cheap and fine at any time.
 - Also fine: a scratch-project repro (skill `plugin-repro`).
@@ -70,7 +75,8 @@ With `COMPOSER_ROOT_VERSION=dev-master`, Composer resolves `vimeo/psalm` to
 **7.0.0-rc18**, not to a newer release: every later release requires
 `psalm/plugin-phpunit ^0.21`, which the root package `dev-master` doesn't satisfy
 (`COMPOSER_ROOT_VERSION=dev-master composer why-not vimeo/psalm 7.0.1` shows it). rc18 had the
-plugin only in `require-dev`. So CI currently tests against rc18.
+plugin only in `require-dev`. So the CI high and stable jobs test against rc18; the low jobs
+(`--prefer-lowest`) resolve 7.0.0-rc3.
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - `COMPOSER_ROOT_VERSION=0.21.99 composer update` resolves `vimeo/psalm` dev-master instead.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
@@ -81,7 +87,8 @@ plugin only in `require-dev`. So CI currently tests against rc18.
 - Push the branch to your fork, then
   `gh pr create --repo psalm/psalm-plugin-phpunit --base master`.
 - Then poll `gh pr checks <n> --repo psalm/psalm-plugin-phpunit`. For `gh run list`,
-  `--commit <sha>` is reliable; `--branch` sometimes returns stale runs. A failed job:
+  `--commit "$(git rev-parse <sha>)"` is reliable (a short SHA silently lists nothing);
+  `--branch` sometimes returns stale runs. A failed job:
   `gh run view <id> --log-failed`.
 - Prefer a PR even when asked to fix something on master.
 - **Description:** follow skill `pr-description` (one-line bug + Before/After code blocks
@@ -159,8 +166,10 @@ workaround explicitly in the report.
   - a fixture `@psalm-suppress` or `issueHandlers` hiding the issue under test;
   - dead-code behaviour tested with plain `When I run Psalm` (needs
     `with dead code detection`).
-- A failing scenario prints the issues Psalm found as JSON (`Psalm failures encountered:
-  [...]`): copy the exact type and message from it.
+- A failing scenario prints the issues Psalm found as JSON: `Psalm failures encountered:`
+  (`I see no errors`), `Some errors didn't match expected ones.` (`I see these errors`) or
+  `No further errors expected, found:` (`I see no other errors`). Copy the exact type and
+  message from it.
 - Fixtures must pass on Psalm rc18 and on newer Psalm: annotate them for purity (#166):
   data providers `@psalm-pure`, mocked interfaces `@psalm-mutable` with `@psalm-impure`
   methods. Never suppress the `Missing*Annotation` issues instead.

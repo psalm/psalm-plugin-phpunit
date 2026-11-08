@@ -39,6 +39,7 @@ Fixes #108
 - A **Before** block: the code of a scenario of the PR that asserts the fix (see below),
   plus what the base reports, written as trailing `// IssueName` (or `// IssueName: short
   message` when the message matters) comments on the lines where the issue appears.
+  Reindent the scenario's code to 4 spaces.
 - An **After** block with **only the lines whose result changes**, commented with the new
   result (`// no issue`, `// InvalidReturnType`, or the new inferred type).
 - **Several bugs in one PR:** one short `###` heading per bug, each with its own one-line
@@ -70,13 +71,11 @@ Fixes #108
   ```
   cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line of Scenario:>
   ```
-  To get the base, use a second worktree on `origin/master` (with its own real `vendor/`
-  at the root and in `tools/behat`, see skill `plugin-repro`), or
-  `git diff "$(git merge-base origin/master HEAD)" -- src stubs > f.patch && git apply -R f.patch`
-  (and re-apply with `git apply f.patch` afterwards). Never `git stash`.
-- On the base the failing scenario prints the issues Psalm found as JSON (`Psalm failures
-  encountered: [...]`). Copy the issue names and messages in the Before comments from there.
-  Never write invented or "illustrative" output.
+  For the base, reverse only the source change (AGENTS.md "Shell, worktrees and git") or
+  use a second worktree (skill `plugin-repro`).
+- On the base the failing scenario prints the issues Psalm found as JSON (AGENTS.md
+  "Tests"). Copy the issue names and messages in the Before comments from there. Never
+  write invented or "illustrative" output.
 - Check `vendor/bin/psalm --version` first: rc18 and newer Psalm can report different issues
   (skill `plugin-repro`).
 
@@ -84,7 +83,7 @@ Fixes #108
 
 Only when asked, and only for PRs in repos you may edit (psalm/psalm-plugin-phpunit: editing
 someone else's PR body needs maintainer rights). Existing Context/Solution/Limitations
-descriptions (e.g. #169 to #172) stay as they are unless asked.
+descriptions stay as they are unless asked.
 
 1. Read the current body, title and diff:
    `gh pr view <n> --repo psalm/psalm-plugin-phpunit --json title,body,author,files` and
@@ -92,12 +91,17 @@ descriptions (e.g. #169 to #172) stay as they are unless asked.
 2. Work out the bug(s) actually fixed from the **diff and the scenarios it adds**, not only
    from the prose. Pick the examples from the PR's scenarios, and check that those scenarios
    assert the fix. If none does, or none makes a usable example, tell the user and suggest a
-   scenario to add; don't push scenarios to someone else's PR unless asked.
+   scenario to add; don't push scenarios to someone else's PR unless asked. Also tell the
+   user about AGENTS.md violations you spot (e.g. a suppression in a scenario's config), but
+   don't fix them.
 3. Keep everything the author wrote that matters to reviewers in the new format: the bug
    summary, issue links / closing keywords, and any explicit note about a behaviour change
    users must know about (one line at the end). Drop the rest.
 4. Verify the examples by running each one's scenario on `origin/master` and on the PR head
-   (`gh pr checkout <n>` in a separate worktree, or `git fetch origin pull/<n>/head`).
+   head:
+   `git fetch origin pull/<n>/head:refs/remotes/pr/<n> && git worktree add --detach <dir> pr/<n>`,
+   then reverse the source change there for the base (no second install). Afterwards
+   `git worktree remove <dir>` and `git update-ref -d refs/remotes/pr/<n>`.
 5. Show the new body to the user before replacing someone else's. Then:
    `gh pr edit <n> --repo psalm/psalm-plugin-phpunit --body-file <file>`. Don't change the
    title unless asked; if it's misleading, suggest a new one.
