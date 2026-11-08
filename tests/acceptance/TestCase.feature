@@ -2959,3 +2959,54 @@ Feature: TestCase
       | Type                  | Message                                                                                     |
       | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation |
     And I see no other errors
+
+  Scenario: assertNotEmpty removes null from the asserted value
+    Given I have the following code
+      """
+      /** @psalm-immutable */
+      final class Customer {
+        public string $name = 'Ada';
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        private function find(): ?Customer { return null; }
+
+        public function testFinds(): void {
+          $customer = $this->find();
+          $this->assertNotEmpty($customer);
+          $this->assertSame('Ada', $customer->name);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertNotEmpty narrows arrays and strings to non-empty types
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /** @param list<int>|null $list */
+        public function testList(?array $list, string $string): void {
+          self::assertNotEmpty($list);
+          self::assertNotEmpty($string);
+          /** @psalm-check-type-exact $list = non-empty-list<int> */
+          /** @psalm-check-type-exact $string = non-falsy-string */
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertNotEmpty on Countable objects is not a redundant condition
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testCountable(\Countable $countable, \ArrayObject $items): void {
+          $this->assertNotEmpty($countable);
+          self::assertNotEmpty($items);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

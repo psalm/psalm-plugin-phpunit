@@ -12,3 +12,13 @@ abstract class TestCase extends Assert implements Test, SelfDescribing
      */
     protected function prophesize($classOrInterface): ObjectProphecy {}
 }
+
+abstract class Assert
+{
+    /**
+     * @psalm-assert !empty $actual
+     * @throws ExpectationFailedException
+     * @throws GeneratorNotSupportedException
+     */
+    final public static function assertNotEmpty(mixed $actual, string $message = ''): void {}
+}
