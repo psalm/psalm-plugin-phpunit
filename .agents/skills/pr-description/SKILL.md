@@ -76,8 +76,8 @@ Fixes #108
 - On the base the failing scenario prints the issues Psalm found as JSON (AGENTS.md
   "Tests"). Copy the issue names and messages in the Before comments from there. Never
   write invented or "illustrative" output.
-- Check `vendor/bin/psalm --version` first: rc18 and newer Psalm can report different issues
-  (skill `plugin-repro`).
+- Check `vendor/bin/psalm --version` first: the lowest and the newest Psalm can report
+  different issues (AGENTS.md "Psalm versions").
 
 ## Reformatting an existing description (including other people's PRs)
 
