@@ -102,11 +102,6 @@ allows, the high and stable jobs the newest. They can report different issues (f
   bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out of the
   dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168), and add
   a line there for every new dev-only path.
-- The root `extra.branch-alias` (`dev-master` → `0.21.x-dev`) lets the CI installs
-  (`COMPOSER_ROOT_VERSION=dev-master`) satisfy that requirement and get current Psalm;
-  without it Composer falls back to 7.0.0-rc18. Bump the alias when master starts the next
-  minor, and only once Psalm's requirement accepts it (otherwise CI silently drops back to
-  an old Psalm).
 - Never use `--admin` to bypass red required checks unless asked for that specific PR.
 
 ## Agents and subagents
