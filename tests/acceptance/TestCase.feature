@@ -1849,6 +1849,7 @@ Feature: TestCase
           $this->helper();
         }
 
+        /** @psalm-pure */
         public function testOtherExceptionsAreStillReported(): void {
           throw new \RuntimeException('boom');
         }
@@ -1895,6 +1896,7 @@ Feature: TestCase
           throw new \DomainException('boom');
         }
 
+        /** @psalm-pure */
         public function testNotIgnored(): void {
           throw new \RuntimeException('boom');
         }
