@@ -38,17 +38,17 @@ These come first, before every other rule here:
 ## Validating changes: CI, then a single scenario locally
 
 CI (`.github/workflows/ci.yml`) is the source of truth:
-- `psalm` (PHP 8.1): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
+- `psalm` (PHP 8.2): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
 - `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
 - `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`.
-- `tests`: deps high/low/stable × PHP 8.1 and 8.4 on pull requests, PHP 8.1 to 8.4 on pushes,
+- `tests`: deps high/low/stable × PHP 8.2 and 8.4 on pull requests, PHP 8.2 to 8.4 on pushes,
   the weekly schedule and manual runs (8.4 low excluded). `composer update` (plus
   `--prefer-lowest` or `--prefer-stable`) at the root **and** in `tools/behat`, then
   `tools/behat/behat-parallel.sh`: one Behat process per scenario, one per CPU at a time,
   printing the output of failed scenarios only.
 
-`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.1 - high
+`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.2 - high
 deps"), not these YAML ids.
 
 Locally:
