@@ -13,9 +13,9 @@ use Psalm\CodeLocation;
 use Psalm\IssueBuffer;
 use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
-use Psalm\PhpUnitPlugin\Issue\PreferAssertBoolean;
-use Psalm\PhpUnitPlugin\Issue\PreferAssertCount;
-use Psalm\PhpUnitPlugin\Issue\PreferAssertNull;
+use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
+use Psalm\PhpUnitPlugin\Issue\UnspecificCountAssertion;
+use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
 use Psalm\Type\Atomic\TNamedObject;
 use UnexpectedValueException;
 
@@ -71,11 +71,11 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
 
         if (isset(self::SAME_METHODS[$method]) && in_array($literal, ['null', 'true', 'false'], true)) {
             [$name, $not] = self::SAME_METHODS[$method];
-            $issueClass = $literal === 'null' ? PreferAssertNull::class : PreferAssertBoolean::class;
+            $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
             $message = sprintf('Use assert%s%s() instead of %s(%s, ...)', $not, ucfirst($literal), $name, $literal);
         } elseif (isset(self::COUNT_METHODS[$method]) && self::isIntegerCountComparison($expected, $actual, $event)) {
             [$name, $not] = self::COUNT_METHODS[$method];
-            $issueClass = PreferAssertCount::class;
+            $issueClass = UnspecificCountAssertion::class;
             $message = sprintf('Use assert%sCount() instead of %s(..., count(...))', $not, $name);
         } else {
             return;

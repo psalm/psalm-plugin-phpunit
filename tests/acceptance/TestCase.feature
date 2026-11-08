@@ -2405,10 +2405,10 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type             | Message                                                 |
-      | PreferAssertNull | Use assertNull() instead of assertSame(null, ...)       |
-      | PreferAssertNull | Use assertNotNull() instead of assertNotSame(null, ...) |
-      | PreferAssertNull | Use assertNull() instead of assertSame(null, ...)       |
+      | Type                    | Message                                                 |
+      | UnspecificNullAssertion | Use assertNull() instead of assertSame(null, ...)       |
+      | UnspecificNullAssertion | Use assertNotNull() instead of assertNotSame(null, ...) |
+      | UnspecificNullAssertion | Use assertNull() instead of assertSame(null, ...)       |
     And I see no other errors
 
   Scenario: assertSame with a boolean expectation suggests assertTrue and assertFalse
@@ -2426,11 +2426,11 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                | Message                                                  |
-      | PreferAssertBoolean | Use assertTrue() instead of assertSame(true, ...)        |
-      | PreferAssertBoolean | Use assertFalse() instead of assertSame(false, ...)      |
-      | PreferAssertBoolean | Use assertNotTrue() instead of assertNotSame(true, ...)  |
-      | PreferAssertBoolean | Use assertNotFalse() instead of assertNotSame(false, ...) |
+      | Type                       | Message                                                   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertSame(true, ...)         |
+      | UnspecificBooleanAssertion | Use assertFalse() instead of assertSame(false, ...)       |
+      | UnspecificBooleanAssertion | Use assertNotTrue() instead of assertNotSame(true, ...)   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotSame(false, ...) |
     And I see no other errors
 
   Scenario: assertSame and assertEquals with count() suggest assertCount
@@ -2450,12 +2450,12 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                                                    |
-      | PreferAssertCount | Use assertCount() instead of assertSame(..., count(...))   |
-      | PreferAssertCount | Use assertCount() instead of assertEquals(..., count(...)) |
-      | PreferAssertCount | Use assertNotCount() instead of assertNotSame(..., count(...)) |
-      | PreferAssertCount | Use assertNotCount() instead of assertNotEquals(..., count(...)) |
-      | PreferAssertCount | Use assertCount() instead of assertSame(..., count(...))   |
+      | Type                     | Message                                                          |
+      | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
+      | UnspecificCountAssertion | Use assertCount() instead of assertEquals(..., count(...))       |
+      | UnspecificCountAssertion | Use assertNotCount() instead of assertNotSame(..., count(...))   |
+      | UnspecificCountAssertion | Use assertNotCount() instead of assertNotEquals(..., count(...)) |
+      | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
     And I see no other errors
 
   Scenario: Assertions without a literal expectation or a plain count are not reported
@@ -2534,11 +2534,11 @@ Feature: TestCase
           $value = random_int(0, 1) ? 1 : null;
           $flag = random_int(0, 1) === 1;
           $lines = ['a'];
-          /** @psalm-suppress PreferAssertNull */
+          /** @psalm-suppress UnspecificNullAssertion */
           $this->assertSame(null, $value);
-          /** @psalm-suppress PreferAssertBoolean */
+          /** @psalm-suppress UnspecificBooleanAssertion */
           $this->assertSame(true, $flag);
-          /** @psalm-suppress PreferAssertCount */
+          /** @psalm-suppress UnspecificCountAssertion */
           $this->assertSame(1, count($lines));
         }
       }

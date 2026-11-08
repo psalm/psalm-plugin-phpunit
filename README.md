@@ -37,7 +37,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 * Data providers are validated: the provider exists, returns an `iterable`, and its datasets match the parameters of the test method.
 * Test methods, their data providers, and `TestCase` classes are not reported as unused code.
 * Statements after `$this->expectException()` and its siblings are not reported as `UnusedFunctionCall`, `UnusedMethodCall` or `MissingThrowsDocblock`.
-* `assertSame(null, ...)`, `assertSame(true|false, ...)` and `assertSame(n, count(...))` are reported as `PreferAssertNull`, `PreferAssertBoolean` and `PreferAssertCount` (at `errorLevel="1"`), suggesting `assertNull()`, `assertTrue()`/`assertFalse()` and `assertCount()`.
+* `assertSame(null, ...)`, `assertSame(true|false, ...)` and `assertSame(n, count(...))` are reported as `UnspecificNullAssertion`, `UnspecificBooleanAssertion` and `UnspecificCountAssertion` (at `errorLevel="1"`), suggesting `assertNull()`, `assertTrue()`/`assertFalse()` and `assertCount()`.
 * `$this->prophesize(Foo::class)` is typed as `ObjectProphecy<Foo>`, and magic calls on it resolve to `MethodProphecy`.
 
 ## License

@@ -7,7 +7,7 @@ use Psalm\Issue\PluginIssue;
 /**
  * Suggests assertCount() or assertNotCount() over assertSame(n, count(...)).
  */
-final class PreferAssertCount extends PluginIssue
+final class UnspecificCountAssertion extends PluginIssue
 {
     public const ERROR_LEVEL = 1;
 }

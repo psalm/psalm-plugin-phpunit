@@ -9,7 +9,7 @@ Layout:
 - `src/Plugin.php`: entry point. Registers `stubs/TestCase.phpstub` and `Hooks\TestCaseHandler`.
 - `src/Hooks/TestCaseHandler.php`: all the hooks (`AfterClassLikeVisit`,
   `AfterClassLikeAnalysis`, `AfterCodebasePopulated`, `AfterMethodCallAnalysis`).
-- `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/PreferAssert*.php`: the
+- `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
