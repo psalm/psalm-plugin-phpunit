@@ -27,7 +27,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 ## Features
 
 * Properties initialized in `setUp()` or a `@before` / `#[Before]` method count as initialized, so no false `MissingConstructor`.
-* Data providers are validated: the provider exists, returns an `iterable`, and its datasets match the parameters of the test method.
+* Data providers are validated: the provider exists, is `public static` (`InvalidDataProvider`), returns an `iterable`, and its datasets match the parameters of the test method.
 * Test methods, their data providers, and `TestCase` classes are not reported as unused code.
 * Statements after `expectException()` and its siblings are not reported as `UnusedFunctionCall` or `UnusedMethodCall`.
 * `$this->prophesize(Foo::class)` is typed as `ObjectProphecy<Foo>`, and magic calls on it resolve to `MethodProphecy`.

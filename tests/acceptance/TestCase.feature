@@ -495,6 +495,7 @@ Feature: TestCase
   Scenario: Data provider made public by a trait adaptation is allowed
     Given I have the following code
       """
+      /** @psalm-pure */
       trait Provides {
         /**
          * @return iterable<int,array<int,int>>
@@ -524,6 +525,7 @@ Feature: TestCase
   Scenario: Data provider made non-public by a trait adaptation is reported
     Given I have the following code
       """
+      /** @psalm-pure */
       trait Provides {
         /**
          * @return iterable<int,array<int,int>>
@@ -559,6 +561,7 @@ Feature: TestCase
       abstract class BaseTestCase extends TestCase {
         /**
          * @return iterable<int,array<int,int>>
+         * @psalm-pure
          */
         abstract protected static function provide();
 
