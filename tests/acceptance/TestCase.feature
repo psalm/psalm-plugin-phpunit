@@ -1740,3 +1740,74 @@ Feature: TestCase
       | Type              | Message                                                                           |
       | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, null provided |
     And I see no other errors
+
+  Scenario: Unused calls after expectException are not reported
+    Given I have the following code
+      """
+      /** @psalm-immutable */
+      final class Value {
+        /** @psalm-pure */
+        public function get(): int { return 1; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testAfter(): void {
+          $this->expectException(\JsonException::class);
+          json_decode('', flags: JSON_THROW_ON_ERROR);
+          (new Value())->get();
+        }
+
+        public function testAfterStaticCall(): void {
+          self::expectExceptionMessage('Syntax error');
+          json_decode('', flags: JSON_THROW_ON_ERROR);
+        }
+
+        public function testReturnValueIsUsed(): void {
+          $this->assertSame(1, (new Value())->get());
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Unused calls before expectException and in other tests are still reported
+    Given I have the following code
+      """
+      /** @psalm-immutable */
+      final class Value {
+        /** @psalm-pure */
+        public function get(): int { return 1; }
+      }
+
+      /** @psalm-immutable */
+      final class Other {
+        /** @psalm-pure */
+        public function get(): int { return 1; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testBefore(): void {
+          json_decode('', flags: JSON_THROW_ON_ERROR);
+          (new Value())->get();
+          $this->expectException(\JsonException::class);
+        }
+
+        /** @psalm-capabilities read-props */
+        public function testWithoutExpectation(): void {
+          json_encode(1);
+          (new Other())->get();
+        }
+
+        public function testReturnValueIsUsed(): void {
+          $this->assertSame(1, (new Value())->get() + (new Other())->get());
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type               | Message                                 |
+      | UnusedFunctionCall | The call to json_decode is not used     |
+      | UnusedMethodCall   | The call to NS\Value::get is not used   |
+      | UnusedFunctionCall | The call to json_encode is not used     |
+      | UnusedMethodCall   | The call to NS\Other::get is not used   |
+    And I see no other errors

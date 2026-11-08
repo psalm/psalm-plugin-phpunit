@@ -25,9 +25,11 @@ use Psalm\Issue;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
+use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
 use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
+use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
@@ -39,12 +41,35 @@ use function array_filter;
 use function array_map;
 use function array_merge;
 use function array_values;
+use function strtolower;
 
 final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
     AfterClassLikeAnalysisInterface,
-    AfterCodebasePopulatedInterface
+    AfterCodebasePopulatedInterface,
+    AfterMethodCallAnalysisInterface
 {
+    private const EXPECT_EXCEPTION_METHODS = [
+        'phpunit\\framework\\testcase::expectexception' => true,
+        'phpunit\\framework\\testcase::expectexceptioncode' => true,
+        'phpunit\\framework\\testcase::expectexceptionmessage' => true,
+        'phpunit\\framework\\testcase::expectexceptionmessagematches' => true,
+        'phpunit\\framework\\testcase::expectexceptionobject' => true,
+    ];
+
+    /**
+     * Statements after expectException*() may exist only to throw, so their results are legitimately unused.
+     */
+    #[\Override]
+    public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
+    {
+        if (!isset(self::EXPECT_EXCEPTION_METHODS[strtolower($event->getDeclaringMethodId())])) {
+            return;
+        }
+
+        $event->getStatementsSource()->addSuppressedIssues(['UnusedFunctionCall', 'UnusedMethodCall']);
+    }
+
     #[\Override]
     public static function afterCodebasePopulated(AfterCodebasePopulatedEvent $event)
     {
