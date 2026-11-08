@@ -136,7 +136,7 @@ final class TestCaseHandler implements
                 if (false !== strpos($provider, '::')) {
                     [$class_name] = explode('::', $provider);
                     $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
-                    self::queueClassLikeForScanning($codebase, $fq_class_name, $file_path);
+                    $codebase->queueClassLikeForScanning($fq_class_name);
                     $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
                 }
             }
@@ -667,20 +667,5 @@ final class TestCaseHandler implements
             'description' => $description,
             'specials' => $specials,
         ];
-    }
-
-    private static function queueClassLikeForScanning(
-        Codebase $codebase,
-        string $fq_class_name,
-        string $file_path
-    ): void {
-        if (method_exists($codebase, 'queueClassLikeForScanning')) {
-            $codebase->queueClassLikeForScanning($fq_class_name);
-        } else {
-            /**
-             * @psalm-suppress InvalidArgument
-             */
-            $codebase->scanner->queueClassLikeForScanning($fq_class_name, $file_path);
-        }
     }
 }
