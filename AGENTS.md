@@ -31,7 +31,7 @@ These come first, before every other rule here:
 2. **Think through every way the change could cause bugs**, in edge cases and ordinary
    ones: other callers of the changed code, traits and inherited test cases, PHPUnit
    `#[Attribute]` vs docblock annotations, other PHP and PHPUnit versions, other Psalm
-   versions (see "Psalm version trap"), analysis of a single file. Check each one by adding
+   versions (see "Psalm versions"), analysis of a single file. Check each one by adding
    a scenario.
 3. **Add an explicit scenario for each of those cases**, not only for the reported bug.
 
@@ -69,18 +69,14 @@ Locally:
 - When briefing a subagent, spell all of this out ("single scenarios only, no full suite,
   no sweeps"); a vague "don't run the tests" is not enough.
 
-### Psalm version trap
+### Psalm versions
 
-With `COMPOSER_ROOT_VERSION=dev-master`, Composer resolves `vimeo/psalm` to
-**7.0.0-rc18**, not to a newer release: every later release requires
-`psalm/plugin-phpunit ^0.21`, which the root package `dev-master` doesn't satisfy
-(`COMPOSER_ROOT_VERSION=dev-master composer why-not vimeo/psalm 7.0.1` shows it). rc18 had the
-plugin only in `require-dev`. So the CI high and stable jobs test against rc18; the low jobs
-(`--prefer-lowest`) resolve 7.0.0-rc3.
+The CI low jobs (`--prefer-lowest`) resolve the lowest `vimeo/psalm` that `composer.json`
+allows, the high and stable jobs the newest. They can report different issues (from
+7.0.0-rc28 the purity suggestions are opt-in via `suggestPurityAnnotations`).
 - Always check `vendor/bin/psalm --version` before trusting a result.
-- `COMPOSER_ROOT_VERSION=0.21.99 composer update` resolves `vimeo/psalm` dev-master instead.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
-  events), run the relevant scenarios on both.
+  events), run the relevant scenarios on both (skill `plugin-repro`).
 
 ## Pull requests
 
@@ -170,7 +166,7 @@ workaround explicitly in the report.
   (`I see no errors`), `Some errors didn't match expected ones.` (`I see these errors`) or
   `No further errors expected, found:` (`I see no other errors`). Copy the exact type and
   message from it.
-- Fixtures must pass on Psalm rc18 and on newer Psalm: annotate them for purity (#166):
+- Fixtures must pass on the lowest and the newest Psalm: annotate them for purity (#166):
   data providers `@psalm-pure`, mocked interfaces `@psalm-mutable` with `@psalm-impure`
   methods. Never suppress the `Missing*Annotation` issues instead.
 - Put each docblock tag on its own line, in fixtures and in `src/`. `/** @psalm-pure @param

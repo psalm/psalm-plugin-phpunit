@@ -1,6 +1,6 @@
 ---
 name: plugin-repro
-description: Use when reproducing a psalm-plugin-phpunit bug from the CLI, showing a new Behat scenario fails on the base branch, comparing plugin behaviour between a branch and origin/master, or comparing Psalm versions (7.0.0-rc18 vs dev-master), or reading CI logs.
+description: Use when reproducing a psalm-plugin-phpunit bug from the CLI, showing a new Behat scenario fails on the base branch, comparing plugin behaviour between a branch and origin/master, or comparing Psalm versions (lowest vs newest), or reading CI logs.
 ---
 
 # Plugin repros and version comparisons
@@ -57,15 +57,13 @@ Never run the whole suite for this.
 
 Check `vendor/bin/psalm --version` before trusting any result.
 
-- `COMPOSER_ROOT_VERSION=dev-master` gives rc18, `COMPOSER_ROOT_VERSION=0.21.99` gives
-  dev-master (AGENTS.md "Psalm version trap").
-- To compare both, use two worktrees (or two scratch copies of the checkout), each with its
-  own `vendor/` installed with one of the two commands, and run the same scenario or
-  scratch repro in each. Behat runs the root `vendor/bin/psalm`, so the root install
-  decides the version.
-- A difference between them is either a plugin bug on one version or a Psalm change (for
-  example, from 7.0.0-rc28 the purity suggestions `MissingPureAnnotation` and three others
-  are opt-in via `suggestPurityAnnotations`). Report which it is.
+- To compare the lowest and the newest, use two worktrees (or two scratch copies of the
+  checkout), each with its own `vendor/`: one installed with
+  `composer update --prefer-lowest --prefer-stable`, one with plain `composer update`
+  (as AGENTS.md "Locally"), and run the same scenario or scratch repro in each. Behat runs
+  the root `vendor/bin/psalm`, so the root install decides the version.
+- A difference between them is either a plugin bug on one version or a Psalm change
+  (AGENTS.md "Psalm versions"). Report which it is.
 
 ## Reading CI logs
 
