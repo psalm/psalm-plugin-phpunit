@@ -8,19 +8,28 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Depends;
+use PHPUnit\Framework\Attributes\DependsExternal;
+use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
+use PHPUnit\Framework\Attributes\DependsExternalUsingShallowClone;
+use PHPUnit\Framework\Attributes\DependsUsingDeepClone;
+use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
@@ -41,8 +50,17 @@ use function array_column;
 use function array_filter;
 use function array_map;
 use function array_merge;
+use function array_slice;
 use function array_values;
+use function count;
+use function explode;
 use function in_array;
+use function ltrim;
+use function max;
+use function preg_match;
+use function str_contains;
+use function str_ends_with;
+use function str_starts_with;
 use function strtolower;
 use function substr_count;
 use function trim;
@@ -53,6 +71,16 @@ final class TestCaseHandler implements
     AfterCodebasePopulatedInterface,
     AfterMethodCallAnalysisInterface
 {
+    /** @var array<class-string, bool> attribute class => whether it names the target class explicitly */
+    private const DEPENDS_ATTRIBUTES = [
+        Depends::class => false,
+        DependsUsingDeepClone::class => false,
+        DependsUsingShallowClone::class => false,
+        DependsExternal::class => true,
+        DependsExternalUsingDeepClone::class => true,
+        DependsExternalUsingShallowClone::class => true,
+    ];
+
     private const EXPECT_EXCEPTION_METHODS = [
         'phpunit\\framework\\testcase::expectexception' => true,
         'phpunit\\framework\\testcase::expectexceptioncode' => true,
@@ -230,6 +258,12 @@ final class TestCaseHandler implements
                 continue;
             }
 
+            $dependency_values = self::countDependencyValues(
+                $codebase,
+                $stmt_method,
+                $method_aliases,
+                $class_storage,
+            );
             foreach ($specials['dataProvider'] as [$line, $provider]) {
                 $provider_docblock_location = $method_storage->location->setCommentLine($line);
 
@@ -444,9 +478,19 @@ final class TestCaseHandler implements
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
                 if ($dataset_type instanceof Type\Atomic\TArray) {
+                    // The dataset length is unknown, so assume the trailing params receive the return values
+                    // of depended-upon tests, unless a variadic param could consume them.
+                    $last_param      = array_slice($method_storage->params, -1)[0] ?? null;
+                    $provider_params = array_slice(
+                        $method_storage->params,
+                        0,
+                        $last_param !== null && $last_param->is_variadic
+                            ? null
+                            : max(0, count($method_storage->params) - $dependency_values),
+                    );
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
-                    foreach ($method_storage->params as $param_offset => $param) {
+                    foreach ($provider_params as $param_offset => $param) {
                         if (!$param->type) {
                             continue;
                         }
@@ -469,11 +513,15 @@ final class TestCaseHandler implements
                             if ($param->is_optional) {
                                 continue;
                             }
+                            // the return values of depended-upon tests follow the provider values
+                            if ($param_offset < $dataset_type->getMinCount() + $dependency_values) {
+                                continue;
+                            }
 
                             IssueBuffer::accepts(new Issue\TooFewArguments(
                                 'Too few arguments for ' . $method_name
-                                . ' - expecting at least ' . ($param_offset + 1)
-                                . ', but saw ' . count($potential_argument_types)
+                                . ' - expecting at least ' . ($param_offset + 1 - $dependency_values)
+                                . ', but saw ' . $dataset_type->getMinCount()
                                 . ' provided by ' . $provider_method_id . '()'
                                 .  ':(' . $provider_return_type_string . ')',
                                 $provider_docblock_location,
@@ -633,6 +681,120 @@ final class TestCaseHandler implements
         )));
     }
 
+    /**
+     * PHPUnit appends the return value of every distinct depended-upon test that is not declared void or never
+     * to the data provider values. Depending on a whole class passes no value.
+     */
+    private static function countDependencyValues(
+        Codebase $codebase,
+        ClassMethod $method,
+        Aliases $aliases,
+        ClassLikeStorage $class
+    ): int {
+        $count = 0;
+        $seen  = [];
+        foreach (self::getDependencyTargets($method, $aliases, $class) as $target) {
+            if ($target !== null) {
+                if (isset($seen[strtolower($target)])) {
+                    continue;
+                }
+                $seen[strtolower($target)] = true;
+
+                $target_class = explode('::', $target)[0];
+                $target_id    = $codebase->classOrInterfaceExists($target_class)
+                    ? $codebase->getDeclaringMethodId($target)
+                    : null;
+                $return_type  = $target_id === null
+                    ? null
+                    : $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
+                if ($return_type !== null && ($return_type->isVoid() || $return_type->isNever())) {
+                    continue;
+                }
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * Mirrors PHPUnit's ParserChain: docblock annotations are only read when the method has no PHPUnit attribute.
+     *
+     * @return list<string|null> "Class::method" per method dependency, null when the target is not a literal
+     */
+    private static function getDependencyTargets(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
+    {
+        $has_phpunit_attribute = false;
+        $targets               = [];
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class       = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                $has_phpunit_attribute = $has_phpunit_attribute
+                    || str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\');
+                if (!isset(self::DEPENDS_ATTRIBUTES[$attribute_class])) {
+                    continue;
+                }
+
+                $args = [];
+                foreach ($attribute->args as $position => $arg) {
+                    $args[$arg->name?->toString() ?? $position] = $arg->value;
+                }
+
+                $is_external  = self::DEPENDS_ATTRIBUTES[$attribute_class];
+                $target_name  = $args['methodName'] ?? $args[$is_external ? 1 : 0] ?? null;
+                $target_class = $is_external
+                    ? self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class)
+                    : $class->name;
+                if ($target_name instanceof String_ && $target_name->value === 'class') {
+                    continue; // PHPUnit treats this as a class dependency, which passes no value
+                }
+
+                $targets[]    = $target_class !== null && $target_name instanceof String_
+                    ? $target_class . '::' . $target_name->value
+                    : null;
+            }
+        }
+
+        if ($has_phpunit_attribute) {
+            return $targets;
+        }
+
+        foreach (self::getDocblockSpecials($method)['depends'] ?? [] as [, $value]) {
+            $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
+            if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
+                continue;
+            }
+
+            $target    = $matches[1];
+            $targets[] = str_contains($target, '::') ? ltrim($target, '\\') : $class->name . '::' . $target;
+        }
+
+        return $targets;
+    }
+
+    private static function classFromExpression(
+        Expr|null $expression,
+        Aliases $aliases,
+        ClassLikeStorage $class
+    ): string|null {
+        if ($expression instanceof String_) {
+            return ltrim($expression->value, '\\');
+        }
+
+        $is_class_fetch = $expression instanceof ClassConstFetch
+            && $expression->class instanceof Name
+            && $expression->name instanceof Identifier
+            && $expression->name->toLowerString() === 'class';
+        if (!$is_class_fetch) {
+            return null;
+        }
+
+        if ($expression->class->isSpecialClassName()) {
+            return $expression->class->toLowerString() === 'parent' ? $class->parent_class : $class->name;
+        }
+
+        return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
+    }
     /** @return array<string, list<array{int, string}>> */
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
