@@ -58,7 +58,8 @@ final class TestCaseHandler implements
     ];
 
     /**
-     * Statements after expectException*() may exist only to throw, so their results are legitimately unused.
+     * Statements after expectException*() may exist only to throw, so their results are unused and PHPUnit catches
+     * the exception.
      */
     #[\Override]
     public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
@@ -67,7 +68,11 @@ final class TestCaseHandler implements
             return;
         }
 
-        $event->getStatementsSource()->addSuppressedIssues(['UnusedFunctionCall', 'UnusedMethodCall']);
+        $event->getStatementsSource()->addSuppressedIssues([
+            'UnusedFunctionCall',
+            'UnusedMethodCall',
+            'MissingThrowsDocblock',
+        ]);
     }
 
     #[\Override]
