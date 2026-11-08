@@ -192,5 +192,8 @@ jobs:
             - name: Show Psalm version
               run: vendor/bin/psalm --version
 
+            - name: Show PHPUnit version
+              run: vendor/bin/phpunit --version
+
             - name: Run tests
               run: cd tools/behat && vendor/bin/behat -vvv
