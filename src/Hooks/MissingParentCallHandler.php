@@ -22,8 +22,9 @@ use function sprintf;
 use function strtolower;
 
 /**
- * Reports setUp(), tearDown(), setUpBeforeClass() and tearDownAfterClass() overrides that don't call the parent:
- * the parent class may be a project base test case that sets up shared fixtures.
+ * Reports setUp(), tearDown(), setUpBeforeClass(), tearDownAfterClass(), assertPreConditions() and
+ * assertPostConditions() overrides that don't call the parent: the parent class may be a project base test case
+ * that sets up shared fixtures.
  */
 final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
 {
@@ -35,6 +36,8 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
         'teardown' => 'tearDown',
         'setupbeforeclass' => 'setUpBeforeClass',
         'teardownafterclass' => 'tearDownAfterClass',
+        'assertpreconditions' => 'assertPreConditions',
+        'assertpostconditions' => 'assertPostConditions',
     ];
 
     #[\Override]
