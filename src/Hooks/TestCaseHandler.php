@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
+use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
@@ -35,6 +36,7 @@ use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
+use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -81,6 +83,27 @@ final class TestCaseHandler implements
         DependsExternal::class => true,
         DependsExternalUsingDeepClone::class => true,
         DependsExternalUsingShallowClone::class => true,
+    ];
+
+    /**
+     * PHPUnit takes the value of these tags from the rest of the line.
+     *
+     * @var array<string, true>
+     */
+    private const VALUE_TAGS = [
+        'backupGlobals' => true,
+        'backupStaticAttributes' => true,
+        'covers' => true,
+        'coversDefaultClass' => true,
+        'dataProvider' => true,
+        'depends' => true,
+        'group' => true,
+        'preserveGlobalState' => true,
+        'requires' => true,
+        'testDox' => true,
+        'testWith' => true,
+        'ticket' => true,
+        'uses' => true,
     ];
 
     private const EXPECT_EXCEPTION_METHODS = [
@@ -238,6 +261,12 @@ final class TestCaseHandler implements
             return null;
         }
 
+        self::reportMalformedTags(
+            $class_node,
+            new CodeLocation($statements_source, $class_node),
+            $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
+        );
+
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
@@ -265,6 +294,14 @@ final class TestCaseHandler implements
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
                 && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
+
+            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
+            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
+            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
+                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
+            }
+
+            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -966,45 +1003,107 @@ final class TestCaseHandler implements
             return [];
         }
 
+        $entries = [];
+        foreach (self::getDocblockTags($docblock) as $tag => $values) {
+            foreach ($values as $offset => $data) {
+                // PHPUnit ignores a malformed tag, so there is no provider, dependency or group to look up
+                if (self::malformedProblem($docblock, $tag, $offset, $data) !== null) {
+                    continue;
+                }
+
+                $entries[$tag][] = [self::docblockLine($docblock, $offset), self::firstLine($data)];
+            }
+        }
+
+        return $entries;
+    }
+
+    /** @param array<array-key, string> $suppressed_issues */
+    private static function reportMalformedTags(
+        ClassLike|ClassMethod $node,
+        CodeLocation $location,
+        array $suppressed_issues,
+    ): void {
+        $docblock = $node->getDocComment();
+        if (!$docblock) {
+            return;
+        }
+
+        foreach (self::getDocblockTags($docblock) as $tag => $values) {
+            foreach ($values as $offset => $data) {
+                $problem = self::malformedProblem($docblock, $tag, $offset, $data);
+                if ($problem === null) {
+                    continue;
+                }
+
+                IssueBuffer::accepts(new InvalidPhpUnitAnnotation(
+                    'Annotation "@' . $tag . '" ' . $problem,
+                    $location->setCommentLine(self::docblockLine($docblock, $offset)),
+                ), $suppressed_issues);
+            }
+        }
+    }
+
+    /**
+     * @return string|null What is wrong with the tag, null when PHPUnit accepts it
+     *
+     * @psalm-pure
+     */
+    private static function malformedProblem(Doc $docblock, string $tag, int $offset, string $data): string|null
+    {
+        if (!isset(self::VALUE_TAGS[$tag])) {
+            return null;
+        }
+
+        // PHPUnit's `@testWith\s+` spans line breaks, so the datasets may start on the line below the tag.
+        // Psalm then starts the value at that line break.
+        if ($tag === 'testWith') {
+            if (trim($data) === '') {
+                return 'has no value';
+            }
+
+            if (ltrim($data) !== $data) {
+                return null;
+            }
+        } elseif (self::firstLine($data) === '') {
+            return 'has no value';
+        }
+
+        $char_before_value = $docblock->getText()[$offset - $docblock->getStartFilePos() - 1];
+
+        return $char_before_value === ' ' || $char_before_value === "\t"
+            ? null
+            : 'must be followed by a space and a value';
+    }
+
+    /** @return array<string, array<int, string>> Values keyed by tag, then by absolute file offset */
+    private static function getDocblockTags(Doc $docblock): array
+    {
         try {
-            $parsed_comment = self::getParsedComment($docblock);
+            return DocComment::parsePreservingLength($docblock, true)->tags;
         } catch (DocblockParseException $e) {
             return [];
         }
-
-        if (!isset($parsed_comment['specials'])) {
-            return [];
-        }
-
-        // Psalm keys tags by absolute file offset, which is useless for issue locations.
-        $start_pos = $docblock->getStartFilePos();
-        $to_line   = static fn(int $offset): int => $docblock->getStartLine()
-            + substr_count($docblock->getText(), "\n", 0, $offset - $start_pos);
-
-        return array_map(
-            static function (array $tags) use ($to_line): array {
-                $entries = [];
-                foreach ($tags as $offset => $data) {
-                    $entries[] = [$to_line($offset), trim($data)];
-                }
-
-                return $entries;
-            },
-            $parsed_comment['specials']
-        );
     }
 
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
+    /**
+     * PHPUnit reads a tag's value from its own line only, Psalm also folds the following lines into it.
+     *
+     * @psalm-pure
+     */
+    private static function firstLine(string $data): string
     {
-        $parsed_docblock = DocComment::parsePreservingLength($comment, true);
+        return trim(explode("\n", $data, 2)[0]);
+    }
 
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
+    /**
+     * Psalm keys tags by absolute file offset, which is useless for issue locations.
+     *
+     * @psalm-pure
+     */
+    private static function docblockLine(Doc $docblock, int $offset): int
+    {
+        return $docblock->getStartLine()
+            + substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos());
     }
 }
