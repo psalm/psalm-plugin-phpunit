@@ -5260,3 +5260,44 @@ final class MyTestCase extends TestCase
       | Type            | Message                            |
       | InvalidDocblock | Unrecognised annotation @psalm-foo |
     And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide an ignored docblock tag
+    Given PHPUnit identifies as version "13.0-dev"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @group slow
+         */
+        public function testSlow(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                          | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 8    |
+      | InvalidDocblock         | Unrecognised annotation @psalm-foo                               | 10   |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide a malformed annotation
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
+      | InvalidDocblock          | Unrecognised annotation @psalm-foo      | 10   |
+    And I see no other errors
