@@ -14,7 +14,6 @@ use Psalm\PhpUnitPlugin\PhpUnitVersion;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
-use function array_merge;
 use function sprintf;
 use function strtolower;
 
@@ -79,7 +78,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             self::report(
                 $codebase->classlikes->getTraitNode($trait_storage->name),
                 $trait_storage->location,
-                array_merge($class_storage->suppressed_issues, $trait_storage->suppressed_issues),
+                $class_storage->suppressed_issues + $trait_storage->suppressed_issues,
             );
         }
 
@@ -101,7 +100,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             self::report(
                 $method_node,
                 $method_storage->location,
-                array_merge($class_storage->suppressed_issues, $method_storage->suppressed_issues),
+                $class_storage->suppressed_issues + $method_storage->suppressed_issues,
             );
         }
 
