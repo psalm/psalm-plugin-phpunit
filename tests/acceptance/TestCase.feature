@@ -7623,32 +7623,6 @@ final class MyTestCase extends TestCase
   Scenario: Test parameters are narrowed to the types of their data provider
     Given I have the following code
       """
-      final class MyTestCase extends TestCase {
-        /**
-         * @return array<string, array{data: array<string, string>}>
-         * @psalm-pure
-         */
-        public static function provide(): array {
-          return ['some data' => ['data' => ['foo' => 'bar']]];
-        }
-
-        /**
-         * @dataProvider provide
-         */
-        public function testSomething(array $data): void {
-          /** @psalm-check-type-exact $data = array<string, string> */
-          foreach ($data as $key => $value) {
-            $this->assertSame('bar', $value);
-          }
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
-  Scenario: Iterating a test parameter that a data provider types is not a MixedAssignment
-    Given I have the following code
-      """
       final class SomeTest extends TestCase {
         /**
          * @return array<string, array{data: array<string, string>}>
@@ -7662,6 +7636,7 @@ final class MyTestCase extends TestCase
          * @dataProvider getData
          */
         public function testSomething(array $data): void {
+          /** @psalm-check-type-exact $data = array<string, string> */
           foreach ($data as $key => $value) {
             $this->assertNotEmpty($key . $value);
           }
@@ -8084,6 +8059,7 @@ final class MyTestCase extends TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(array $data): void {
+          /** @psalm-check-type-exact $data = array<string, string> */
           $this->assertTrue(true);
         }
 
@@ -8111,6 +8087,7 @@ final class MyTestCase extends TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(mixed $number, mixed $unused): void {
+          /** @psalm-check-type-exact $unused = int */
           $this->assertSame(1, $number);
         }
       }
@@ -8311,10 +8288,19 @@ final class MyTestCase extends TestCase
       final class PlainTestCase extends TestCase {
         use MyTestTrait;
       }
+
+      trait AliasingTrait {
+        use MyTestTrait { something as testSomething; }
+      }
+
+      final class NestedAliasTestCase extends TestCase {
+        use AliasingTrait;
+      }
       """
     When I run Psalm
     Then I see these errors
       | Type  | Message         |
+      | Trace | $value: int     |
       | Trace | $value: int     |
       | Trace | $value: mixed   |
     And I see no other errors

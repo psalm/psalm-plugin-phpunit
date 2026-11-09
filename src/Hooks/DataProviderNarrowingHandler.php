@@ -22,8 +22,6 @@ use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Union;
 use WeakMap;
 
-use function array_values;
-use function count;
 use function is_array;
 use function str_starts_with;
 use function strtolower;
@@ -88,11 +86,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             $var_id = '$' . $param->name;
             $old    = $context->vars_in_scope[$var_id] ?? null;
             $type   = $provided[$offset] ?? null;
-            if ($old === null || $type === null || $param->by_ref || $param->is_variadic || $old->hasTemplate()) {
-                continue;
-            }
-
-            if ($type->isNever()) {
+            if ($old === null || $type === null || $type->isNever() || $param->by_ref || $old->hasTemplate()) {
                 continue;
             }
 
@@ -242,10 +236,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             return null;
         }
 
-        $datasets = TestCaseHandler::unionizeIterables($codebase, new Union($iterables))
-            ->type_params[1]
-            ->getAtomicTypes();
-        $dataset  = count($datasets) === 1 ? array_values($datasets)[0] : null;
+        $datasets = TestCaseHandler::unionizeIterables($codebase, new Union($iterables))->type_params[1];
+        $dataset  = $datasets->isSingle() ? $datasets->getSingleAtomic() : null;
 
         return $dataset instanceof TArray || $dataset instanceof TKeyedArray ? $dataset : null;
     }
@@ -264,8 +256,18 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         array $params,
         bool $has_dependencies
     ): array {
+        $bound = [];
         if ($dataset instanceof TArray) {
-            return $has_dependencies ? [] : self::bindArray($dataset, $params);
+            // the return values of depended-upon tests may fill the parameters after a short dataset
+            if (!$has_dependencies) {
+                foreach ($params as $offset => $param) {
+                    if (!$param->is_optional && !$param->is_variadic) {
+                        $bound[$offset] = $dataset->type_params[1];
+                    }
+                }
+            }
+
+            return $bound;
         }
 
         // PHPUnit appends the return values of depended-upon tests, which cannot follow named arguments
@@ -273,34 +275,12 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             return [];
         }
 
-        $bound = [];
         foreach (DatasetBinding::bind($dataset, $params, $codebase)->arguments as $argument) {
             // Outside a list, the declared order of int keys need not be the order of the entries. In a list,
             // only trailing entries may be undefined, so a defined entry is always at its position.
             $position_is_known = $argument->name !== null || $dataset->is_list;
             if ($position_is_known && !$argument->is_optional && !$argument->type->possibly_undefined) {
                 $bound[$argument->position] = $argument->type;
-            }
-        }
-
-        return $bound;
-    }
-
-    /**
-     * Every required parameter receives some value of the dataset. Where the dataset is shorter than the parameters
-     * PHPUnit fails the test before calling it, unless the return values of depended-upon tests fill the gap.
-     *
-     * @param list<FunctionLikeParameter> $params
-     * @return array<int, Union>
-     *
-     * @psalm-capabilities read-props
-     */
-    private static function bindArray(TArray $dataset, array $params): array
-    {
-        $bound = [];
-        foreach ($params as $offset => $param) {
-            if (!$param->is_optional && !$param->is_variadic) {
-                $bound[$offset] = $dataset->type_params[1];
             }
         }
 

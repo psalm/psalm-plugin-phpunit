@@ -1065,15 +1065,21 @@ final class TestCaseHandler implements
     }
 
     /**
-     * getAttributeDataProviders() leaves out the attributes it cannot read, such as #[DataProvider(self::NAME)].
+     * getAttributeDataProviders() leaves out the attributes it cannot read, such as #[DataProvider(self::NAME)] and
+     * #[DataProviderClosure] (named by string, as not every supported PHPUnit version has it).
      */
     private static function countProviderAttributes(ClassMethod $method, Aliases $aliases): int
     {
+        $provider_attributes = [
+            DataProvider::class,
+            DataProviderExternal::class,
+            'PHPUnit\\Framework\\Attributes\\DataProviderClosure',
+        ];
         $count = 0;
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                if ($attribute_class === DataProvider::class || $attribute_class === DataProviderExternal::class) {
+                if (in_array($attribute_class, $provider_attributes, true)) {
                     $count++;
                 }
             }
