@@ -240,10 +240,26 @@ final class TestCaseHandler implements
         }
 
         self::reportMalformedTags(
+            $event,
             $class_node,
             new CodeLocation($statements_source, $class_node),
-            $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
+            [],
         );
+
+        // PHPUnit merges the class docblocks of the traits used directly by the test case, not of nested ones
+        foreach ($class_storage->used_traits as $trait_name) {
+            $trait_storage = $codebase->classlike_storage_provider->get($trait_name);
+            if (!$trait_storage->location) {
+                continue;
+            }
+
+            self::reportMalformedTags(
+                $event,
+                $codebase->classlikes->getTraitNode($trait_name),
+                $trait_storage->stmt_location ?? $trait_storage->location,
+                $trait_storage->suppressed_issues,
+            );
+        }
 
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
@@ -273,13 +289,12 @@ final class TestCaseHandler implements
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
                 && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
-            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
-            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
-            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
-                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
-            }
-
-            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
+            self::reportMalformedTags(
+                $event,
+                $stmt_method,
+                $method_storage->location,
+                $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
+            );
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -1050,6 +1065,7 @@ final class TestCaseHandler implements
 
     /** @param array<array-key, string> $suppressed_issues */
     private static function reportMalformedTags(
+        AfterClassLikeAnalysisEvent $event,
         ClassLike|ClassMethod $node,
         CodeLocation $location,
         array $suppressed_issues,
@@ -1057,6 +1073,13 @@ final class TestCaseHandler implements
         // Nothing is read from a docblock on PHPUnit 12, malformed or not
         if (PhpUnitVersion::ignoresDocblockMetadata()) {
             return;
+        }
+
+        // Suppression keys are source offsets: those of the analysed class mean nothing in another file
+        $statements_source = $event->getStatementsSource();
+        if ($location->file_path === $statements_source->getFilePath()) {
+            $suppressed_issues += $event->getClasslikeStorage()->suppressed_issues
+                + $statements_source->getSuppressedIssues();
         }
 
         foreach (DocblockSpecials::malformed($node) as ['tag' => $tag, 'line' => $line, 'problem' => $problem]) {

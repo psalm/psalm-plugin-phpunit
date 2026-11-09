@@ -7013,3 +7013,158 @@ final class MyTestCase extends TestCase
       | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
       | InvalidDocblock          | Unrecognised annotation @psalm-foo      | 10   |
     And I see no other errors
+
+  Scenario: Malformed annotation in the class docblock of a used trait is reported
+    Given I have the following code
+      """
+      /**
+       * @group
+       */
+      trait HelperTrait
+      {
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                          | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@group" has no value | 6    |
+    And I see no other errors
+
+  Scenario: Only malformed annotations in the class docblock of a used trait are reported
+    Given I have the following code
+      """
+      /**
+       * @group slow
+       */
+      trait WellFormedTrait
+      {
+      }
+
+      /**
+       * @group
+       */
+      trait UnusedTrait
+      {
+      }
+
+      /**
+       * @covers
+       */
+      trait MalformedTrait
+      {
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use WellFormedTrait, MalformedTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                           | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value | 20   |
+    And I see no other errors
+
+  Scenario: Malformed annotation in a trait shared by several test cases is reported once
+    Given I have the following code
+      """
+      /**
+       * @covers
+       */
+      trait HelperTrait
+      {
+      }
+
+      final class FirstTest extends TestCase
+      {
+        use HelperTrait;
+      }
+
+      final class SecondTest extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                           | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value | 6    |
+    And I see no other errors
+
+  Scenario: Only the class docblocks of the traits a test case uses directly are checked
+    Given I have the following code
+      """
+      /**
+       * @group
+       */
+      trait InnerTrait
+      {
+      }
+
+      /**
+       * @covers
+       */
+      trait OuterTrait
+      {
+        use InnerTrait;
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use OuterTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                           | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value | 13   |
+    And I see no other errors
+
+  Scenario: Malformed annotation in the class docblock of a used trait can be suppressed on the trait or on the test class
+    Given I have the following code
+      """
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       * @group
+       */
+      trait SuppressedTrait
+      {
+      }
+
+      /**
+       * @covers
+       */
+      trait ReportedTrait
+      {
+      }
+
+      /**
+       * @uses
+       */
+      trait SuppressedByClassTrait
+      {
+      }
+
+      final class FirstTest extends TestCase
+      {
+        use SuppressedTrait, ReportedTrait;
+      }
+
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+      final class SecondTest extends TestCase
+      {
+        use SuppressedByClassTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                           | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value | 14   |
+    And I see no other errors
