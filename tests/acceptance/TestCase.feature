@@ -3421,12 +3421,12 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                     | Message                                                                   |
-      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist        |
-      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist        |
-      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist        |
-      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\Stub::now does not exist              |
-      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist        |
+      | Type                     | Message                                                            | Line |
+      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist | 20   |
+      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist | 24   |
+      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist | 28   |
+      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\Stub::now does not exist       | 32   |
+      | UndefinedInterfaceMethod | Method PHPUnit\Framework\MockObject\MockObject::now does not exist | 37   |
     And I see no other errors
 
   Scenario: Intersection mocks work in traits and abstract test cases
