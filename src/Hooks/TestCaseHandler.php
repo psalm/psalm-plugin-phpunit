@@ -32,6 +32,7 @@ use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
 use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
@@ -58,6 +59,7 @@ use function array_values;
 use function count;
 use function explode;
 use function in_array;
+use function is_string;
 use function ltrim;
 use function max;
 use function preg_match;
@@ -489,7 +491,8 @@ final class TestCaseHandler implements
                     Type\Union $potential_argument_type,
                     Type\Union $param_type,
                     bool $is_optional,
-                    int $param_offset
+                    int $param_offset,
+                    ?string $param_name = null
                 ) use (
                     $codebase,
                     $method_name,
@@ -497,6 +500,8 @@ final class TestCaseHandler implements
                     $provider_return_type_string,
                     $provider_docblock_location
                 ): void {
+                    $argument = 'Argument ' . ($param_offset + 1)
+                        . ($param_name === null ? '' : ' ($' . $param_name . ')');
                     if ($is_optional) {
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
@@ -504,7 +509,7 @@ final class TestCaseHandler implements
                         // ok
                     } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -512,7 +517,7 @@ final class TestCaseHandler implements
                         ));
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' is not optional, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -520,7 +525,7 @@ final class TestCaseHandler implements
                         ));
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -550,6 +555,48 @@ final class TestCaseHandler implements
                             continue;
                         }
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
+                    }
+                } elseif (self::hasStringKeys($dataset_type)) {
+                    $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
+                    $binding     = DatasetBinding::bind($dataset_type, $method_storage->params, $codebase);
+
+                    foreach ($binding->arguments as $argument) {
+                        $checkParam(
+                            $argument->type,
+                            $argument->param_type,
+                            $argument->is_optional,
+                            $argument->position,
+                            $argument->name,
+                        );
+                    }
+
+                    foreach ($binding->unknown as $name) {
+                        IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                            'Parameter $' . $name . ' does not exist on ' . $method_name
+                            . ', provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+                    }
+
+                    foreach ($binding->duplicate as $name) {
+                        IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                            'Parameter $' . $name . ' has already been used in ' . $method_name
+                            . ', provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+                    }
+
+                    // the return values of depended-upon tests fill the first parameters the dataset leaves open
+                    $missing = array_slice($binding->missing, $dependency_values);
+                    if ($missing !== []) {
+                        IssueBuffer::accepts(new Issue\TooFewArguments(
+                            'Too few arguments for ' . $method_name . ' - parameter $' . $missing[0]
+                            . ' is not provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
                     }
                 } else { // TKeyedArray
                     // iterate over all params checking if corresponding value type is acceptable
@@ -609,6 +656,18 @@ final class TestCaseHandler implements
                 }
             }
         }
+    }
+
+    /** @psalm-pure */
+    private static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type): bool
+    {
+        foreach ($dataset_type->properties as $key => $_) {
+            if (is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
