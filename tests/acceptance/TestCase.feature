@@ -3249,15 +3249,9 @@ Feature: TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3288,29 +3282,19 @@ Feature: TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         public static function setUpBeforeClass(): void {
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         public static function tearDownAfterClass(): void {
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3322,7 +3306,7 @@ Feature: TestCase
       | MissingParentCall | Missing call to parent::tearDownAfterClass() |
     And I see no other errors
 
-  Scenario: A setUp from a trait without a call to the parent is reported once per using class
+  Scenario: A hook inherited from a shared trait without a call to the parent is reported once, at the trait
     Given I have the following code
       """
       abstract class BaseTestCase extends TestCase {
@@ -3332,13 +3316,9 @@ Feature: TestCase
         }
       }
 
-      /**
-       * @psalm-immutable
-       */
+      /** @psalm-immutable */
       trait NoParentSetUp {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
         }
@@ -3346,18 +3326,10 @@ Feature: TestCase
 
       final class FirstTestCase extends BaseTestCase {
         use NoParentSetUp;
-
-        public function testFirst(): void {
-          $this->assertTrue(true);
-        }
       }
 
       final class SecondTestCase extends BaseTestCase {
         use NoParentSetUp;
-
-        public function testSecond(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3385,10 +3357,6 @@ Feature: TestCase
 
       final class MyTestCase extends BaseTestCase {
         use CallsParentSetUp;
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3407,15 +3375,9 @@ Feature: TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3459,23 +3421,13 @@ Feature: TestCase
             parent::tearDown();
           }
         }
-
-        public function testFinally(): void {
-          $this->assertTrue(true);
-        }
       }
 
       final class CaseInsensitiveTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
           PARENT::SETUP();
-        }
-
-        public function testCaseInsensitive(): void {
-          $this->assertTrue(true);
         }
       }
 
@@ -3486,20 +3438,12 @@ Feature: TestCase
             parent::setUpBeforeClass();
           }
         }
-
-        public function testBranch(): void {
-          $this->assertTrue(true);
-        }
       }
 
       final class NamedParentTestCase extends BaseTestCase {
         #[\Override]
         public static function tearDownAfterClass(): void {
           BaseTestCase::tearDownAfterClass();
-        }
-
-        public function testNamedParent(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3527,9 +3471,7 @@ Feature: TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
           $later = function (): void {
@@ -3537,24 +3479,16 @@ Feature: TestCase
           };
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         public static function setUpBeforeClass(): void {
           $callable = parent::setUpBeforeClass(...);
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         public static function tearDownAfterClass(): void {
           $later = static fn(): mixed => parent::tearDownAfterClass();
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3570,43 +3504,27 @@ Feature: TestCase
     Given I have the following code
       """
       abstract class AbstractBaseTestCase extends TestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         abstract protected function setUp(): void;
       }
 
       final class AbstractParentTestCase extends AbstractBaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
-        }
-
-        public function testAbstractParent(): void {
-          $this->assertTrue(true);
         }
       }
 
       final class DirectTestCase extends TestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
-        }
-
-        public function testDirect(): void {
-          $this->assertTrue(true);
         }
       }
 
@@ -3618,9 +3536,6 @@ Feature: TestCase
       }
 
       final class InheritingTestCase extends BaseTestCase {
-        public function testInheriting(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3661,25 +3576,13 @@ Feature: TestCase
         #[\Override]
         protected function tearDown(): void {
         }
-
-        public function testMethod(): void {
-          $this->assertTrue(true);
-        }
       }
 
-      /**
-       * @psalm-suppress MissingParentCall
-       */
+      /** @psalm-suppress MissingParentCall */
       final class ClassSuppressedTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
-        }
-
-        public function testClass(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3718,9 +3621,7 @@ Feature: TestCase
        * @psalm-immutable
        */
       trait NoParentTearDown {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
         }
@@ -3728,10 +3629,6 @@ Feature: TestCase
 
       final class MyTestCase extends BaseTestCase {
         use NoParentTearDown;
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3760,10 +3657,6 @@ Feature: TestCase
         protected function setUp(): void {
           GrandparentTestCase::setUp();
         }
-
-        public function testNamedAncestor(): void {
-          $this->assertTrue(true);
-        }
       }
 
       final class InheritedParentTestCase extends ParentTestCase {
@@ -3771,22 +3664,12 @@ Feature: TestCase
         protected function setUp(): void {
           parent::setUp();
         }
-
-        public function testInheritedParent(): void {
-          $this->assertTrue(true);
-        }
       }
 
       final class MissingTestCase extends ParentTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
-        }
-
-        public function testMissing(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3806,13 +3689,9 @@ Feature: TestCase
         }
       }
 
-      /**
-       * @psalm-immutable
-       */
+      /** @psalm-immutable */
       trait Initializer {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         protected function initialize(): void {
         }
       }
@@ -3820,10 +3699,6 @@ Feature: TestCase
       final class MyTestCase extends BaseTestCase {
         use Initializer {
           initialize as setUp;
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3853,10 +3728,6 @@ Feature: TestCase
         use Initializer {
           initialize as setUp;
         }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3873,16 +3744,10 @@ Feature: TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function setUp(): void {
           UnknownTestCase::setUp();
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
       """
@@ -3920,9 +3785,7 @@ Feature: TestCase
        * @psalm-suppress MissingParentCall
        */
       trait MyTrait {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
         }
@@ -3943,10 +3806,6 @@ Feature: TestCase
 
       final class MyTestCase extends BaseTestCase {
         use MyTrait;
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
@@ -3975,13 +3834,9 @@ Feature: TestCase
       <?php
       namespace NS;
 
-      /**
-       * @psalm-immutable
-       */
+      /** @psalm-immutable */
       trait MyTrait {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function tearDown(): void {
         }
@@ -4000,15 +3855,9 @@ Feature: TestCase
         }
       }
 
-      /**
-       * @psalm-suppress MissingParentCall
-       */
+      /** @psalm-suppress MissingParentCall */
       final class MyTestCase extends BaseTestCase {
         use MyTrait;
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
-        }
       }
       """
     When I run Psalm
