@@ -13,6 +13,8 @@ use Psalm\PhpUnitPlugin\Issue\IgnoredDocblockMetadata;
 use Psalm\PhpUnitPlugin\PhpUnitVersion;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
+use Psalm\StatementsSource;
+use Psalm\Storage\ClassLikeStorage;
 
 use function sprintf;
 use function strtolower;
@@ -64,21 +66,32 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
         $class_node    = $event->getStmt();
         $class_storage = $event->getClasslikeStorage();
         $codebase      = $event->getCodebase();
+        $source        = $event->getStatementsSource();
 
         $is_test_case = $codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase');
         if (!PhpUnitVersion::ignoresDocblockMetadata() || !$is_test_case) {
             return null;
         }
 
-        self::report($class_node, $class_storage->location, $class_storage->suppressed_issues);
+        self::report(
+            $class_node,
+            $class_storage->location,
+            self::suppressions($class_storage->location, [], $class_storage, $source),
+        );
 
         // PHPUnit 11 also reads the class docblock of every trait the test case uses.
         foreach ($class_storage->used_traits as $trait_name) {
             $trait_storage = $codebase->classlike_storage_provider->get($trait_name);
+            $suppressions = self::suppressions(
+                $trait_storage->location,
+                $trait_storage->suppressed_issues,
+                $class_storage,
+                $source,
+            );
             self::report(
                 $codebase->classlikes->getTraitNode($trait_storage->name),
                 $trait_storage->location,
-                $class_storage->suppressed_issues + $trait_storage->suppressed_issues,
+                $suppressions,
             );
         }
 
@@ -100,14 +113,38 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             self::report(
                 $method_node,
                 $method_storage->location,
-                $class_storage->suppressed_issues + $method_storage->suppressed_issues,
+                self::suppressions(
+                    $method_storage->location,
+                    $method_storage->suppressed_issues + $declaring_class->suppressed_issues,
+                    $class_storage,
+                    $source,
+                ),
             );
         }
 
         return null;
     }
 
-    /** @param array<int, string> $suppressed_issues */
+    /**
+     * Suppression keys are source offsets: those of the analysed class mean nothing in another file.
+     *
+     * @param array<array-key, string> $own suppressions of the declaration itself
+     * @return array<array-key, string>
+     */
+    private static function suppressions(
+        CodeLocation|null $location,
+        array $own,
+        ClassLikeStorage $class_storage,
+        StatementsSource $source,
+    ): array {
+        if ($location?->file_path === $source->getFilePath()) {
+            $own += $class_storage->suppressed_issues + $source->getSuppressedIssues();
+        }
+
+        return $own;
+    }
+
+    /** @param array<array-key, string> $suppressed_issues */
     private static function report(
         ClassLike|ClassMethod $node,
         CodeLocation|null $location,

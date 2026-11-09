@@ -3527,6 +3527,108 @@ Feature: TestCase
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead | 7    |
     And I see no other errors
 
+  Scenario: A suppression on a trait covers the ignored docblock tags of its methods
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "trait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-suppress IgnoredDocblockMetadata
+       */
+      trait SharedTests {
+        /**
+         * @test
+         */
+        public function itWorks(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      final class MyTestCase extends TestCase {
+        use SharedTests;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A suppression on the test case does not cover ignored docblock tags in a trait file
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "trait.php"
+      """
+      <?php
+      namespace NS;
+
+      trait SharedTests {
+        /**
+         * @test
+         */
+        public function itWorks(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      /**
+       * @psalm-suppress IgnoredDocblockMetadata
+       */
+      final class MyTestCase extends TestCase {
+        use SharedTests;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                        | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead | 6    |
+      | UnusedPsalmSuppress     | This suppression is never used                                 | 6    |
+    And I see no other errors
+
   Scenario: PHPUnit 12 leaves Psalm and other docblock tags alone
     Given PHPUnit identifies as version "12.5.43"
     And I have the following code
