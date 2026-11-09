@@ -9,17 +9,29 @@ use PhpParser\Node\Expr\Closure;
 use Psalm\Internal\Analyzer\MethodAnalyzer;
 use Psalm\Plugin\EventHandler\AfterExpressionAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterExpressionAnalysisEvent;
+use Psalm\Storage\MethodStorage;
 use Psalm\Type\Atomic\TClosure;
 use Psalm\Type\Union;
+use WeakMap;
 
 /**
  * Psalm analyses the closure of a #[DataProviderClosure(...)] argument but throws the node types away, so the
- * return type of each closure in an attribute of a method is kept in the method's storage, by the start offset of
- * the closure in its file.
+ * return type of each closure in an attribute of a method is kept by the start offset of the closure in its file.
+ *
+ * A method's attributes and its class are analysed by the same process, and custom_metadata only holds scalars,
+ * so the types are kept per method storage here.
  */
 final class DataProviderClosureHandler implements AfterExpressionAnalysisInterface
 {
-    public const METADATA_KEY = self::class;
+    /** @var WeakMap<MethodStorage, array<int, Union>>|null */
+    private static ?WeakMap $returnTypes = null;
+
+    public static function returnType(MethodStorage $storage, int $position): ?Union
+    {
+        $types = self::$returnTypes === null ? [] : (self::$returnTypes[$storage] ?? []);
+
+        return $types[$position] ?? null;
+    }
 
     #[\Override]
     public static function afterExpressionAnalysis(AfterExpressionAnalysisEvent $event): ?bool
@@ -38,6 +50,11 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
             return null;
         }
 
+        $storage = $method_analyzer->getFunctionLikeStorage();
+        if (!$storage instanceof MethodStorage) {
+            return null;
+        }
+
         $return_type = null;
         foreach ($statements_source->getNodeTypeProvider()->getType($closure)?->getAtomicTypes() ?? [] as $atomic) {
             if ($atomic instanceof TClosure) {
@@ -49,12 +66,11 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
             return null;
         }
 
-        $storage  = $method_analyzer->getFunctionLikeStorage();
-        $metadata = $storage->custom_metadata[self::METADATA_KEY] ?? [];
+        self::$returnTypes ??= new WeakMap();
+        $types = self::$returnTypes[$storage] ?? [];
 
-        /** @var array<int, Union> $metadata */
-        $metadata[$closure->getStartFilePos()] = $return_type;
-        $storage->custom_metadata[self::METADATA_KEY] = $metadata;
+        $types[$closure->getStartFilePos()] = $return_type;
+        self::$returnTypes[$storage]        = $types;
 
         return null;
     }

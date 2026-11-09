@@ -490,8 +490,7 @@ final class TestCaseHandler implements
             }
 
             foreach ($closure_providers as $closure) {
-                $closure_types       = $method_storage->custom_metadata[DataProviderClosureHandler::METADATA_KEY] ?? [];
-                $closure_return_type = $closure_types[$closure['position']] ?? null;
+                $closure_return_type = DataProviderClosureHandler::returnType($method_storage, $closure['position']);
                 if ($closure_return_type === null) {
                     continue;
                 }
