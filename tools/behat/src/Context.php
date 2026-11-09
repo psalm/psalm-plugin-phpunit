@@ -13,7 +13,6 @@ use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
 use Psl\Filesystem;
-use Psl\File;
 use Psl\Json;
 use Psl\SecureRandom;
 use Psl\Shell;
@@ -83,9 +82,15 @@ final class Context implements BehatContext
         return $output;
     }
 
+    /** @param non-empty-string $file */
+    private function truncatingWrite(string $file, string $contents): void
+    {
+        invariant(\file_put_contents($file, $contents) !== false, 'Cannot write %s', $file);
+    }
+
     private function writeFile(string $file, string $contents): void
     {
-        File\write($this->scenarioDirectory() . '/' . $file, $contents, File\WriteMode::TRUNCATE);
+        $this->truncatingWrite($this->scenarioDirectory() . '/' . $file, $contents);
     }
 
     /** @param list<non-empty-string> $additionalFlags */
@@ -206,13 +211,13 @@ final class Context implements BehatContext
         $version = $this->phpunitVersion;
         invariant($version !== null, 'No PHPUnit version given');
 
-        File\write($file, sprintf(
+        $this->truncatingWrite($file, sprintf(
             "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
             . "        public static function id(): string\n        {\n            return %s;\n        }\n    }\n}\n"
             . "namespace {\n%s}\n",
             \var_export($version, true),
             $this->ownAutoloader === null ? '' : sprintf("    require_once %s;\n", \var_export($this->ownAutoloader, true)),
-        ), File\WriteMode::TRUNCATE);
+        ));
     }
 
     #[Given('I have the following code preamble')]
