@@ -3627,14 +3627,26 @@ Feature: TestCase
     Then I see no errors
 
   Scenario: MissingParentCall can be suppressed on the method and on the class
-    Given I have the following code
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
       """
       abstract class BaseTestCase extends TestCase {
-        #[\Override]
-        protected function setUp(): void {
-          parent::setUp();
-        }
-
         #[\Override]
         protected function tearDown(): void {
           parent::tearDown();
@@ -3647,7 +3659,7 @@ Feature: TestCase
          * @psalm-capabilities read-props
          */
         #[\Override]
-        protected function setUp(): void {
+        protected function tearDown(): void {
         }
 
         public function testMethod(): void {
@@ -3667,6 +3679,177 @@ Feature: TestCase
         }
 
         public function testClass(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: MissingParentCall can be suppressed on the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      /**
+       * @psalm-suppress MissingParentCall
+       * @psalm-immutable
+       */
+      trait NoParentTearDown {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use NoParentTearDown;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A call to the ancestor that declares the hook counts as the parent call
+    Given I have the following code
+      """
+      abstract class GrandparentTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      abstract class ParentTestCase extends GrandparentTestCase {
+      }
+
+      final class NamedAncestorTestCase extends ParentTestCase {
+        #[\Override]
+        protected function setUp(): void {
+          GrandparentTestCase::setUp();
+        }
+
+        public function testNamedAncestor(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class InheritedParentTestCase extends ParentTestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        public function testInheritedParent(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class MissingTestCase extends ParentTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        public function testMissing(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: A trait method aliased to a hook without a call to the parent is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      /**
+       * @psalm-immutable
+       */
+      trait Initializer {
+        /**
+         * @psalm-capabilities read-props
+         */
+        protected function initialize(): void {
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use Initializer {
+          initialize as setUp;
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: A trait method aliased to a hook that calls the parent is not reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      trait Initializer {
+        protected function initialize(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use Initializer {
+          initialize as setUp;
+        }
+
+        public function testSomething(): void {
           $this->assertTrue(true);
         }
       }

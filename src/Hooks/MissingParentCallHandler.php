@@ -8,16 +8,15 @@ use PhpParser\Node;
 use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
-use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
+use Psalm\Codebase;
 use Psalm\IssueBuffer;
 use Psalm\PhpUnitPlugin\Issue\MissingParentCall;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
-use function array_merge;
 use function ltrim;
 use function sprintf;
 use function strtolower;
@@ -76,14 +75,19 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 continue;
             }
 
-            // A trait's parent:: call resolves against the using class, so it is checked per using class
+            // A trait's parent:: call resolves against the using class, so it is checked per using class.
+            // An aliased trait method (use T { init as setUp; }) is declared under its original name.
             $declaringStorage = $codebase->classlike_storage_provider->get($declaringId->fq_class_name);
             $classNode = $declaringStorage->is_trait
                 ? $codebase->classlikes->getTraitNode($declaringStorage->name)
                 : $event->getStmt();
 
-            $method = $classNode->getMethod($methodName);
-            if ($method === null || $method->stmts === null || self::callsParent($method, $storage->parent_class)) {
+            $method = $classNode->getMethod($declaringId->method_name);
+            if (
+                $method === null
+                || $method->stmts === null
+                || self::callsParent($method->stmts, $methodNameLc, strtolower((string) $parentId), $codebase)
+            ) {
                 continue;
             }
 
@@ -92,11 +96,11 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                     sprintf('Missing call to parent::%s()', $methodName),
                     $methodStorage->location,
                 ),
-                array_merge(
-                    $methodStorage->suppressed_issues,
-                    $storage->suppressed_issues,
-                    $source->getSuppressedIssues(),
-                ),
+                // Keys are source offsets, which array_merge() would renumber
+                $methodStorage->suppressed_issues
+                    + $declaringStorage->suppressed_issues
+                    + $storage->suppressed_issues
+                    + $source->getSuppressedIssues(),
             );
         }
 
@@ -105,14 +109,23 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
 
     /**
      * Calls in nested closures and classes may never run, so they don't count.
+     *
+     * @param array<Node\Stmt> $stmts
      */
-    private static function callsParent(ClassMethod $method, string $parentClass): bool
-    {
-        $visitor = new class ($method->name->toLowerString(), strtolower($parentClass)) extends NodeVisitorAbstract {
+    private static function callsParent(
+        array $stmts,
+        string $methodNameLc,
+        string $parentMethodIdLc,
+        Codebase $codebase,
+    ): bool {
+        $visitor = new class ($methodNameLc, $parentMethodIdLc, $codebase) extends NodeVisitorAbstract {
             public bool $found = false;
 
-            public function __construct(private readonly string $methodNameLc, private readonly string $parentLc)
-            {
+            public function __construct(
+                private readonly string $methodNameLc,
+                private readonly string $parentMethodIdLc,
+                private readonly Codebase $codebase,
+            ) {
             }
 
             #[\Override]
@@ -128,7 +141,7 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                     && $node->name instanceof Identifier
                     && $node->name->toLowerString() === $this->methodNameLc
                     && !$node->isFirstClassCallable()
-                    && $this->namesParent($node->class)
+                    && $this->resolvesToParentMethod($node->class)
                 ) {
                     $this->found = true;
 
@@ -138,17 +151,28 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 return null;
             }
 
-            private function namesParent(Name $name): bool
+            /**
+             * An ancestor's name (A::setUp() in C extends B extends A) is the parent's implementation too
+             * when it resolves to the same declaration.
+             */
+            private function resolvesToParentMethod(Name $name): bool
             {
                 if ($name->toLowerString() === 'parent') {
                     return true;
                 }
 
-                return strtolower(ltrim((string) $name->getAttribute('resolvedName', ''), '\\')) === $this->parentLc;
+                $class = ltrim((string) $name->getAttribute('resolvedName', ''), '\\');
+                if ($class === '') {
+                    return false;
+                }
+
+                $declaringId = $this->codebase->getDeclaringMethodId($class . '::' . $this->methodNameLc);
+
+                return $declaringId !== null && strtolower($declaringId) === $this->parentMethodIdLc;
             }
         };
 
-        (new NodeTraverser($visitor))->traverse($method->stmts ?? []);
+        (new NodeTraverser($visitor))->traverse($stmts);
 
         return $visitor->found;
     }
