@@ -294,12 +294,6 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            $appends_dependency_value = self::firstDependencyReturnsValue(
-                $codebase,
-                $stmt_method,
-                $method_aliases,
-                $class_storage,
-            );
             foreach ($specials['dataProvider'] as [$line, $provider]) {
                 $provider_docblock_location = $method_storage->location->setCommentLine($line);
 
@@ -564,7 +558,6 @@ final class TestCaseHandler implements
                         $provider_return_type_string,
                         $provider_docblock_location,
                         $dependency_values,
-                        $appends_dependency_value,
                         $checkParam,
                     );
                 } else { // TKeyedArray
@@ -640,9 +633,8 @@ final class TestCaseHandler implements
     }
 
     /**
-     * The return values of depended-upon tests are appended to the dataset as positional arguments. After a
-     * string key PHP rejects them, which is only certain when the first dependency provably returns a value:
-     * PHPUnit 11 stops collecting at the first void dependency, and later versions continue.
+     * The return values of depended-upon tests are appended after the dataset values and fill the parameters it
+     * leaves open.
      *
      * @param list<FunctionLikeParameter> $params
      * @param \Closure(Type\Union, Type\Union, bool, int, string|null=): void $checkParam
@@ -655,7 +647,6 @@ final class TestCaseHandler implements
         string $provider_return_type_string,
         CodeLocation $provider_docblock_location,
         int $dependency_values,
-        bool $appends_dependency_value,
         \Closure $checkParam
     ): void {
         $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
@@ -686,17 +677,6 @@ final class TestCaseHandler implements
                 $provider_docblock_location,
                 $method_name
             ));
-        }
-
-        if ($appends_dependency_value && $binding->has_definite_named_key) {
-            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                'Cannot use positional argument after named argument: PHPUnit appends the return value of a'
-                . ' depended-upon test to dataset ' . $provided_by,
-                $provider_docblock_location,
-                $method_name
-            ));
-
-            return;
         }
 
         // the return values of depended-upon tests fill the first parameters the dataset leaves open
@@ -863,21 +843,6 @@ final class TestCaseHandler implements
         }
 
         return $count;
-    }
-
-    /**
-     * PHPUnit 11 stops collecting dependency values at the first void dependency and later versions go on, so
-     * a value is only certain when the first dependency (class dependencies are skipped) provably returns one.
-     */
-    private static function firstDependencyReturnsValue(
-        Codebase $codebase,
-        ClassMethod $method,
-        Aliases $aliases,
-        ClassLikeStorage $class
-    ): bool {
-        $first = self::getDependencyTargets($method, $aliases, $class)[0] ?? null;
-
-        return $first !== null && self::dependencyReturnsValue($codebase, $first) === true;
     }
 
     /**

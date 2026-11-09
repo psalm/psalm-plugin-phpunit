@@ -104,8 +104,10 @@ final class DatasetBinding
                 } elseif (!$type->possibly_undefined) {
                     $unknown[] = $name;
                 }
-            } elseif ($offset < $definite_positional && !$type->possibly_undefined) {
-                $duplicate[] = $name;
+            } elseif ($offset < $definite_positional) {
+                if (!$type->possibly_undefined) {
+                    $duplicate[] = $name;
+                }
             } else {
                 $param       = $params[$offset];
                 $arguments[] = new BoundArgument(
