@@ -200,6 +200,7 @@ final class Context implements BehatContext
         return \str_starts_with($path, '/') ? $path : $this->scenarioDirectory() . '/' . $path;
     }
 
+    /** @param non-empty-string $file */
     private function writeVersionShim(string $file): void
     {
         $version = $this->phpunitVersion;
