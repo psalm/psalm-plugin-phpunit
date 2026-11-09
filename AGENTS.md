@@ -12,6 +12,8 @@ Layout:
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`.
+- `src/Hooks/MissingParentCallHandler.php` and `src/Issue/MissingParentCall.php`: the
+  `AfterClassLikeAnalysis` hook and plugin issue for `setUp()`-style overrides without a `parent::` call.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to

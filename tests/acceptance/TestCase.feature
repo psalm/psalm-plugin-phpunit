@@ -3237,3 +3237,439 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: setUp without a call to the parent is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: tearDown, setUpBeforeClass and tearDownAfterClass without a call to the parent are reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                      |
+      | MissingParentCall | Missing call to parent::tearDown()           |
+      | MissingParentCall | Missing call to parent::setUpBeforeClass()   |
+      | MissingParentCall | Missing call to parent::tearDownAfterClass() |
+    And I see no other errors
+
+  Scenario: A setUp from a trait without a call to the parent is reported once per using class
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      /**
+       * @psalm-immutable
+       */
+      trait NoParentSetUp {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+      }
+
+      final class FirstTestCase extends BaseTestCase {
+        use NoParentSetUp;
+
+        public function testFirst(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class SecondTestCase extends BaseTestCase {
+        use NoParentSetUp;
+
+        public function testSecond(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: A setUp from a trait that calls the parent is not reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      trait CallsParentSetUp {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use CallsParentSetUp;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A parent whose setUp comes from a trait is checked
+    Given I have the following code
+      """
+      trait SharedSetUp {
+        protected function setUp(): void {
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase {
+        use SharedSetUp;
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: Calls to the parent in any position of the method are accepted
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class FinallyTestCase extends BaseTestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          try {
+            $this->assertTrue(true);
+          } finally {
+            parent::tearDown();
+          }
+        }
+
+        public function testFinally(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class CaseInsensitiveTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+          PARENT::SETUP();
+        }
+
+        public function testCaseInsensitive(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class BranchTestCase extends BaseTestCase {
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          if (random_int(0, 1) === 1) {
+            parent::setUpBeforeClass();
+          }
+        }
+
+        public function testBranch(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class NamedParentTestCase extends BaseTestCase {
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          BaseTestCase::tearDownAfterClass();
+        }
+
+        public function testNamedParent(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A parent call inside a closure or a first class callable does not count
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+          $later = function (): void {
+            parent::setUp();
+          };
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          $callable = parent::setUpBeforeClass(...);
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          $later = static fn(): mixed => parent::tearDownAfterClass();
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                      |
+      | MissingParentCall | Missing call to parent::setUp()              |
+      | MissingParentCall | Missing call to parent::setUpBeforeClass()   |
+      | MissingParentCall | Missing call to parent::tearDownAfterClass() |
+    And I see no other errors
+
+  Scenario: Hooks that have no parent implementation to call are not reported
+    Given I have the following code
+      """
+      abstract class AbstractBaseTestCase extends TestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        abstract protected function setUp(): void;
+      }
+
+      final class AbstractParentTestCase extends AbstractBaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        public function testAbstractParent(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class DirectTestCase extends TestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+
+        public function testDirect(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class InheritingTestCase extends BaseTestCase {
+        public function testInheriting(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: MissingParentCall can be suppressed on the method and on the class
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class MethodSuppressedTestCase extends BaseTestCase {
+        /**
+         * @psalm-suppress MissingParentCall
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        public function testMethod(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      /**
+       * @psalm-suppress MissingParentCall
+       */
+      final class ClassSuppressedTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+
+        public function testClass(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
