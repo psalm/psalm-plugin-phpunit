@@ -22,5 +22,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\MockMethodHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\MockMethodHandler::class);
+
+        class_exists(Hooks\IntersectionMockReturnTypeProvider::class, true);
+        $psalm->registerHooksFromClass(Hooks\IntersectionMockReturnTypeProvider::class);
     }
 }

@@ -18,6 +18,7 @@ use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\DependsExternal;
 use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
@@ -27,6 +28,7 @@ use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
+use Psalm\CodeLocation;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
@@ -34,6 +36,7 @@ use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
+use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -80,6 +83,27 @@ final class TestCaseHandler implements
         DependsExternal::class => true,
         DependsExternalUsingDeepClone::class => true,
         DependsExternalUsingShallowClone::class => true,
+    ];
+
+    /**
+     * PHPUnit takes the value of these tags from the rest of the line.
+     *
+     * @var array<string, true>
+     */
+    private const VALUE_TAGS = [
+        'backupGlobals' => true,
+        'backupStaticAttributes' => true,
+        'covers' => true,
+        'coversDefaultClass' => true,
+        'dataProvider' => true,
+        'depends' => true,
+        'group' => true,
+        'preserveGlobalState' => true,
+        'requires' => true,
+        'testDox' => true,
+        'testWith' => true,
+        'ticket' => true,
+        'uses' => true,
     ];
 
     private const EXPECT_EXCEPTION_METHODS = [
@@ -203,17 +227,12 @@ final class TestCaseHandler implements
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method, $aliases);
-            if (!isset($specials['dataProvider'])) {
-                continue;
-            }
-            foreach ($specials['dataProvider'] as [, $provider]) {
-                if (false !== strpos($provider, '::')) {
-                    [$class_name] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
-                    $codebase->queueClassLikeForScanning($fq_class_name);
-                    $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
+            foreach (self::getDataProviders($method, $aliases, $aliases, $class_storage) as $provider) {
+                if ($provider['class'] === null) {
+                    continue;
                 }
+                $codebase->queueClassLikeForScanning($provider['class']);
+                $file_storage->referenced_classlikes[strtolower($provider['class'])] = $provider['class'];
             }
         }
     }
@@ -242,6 +261,12 @@ final class TestCaseHandler implements
             return null;
         }
 
+        self::reportMalformedTags(
+            $class_node,
+            new CodeLocation($statements_source, $class_node),
+            $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
+        );
+
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
@@ -268,7 +293,15 @@ final class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method, $method_aliases);
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
+                && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
+
+            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
+            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
+            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
+                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
+            }
+
+            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -280,7 +313,8 @@ final class TestCaseHandler implements
                 calling_method_id: 'PHPUnit\Framework\TestSuite::run',
             );
 
-            if (!isset($specials['dataProvider'])) {
+            $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
+            if ($providers === []) {
                 continue;
             }
 
@@ -290,28 +324,27 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            foreach ($specials['dataProvider'] as [$line, $provider]) {
-                $provider_docblock_location = $method_storage->location->setCommentLine($line);
+            foreach ($providers as $provider) {
+                $provider_docblock_location = $method_storage->location->setCommentLine($provider['line']);
 
-                if (false !== strpos($provider, '::')) {
-                    [$class_name, $method_id] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+                if ($provider['class'] !== null) {
+                    $fq_class_name = $provider['class'];
 
                     if (!$codebase->classOrInterfaceExists($fq_class_name, $provider_docblock_location)) {
-                        IssueBuffer::accepts(new Issue\UndefinedClass(
-                            'Class ' . $fq_class_name . ' does not exist',
-                            $provider_docblock_location,
-                            $fq_class_name
-                        ));
+                        // Psalm reports the missing class of an attribute argument itself
+                        if (!$provider['external']) {
+                            IssueBuffer::accepts(new Issue\UndefinedClass(
+                                'Class ' . $fq_class_name . ' does not exist',
+                                $provider_docblock_location,
+                                $fq_class_name
+                            ));
+                        }
                         continue;
                     }
-                    $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
+                    $apparent_provider_method_name = $fq_class_name . '::' . $provider['method'];
                 } else {
-                    $apparent_provider_method_name = $class_storage->name . '::' . $provider;
+                    $apparent_provider_method_name = $class_storage->name . '::' . $provider['method'];
                 }
-
-                $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
-                assert($apparent_provider_method_name !== null);
 
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
@@ -728,6 +761,103 @@ final class TestCaseHandler implements
     }
 
     /**
+     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
+     *
+     * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. PHPUnit takes
+     * "Class::method" strings literally, so $reference_aliases (of the analysed file) resolve those.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>
+     *     class is null for a provider of the test's own class
+     */
+    private static function getDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        Aliases $reference_aliases,
+        ClassLikeStorage $class
+    ): array {
+        return self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class)
+            ?? array_map(
+                static fn(array $entry): array => self::parseProviderReference(
+                    $entry[0],
+                    $entry[1],
+                    $reference_aliases,
+                ),
+                self::getDocblockSpecials($method)['dataProvider'] ?? [],
+            );
+    }
+
+    /**
+     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
+     */
+    private static function getAttributeDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        Aliases $reference_aliases,
+        ClassLikeStorage $class
+    ): array|null {
+        $references = self::attributeValue($method, $aliases, DataProvider::class);
+        $has_attributes = $references !== null;
+        $providers = array_map(
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
+            $references ?? [],
+        );
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if ($attribute_class !== DataProviderExternal::class) {
+                    continue;
+                }
+
+                $has_attributes = true;
+                $args           = [];
+                foreach ($attribute->args as $position => $arg) {
+                    $args[$arg->name?->toString() ?? $position] = $arg->value;
+                }
+
+                $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
+                $method_name = $args['methodName'] ?? $args[1] ?? null;
+                if ($class_name === null || !$method_name instanceof String_) {
+                    continue;
+                }
+
+                $providers[] = [
+                    'line'     => $attribute->getStartLine(),
+                    'class'    => $class_name,
+                    'method'   => $method_name->value,
+                    'external' => true,
+                ];
+            }
+        }
+
+        return $has_attributes ? $providers : null;
+    }
+
+    /**
+     * "Class::method" or "method" (optionally with trailing parentheses), as written in #[DataProvider] or
+     * a dataProvider docblock tag.
+     *
+     * @psalm-mutation-free
+     *
+     * @return array{line: int, class: string|null, method: string, external: bool}
+     */
+    private static function parseProviderReference(int $line, string $reference, Aliases $aliases): array
+    {
+        $parts  = explode('::', $reference, 2);
+        $method = preg_replace('/\(\s*\)$/', '', $parts[1] ?? $parts[0]);
+        assert($method !== null);
+
+        return [
+            'line'     => $line,
+            'class'    => isset($parts[1]) ? Type::getFQCLNFromString($parts[0], $aliases) : null,
+            'method'   => $method,
+            'external' => false,
+        ];
+    }
+
+    /**
      * PHPUnit appends the return value of every distinct depended-upon test that is not declared void or never
      * to the data provider values. Depending on a whole class passes no value.
      */
@@ -862,7 +992,6 @@ final class TestCaseHandler implements
         return array_filter([
             'before'       => self::attributeValue($method, $aliases, Before::class),
             'test'         => self::attributeValue($method, $aliases, Test::class),
-            'dataProvider' => self::attributeValue($method, $aliases, DataProvider::class),
         ], static fn(array|null $special): bool => $special !== null);
     }
 
@@ -874,45 +1003,107 @@ final class TestCaseHandler implements
             return [];
         }
 
+        $entries = [];
+        foreach (self::getDocblockTags($docblock) as $tag => $values) {
+            foreach ($values as $offset => $data) {
+                // PHPUnit ignores a malformed tag, so there is no provider, dependency or group to look up
+                if (self::malformedProblem($docblock, $tag, $offset, $data) !== null) {
+                    continue;
+                }
+
+                $entries[$tag][] = [self::docblockLine($docblock, $offset), self::firstLine($data)];
+            }
+        }
+
+        return $entries;
+    }
+
+    /** @param array<array-key, string> $suppressed_issues */
+    private static function reportMalformedTags(
+        ClassLike|ClassMethod $node,
+        CodeLocation $location,
+        array $suppressed_issues,
+    ): void {
+        $docblock = $node->getDocComment();
+        if (!$docblock) {
+            return;
+        }
+
+        foreach (self::getDocblockTags($docblock) as $tag => $values) {
+            foreach ($values as $offset => $data) {
+                $problem = self::malformedProblem($docblock, $tag, $offset, $data);
+                if ($problem === null) {
+                    continue;
+                }
+
+                IssueBuffer::accepts(new InvalidPhpUnitAnnotation(
+                    'Annotation "@' . $tag . '" ' . $problem,
+                    $location->setCommentLine(self::docblockLine($docblock, $offset)),
+                ), $suppressed_issues);
+            }
+        }
+    }
+
+    /**
+     * @return string|null What is wrong with the tag, null when PHPUnit accepts it
+     *
+     * @psalm-pure
+     */
+    private static function malformedProblem(Doc $docblock, string $tag, int $offset, string $data): string|null
+    {
+        if (!isset(self::VALUE_TAGS[$tag])) {
+            return null;
+        }
+
+        // PHPUnit's `@testWith\s+` spans line breaks, so the datasets may start on the line below the tag.
+        // Psalm then starts the value at that line break.
+        if ($tag === 'testWith') {
+            if (trim($data) === '') {
+                return 'has no value';
+            }
+
+            if (ltrim($data) !== $data) {
+                return null;
+            }
+        } elseif (self::firstLine($data) === '') {
+            return 'has no value';
+        }
+
+        $char_before_value = $docblock->getText()[$offset - $docblock->getStartFilePos() - 1];
+
+        return $char_before_value === ' ' || $char_before_value === "\t"
+            ? null
+            : 'must be followed by a space and a value';
+    }
+
+    /** @return array<string, array<int, string>> Values keyed by tag, then by absolute file offset */
+    private static function getDocblockTags(Doc $docblock): array
+    {
         try {
-            $parsed_comment = self::getParsedComment($docblock);
+            return DocComment::parsePreservingLength($docblock)->tags;
         } catch (DocblockParseException $e) {
             return [];
         }
-
-        if (!isset($parsed_comment['specials'])) {
-            return [];
-        }
-
-        // Psalm keys tags by absolute file offset, which is useless for issue locations.
-        $start_pos = $docblock->getStartFilePos();
-        $to_line   = static fn(int $offset): int => $docblock->getStartLine()
-            + substr_count($docblock->getText(), "\n", 0, $offset - $start_pos);
-
-        return array_map(
-            static function (array $tags) use ($to_line): array {
-                $entries = [];
-                foreach ($tags as $offset => $data) {
-                    $entries[] = [$to_line($offset), trim($data)];
-                }
-
-                return $entries;
-            },
-            $parsed_comment['specials']
-        );
     }
 
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
+    /**
+     * PHPUnit reads a tag's value from its own line only, Psalm also folds the following lines into it.
+     *
+     * @psalm-pure
+     */
+    private static function firstLine(string $data): string
     {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
+        return trim(explode("\n", $data, 2)[0]);
+    }
 
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
+    /**
+     * Psalm keys tags by absolute file offset, which is useless for issue locations.
+     *
+     * @psalm-pure
+     */
+    private static function docblockLine(Doc $docblock, int $offset): int
+    {
+        return $docblock->getStartLine()
+            + substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos());
     }
 }
