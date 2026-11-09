@@ -496,6 +496,89 @@ Feature: TestCase
       | InvalidDataProvider | Data provider method NS\External::provide must be public |
     And I see no other errors
 
+  @ExternalProviders
+  Scenario: Valid external @dataProvider with a class name is allowed
+    Given I have the following code
+      """
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @dataProvider External::provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProvider] naming another class is reported, as PHPUnit looks it up on the test class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProvider('External::provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                         |
+      | UndefinedMethod | Provider method NS\MyTestCase::External::provide is not defined |
+    And I see no other errors
+
+  Scenario: #[DataProvider] naming another class is reported even if the test class has a method named like the class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function External() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('External::provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                         |
+      | UndefinedMethod | Provider method NS\MyTestCase::External::provide is not defined |
+    And I see no other errors
+
   Scenario: Data provider made public by a trait adaptation is allowed
     Given I have the following code
       """
