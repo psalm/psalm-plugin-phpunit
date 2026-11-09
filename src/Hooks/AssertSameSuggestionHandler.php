@@ -17,11 +17,7 @@ use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificCountAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificEqualsAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
-use Psalm\Type\Atomic\TBool;
-use Psalm\Type\Atomic\TFloat;
-use Psalm\Type\Atomic\TInt;
 use Psalm\Type\Atomic\TNamedObject;
-use Psalm\Type\Atomic\TString;
 use UnexpectedValueException;
 
 use function count;
@@ -88,7 +84,8 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             $message = sprintf('Use assert%sCount() instead of %s(..., count(...))', $not, $name);
         } elseif (
             isset(self::EQUALS_METHODS[$method])
-            && ($family = self::sameScalarFamily($expected, $actual, $event)) !== null
+            && ($family = self::scalarFamily($expected, $event)) !== null
+            && $family === self::scalarFamily($actual, $event)
         ) {
             [$name, $not] = self::EQUALS_METHODS[$method];
             $issueClass = UnspecificEqualsAssertion::class;
@@ -131,22 +128,10 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     }
 
     /**
-     * assertEquals() on two values of one scalar type compares them exactly like assertSame() does. Null is not
-     * ignored: assertEquals(0, null) passes, assertSame(0, null) does not.
+     * The scalar type of an expression, when it is one family only. assertEquals() on two values of one scalar
+     * type compares them exactly like assertSame() does. Null is not ignored: assertEquals(0, null) passes,
+     * assertSame(0, null) does not.
      *
-     * @return 'int'|'float'|'string'|'bool'|null
-     */
-    private static function sameScalarFamily(
-        Expr $expected,
-        Expr $actual,
-        AfterMethodCallAnalysisEvent $event,
-    ): ?string {
-        $family = self::scalarFamily($expected, $event);
-
-        return $family !== null && $family === self::scalarFamily($actual, $event) ? $family : null;
-    }
-
-    /**
      * @return 'int'|'float'|'string'|'bool'|null
      */
     private static function scalarFamily(Expr $expr, AfterMethodCallAnalysisEvent $event): ?string
@@ -156,23 +141,13 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             return null;
         }
 
-        $family = null;
-        foreach ($type->getAtomicTypes() as $atomic) {
-            $atomicFamily = match (true) {
-                $atomic instanceof TInt => 'int',
-                $atomic instanceof TFloat => 'float',
-                $atomic instanceof TString => 'string',
-                $atomic instanceof TBool => 'bool',
-                default => null,
-            };
-            if ($atomicFamily === null || ($family !== null && $family !== $atomicFamily)) {
-                return null;
-            }
-
-            $family = $atomicFamily;
-        }
-
-        return $family;
+        return match (true) {
+            $type->isInt() => 'int',
+            $type->isFloat() => 'float',
+            $type->isString() => 'string',
+            $type->isBool() || $type->isTrue() || $type->isFalse() => 'bool',
+            default => null,
+        };
     }
 
     private static function isGlobalCount(Name $name, AfterMethodCallAnalysisEvent $event): bool
