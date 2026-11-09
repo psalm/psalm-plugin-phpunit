@@ -267,6 +267,20 @@ final class TestCaseHandler implements
             $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
         );
 
+        // PHPUnit merges the class docblocks of the traits used directly by the test case, not of nested ones
+        foreach ($class_storage->used_traits as $trait_name) {
+            $trait_storage = $codebase->classlike_storage_provider->get($trait_name);
+            if (!$trait_storage->location) {
+                continue;
+            }
+
+            self::reportMalformedTags(
+                $codebase->classlikes->getTraitNode($trait_name),
+                $trait_storage->location,
+                self::withTestClassSuppressions($trait_storage->suppressed_issues, $event, $trait_storage->location),
+            );
+        }
+
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
@@ -295,13 +309,15 @@ final class TestCaseHandler implements
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
                 && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
 
-            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
-            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
-            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
-                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
-            }
-
-            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
+            self::reportMalformedTags(
+                $stmt_method,
+                $method_storage->location,
+                self::withTestClassSuppressions(
+                    $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
+                    $event,
+                    $method_storage->location,
+                ),
+            );
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -1016,6 +1032,26 @@ final class TestCaseHandler implements
         }
 
         return $entries;
+    }
+
+    /**
+     * @param array<array-key, string> $suppressed_issues
+     * @return array<array-key, string>
+     */
+    private static function withTestClassSuppressions(
+        array $suppressed_issues,
+        AfterClassLikeAnalysisEvent $event,
+        CodeLocation $location,
+    ): array {
+        // Suppression keys are source offsets: those of the analysed class mean nothing in another file
+        $statements_source = $event->getStatementsSource();
+        if ($location->file_path !== $statements_source->getFilePath()) {
+            return $suppressed_issues;
+        }
+
+        return $suppressed_issues
+            + $event->getClasslikeStorage()->suppressed_issues
+            + $statements_source->getSuppressedIssues();
     }
 
     /** @param array<array-key, string> $suppressed_issues */
