@@ -3237,3 +3237,256 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Mocking an undefined method is reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testExpects(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->expects($this->once())->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testDirect(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method('sendInvoce')->willReturn(true);
+          $mailer->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testStub(): void {
+          $mailer = $this->createStub(Mailer::class);
+          $mailer->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testConfiguredMock(): void {
+          $mailer = $this->createConfiguredMock(Mailer::class, ['sendInvoice' => true]);
+          $mailer->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testMockBuilder(): void {
+          $mailer = $this->getMockBuilder(Mailer::class)->getMock();
+          $mailer->method('sendInvoce')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                    |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method is reported on typed properties and for every literal name
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        private const TYPO = 'sendInvoce';
+
+        /** @var Mailer&\PHPUnit\Framework\MockObject\Stub */
+        private $docblockStub;
+
+        private \PHPUnit\Framework\MockObject\MockObject&Mailer $nativeMock;
+
+        #[\Override]
+        public function setUp(): void {
+          $this->docblockStub = $this->createStub(Mailer::class);
+          $this->nativeMock = $this->createMock(Mailer::class);
+        }
+
+        public function testProperties(): void {
+          $this->docblockStub->method('sendInvoce')->willReturn(true);
+          $this->nativeMock->method(self::TYPO)->willReturn(true);
+        }
+
+        public function testUnion(): void {
+          $mailer = $this->createStub(Mailer::class);
+          $mailer->method(random_int(0, 1) ? 'sendInvoice' : 'sendInvoce')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                    |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method can be suppressed per call
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testSuppressed(): void {
+          $mailer = $this->createStub(Mailer::class);
+          /** @psalm-suppress UndefinedMethod */
+          $mailer->method('sendInvoce')->willReturn(true);
+          $mailer->method('sendInvoise')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                     |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoise() |
+    And I see no other errors
+
+  Scenario: Mocking an existing method is not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Sender {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Mailer extends Sender {}
+
+      /** @psalm-immutable */
+      trait Logs {
+        /** @psalm-pure */
+        public function log(): int { return 1; }
+      }
+
+      /** @psalm-mutable */
+      class Base {
+        /** @psalm-impure */
+        public function fromBase(): void {}
+      }
+
+      /**
+       * @psalm-mutable
+       * @method int magic()
+       */
+      final class Child extends Base {
+        use Logs;
+
+        /** @psalm-impure */
+        final public function finalMethod(): void {}
+
+        /** @psalm-impure */
+        private function hidden(): void {}
+
+        /** @psalm-impure */
+        public static function make(): void {}
+      }
+
+      /**
+       * @psalm-mutable
+       * @method int magicInterface()
+       */
+      interface Magic {}
+
+      /** @psalm-mutable */
+      final class Dynamic {
+        /** @psalm-impure */
+        public function __call(string $name, array $arguments): mixed { return null; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testExisting(): void {
+          $mailer = $this->createStub(Mailer::class);
+          $mailer->method('send')->willReturn(true);
+          $mailer->method('SEND')->willReturn(true);
+
+          $child = $this->createMock(Child::class);
+          $child->method('fromBase')->willReturn(null);
+          $child->method('log')->willReturn(1);
+          $child->method('hidden')->willReturn(null);
+          $child->method('finalMethod')->willReturn(null);
+          $child->method('make')->willReturn(null);
+          $child->method('magic')->willReturn(1);
+
+          $this->createStub(Magic::class)->method('magicInterface')->willReturn(1);
+          $this->createStub(Dynamic::class)->method('anything')->willReturn(1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Mock method calls Psalm cannot check are not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      final class Configurable {
+        /** @psalm-impure */
+        public function method(string $name): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        private static function typoName(): string {
+          return 'typo';
+        }
+
+        public function testUnchecked(string $name): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method($name)->willReturn(true);
+          $mailer->method(self::typoName())->willReturn(true);
+          $mailer->method($this->logicalOr('typo', 'sendInvoice'))->willReturn(true);
+
+          $expectation = $mailer->expects($this->once());
+          $expectation->method('typo')->willReturn(true);
+
+          /** @psalm-suppress UndefinedClass, MixedMethodCall */
+          $this->createStub(MissingClass::class)->method('typo')->willReturn(true);
+
+          $this->createStub(Configurable::class)->method('typo');
+
+          $this->assertSame(1, 1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A method that is only mocked by name is still reported as unused
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      abstract class Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMocked(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method('sendInvoice')->willReturn(true);
+          $this->assertSame(1, 1);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\Mailer::sendInvoice |
+    And I see no other errors
