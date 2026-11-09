@@ -40,6 +40,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 * Exceptions declared by PHPUnit's own API (assertions, `createMock()`, `createStub()` and so on) are not reported as `MissingThrowsDocblock`. Exceptions in your `<ignoreExceptions>` stay ignored.
 * `assertSame(null, ...)`, `assertSame(true|false, ...)` and `assertSame(n, count(...))` are reported as `UnspecificNullAssertion`, `UnspecificBooleanAssertion` and `UnspecificCountAssertion` (at `errorLevel="1"`), suggesting `assertNull()`, `assertTrue()`/`assertFalse()` and `assertCount()`.
 * `assertEquals()` and `assertNotEquals()` with two `int`, `float`, `string` or `bool` arguments (`assertEquals(1, $int)`) are reported as `UnspecificEqualsAssertion` (at `errorLevel="1"`), suggesting `assertSame()` / `assertNotSame()`. Nullable and mixed arguments are not reported.
+* `createMockForIntersectionOfInterfaces([A::class, B::class])` and `createStubForIntersectionOfInterfaces(...)` are typed as `A&B&MockObject` and `A&B&Stub`, so the methods of `A` and `B` can be called on the double without `UndefinedInterfaceMethod`.
 * `$this->prophesize(Foo::class)` is typed as `ObjectProphecy<Foo>`, and magic calls on it resolve to `MethodProphecy`.
 * `assertNotEmpty($x)` narrows `$x` to its non-empty type (`?Customer` becomes `Customer`, `list<int>|null` becomes `non-empty-list<int>`).
 
