@@ -26,7 +26,28 @@ run_scenario() {
 }
 export -f run_scenario
 
-scenarios="$(grep -HnE '^[[:space:]]*Scenario( Outline)?:' "$@" | cut -d: -f1,2)"
+# BEHAT_SKIP_TAGS="@psalm7": leave out scenarios carrying one of these tags (on the scenario or its feature).
+scenarios="$(awk -v skip="${BEHAT_SKIP_TAGS:-}" '
+    FNR == 1 { feature_tags = ""; tags = ""; in_docstring = 0 }
+    /^[[:space:]]*"""/ { in_docstring = !in_docstring; next }
+    in_docstring { next }
+    /^[[:space:]]*@/ { tags = tags " " $0; next }
+    /^[[:space:]]*Feature:/ { feature_tags = tags }
+    /^[[:space:]]*Scenario( Outline)?:/ {
+        all = feature_tags " " tags
+        n = split(skip, skipped, " ")
+        for (i = 1; i <= n; i++) {
+            if (index(" " all " ", " " skipped[i] " ")) { tags = ""; next }
+        }
+        print FILENAME ":" FNR
+    }
+    /^[[:space:]]*(#|$)/ { next }
+    { tags = "" }
+' "$@")"
+if [ -z "$scenarios" ]; then
+    echo "No scenarios selected"
+    exit 0
+fi
 total="$(printf '%s\n' "$scenarios" | wc -l | tr -d ' ')"
 echo "Running $total scenarios, $jobs at a time"
 
