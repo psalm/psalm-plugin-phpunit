@@ -6147,3 +6147,74 @@ final class MyTestCase extends TestCase
       | MissingParentCall    | Missing call to parent::tearDown()   |
       | UnusedPsalmSuppress  | This suppression is never used       |
     And I see no other errors
+
+  Scenario: assertPreConditions and assertPostConditions without a call to the parent are reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function assertPostConditions(): void {
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class DirectTestCase extends TestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+
+        public function testDirect(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class CallingTestCase extends BaseTestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+
+        public function testCalling(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                         |
+      | MissingParentCall | Missing call to parent::assertPreConditions()  |
+      | MissingParentCall | Missing call to parent::assertPostConditions() |
+    And I see no other errors
