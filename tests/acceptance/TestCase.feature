@@ -1231,6 +1231,477 @@ Feature: TestCase
       | TooFewArguments |Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
+  Scenario: String-keyed datasets are matched to parameters by name
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{cents: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function prices(): iterable {
+          return [['cents' => 100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{currency: string, cents: int}>
+         * @psalm-pure
+         */
+        public static function reordered(): iterable {
+          return [['currency' => 'EUR', 'cents' => 100]];
+        }
+
+        /**
+         * @return iterable<int, array{b: int}>
+         * @psalm-pure
+         */
+        public static function skippingDefault(): iterable {
+          return [['b' => 3]];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function mixed(): iterable {
+          return [[100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, x: string}>
+         * @psalm-pure
+         */
+        public static function variadic(): iterable {
+          return [['a' => 1, 'x' => 'foo']];
+        }
+
+        #[DataProvider('prices')]
+        #[DataProvider('reordered')]
+        #[DataProvider('mixed')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+
+        #[DataProvider('skippingDefault')]
+        public function testDefaults(string $a = 'x', int $b = 2): void {
+          $this->assertNotEmpty($a . $b);
+        }
+
+        #[DataProvider('variadic')]
+        public function testVariadic(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed dataset entries are checked against the parameter they name
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{currency: int, cents: string}>
+         * @psalm-pure
+         */
+        public static function swapped(): iterable {
+          return [['currency' => 1, 'cents' => 'x']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, x: bool}>
+         * @psalm-pure
+         */
+        public static function variadic(): iterable {
+          return [['a' => 1, 'x' => true]];
+        }
+
+        #[DataProvider('swapped')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+
+        #[DataProvider('variadic')]
+        public function testVariadic(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 2 ($currency) of NS\MyTestCase::testPrice expects string, int provided by NS\MyTestCase::swapped():(iterable<int, array{cents: string, currency: int}>) |
+      | InvalidArgument | Argument 1 ($cents) of NS\MyTestCase::testPrice expects int, string provided by NS\MyTestCase::swapped():(iterable<int, array{cents: string, currency: int}>) |
+      | InvalidArgument | Argument 2 ($x) of NS\MyTestCase::testVariadic expects string, bool provided by NS\MyTestCase::variadic():(iterable<int, array{a: int, x: bool}>) |
+    And I see no other errors
+
+  Scenario: Unknown, already used and missing named parameters are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{cents: int, nope: string}>
+         * @psalm-pure
+         */
+        public static function unknown(): iterable {
+          return [['cents' => 1, 'nope' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, cents: int}>
+         * @psalm-pure
+         */
+        public static function overwriting(): iterable {
+          return [[1, 'cents' => 2]];
+        }
+
+        /**
+         * @return iterable<int, array{cents: int}>
+         * @psalm-pure
+         */
+        public static function missing(): iterable {
+          return [['cents' => 1]];
+        }
+
+        #[DataProvider('unknown')]
+        #[DataProvider('overwriting')]
+        #[DataProvider('missing')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidNamedArgument | Parameter $nope does not exist on NS\MyTestCase::testPrice, provided by NS\MyTestCase::unknown():(iterable<int, array{cents: int, nope: string}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::unknown():(iterable<int, array{cents: int, nope: string}>) |
+      | InvalidNamedArgument | Parameter $cents has already been used in NS\MyTestCase::testPrice, provided by NS\MyTestCase::overwriting():(iterable<int, array{0: int, cents: int}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::overwriting():(iterable<int, array{0: int, cents: int}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::missing():(iterable<int, array{cents: int}>) |
+    And I see no other errors
+
+  Scenario: Named dataset keys that cannot be checked precisely are not reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait HasPriceTest {
+        #[DataProvider('prices')]
+        public function testTraitPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use HasPriceTest;
+
+        /**
+         * @return iterable<int, array{cents: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function prices(): iterable {
+          return [['cents' => 100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function unsealed(): iterable {
+          return [['a' => 1, 'b' => 2]];
+        }
+
+        /**
+         * @return iterable<int, array<string, int>>
+         * @psalm-pure
+         */
+        public static function generic(): iterable {
+          return [['a' => 1, 'b' => 2]];
+        }
+
+        #[DataProvider('unsealed')]
+        #[DataProvider('generic')]
+        public function testUnsealed(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Docblock data providers with string keys are matched to parameters by name
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{currency: string, cents: int}>
+         * @psalm-pure
+         */
+        public static function reordered(): iterable {
+          return [['currency' => 'EUR', 'cents' => 100]];
+        }
+
+        /**
+         * @dataProvider reordered
+         */
+        public function testDocblock(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Possibly undefined named dataset keys are reported once
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 ($a) of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{a?: int}>) |
+    And I see no other errors
+
+  Scenario: Possibly undefined positional entries do not fill parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, a: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a = 0): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Optional named entries for parameters filled by a positional entry are not checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, a?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Int-keyed entries after a possibly undefined one are not bound to fixed parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{tag: int, 0?: int, 1: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1, 1 => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b = 0, int $tag = 0): void {
+          $this->assertNotEmpty($a . $b . $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The first possibly undefined positional entry is checked against its own parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, tag: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $tag): void {
+          $this->assertNotSame($a, $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{0?: int, tag: int}>) |
+    And I see no other errors
+
+  Scenario: Optional positional entries that can only land in a variadic parameter are checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, 1?: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function optional(): iterable {
+          return [[1, 'x' => 'foo']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, 1?: string, 2: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function shifting(): iterable {
+          return [[1, 'a', true, 'x' => 'foo']];
+        }
+
+        #[DataProvider('optional')]
+        #[DataProvider('shifting')]
+        public function testSomething(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::optional():(iterable<int, array{0: int, 1?: bool, x: string}>) |
+      | InvalidArgument | Argument 3 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::shifting():(iterable<int, array{0: int, 1?: string, 2: bool, x: string}>) |
+    And I see no other errors
+
+  Scenario: Unsealed datasets whose values cannot fill a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'x' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, array $b): void {
+          $this->assertNotEmpty($a);
+          $this->assertNotEmpty($b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<string, int>}>) |
+    And I see no other errors
+
+  Scenario: Unsealed datasets whose extra keys cannot name a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<'other', int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'other' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<'other', int>}>) |
+    And I see no other errors
+
+  Scenario: Dependency values still count when a possibly undefined string key is the only key
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{x?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{x?: int}>) | 22 |
+    And I see no other errors
+
   Scenario: @depends values are not required from the @dataProvider
     Given I have the following code
       """
@@ -5236,4 +5707,997 @@ final class MyTestCase extends TestCase
     Then I see these errors
       | Type                    | Message                                                          | Line |
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 7    |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method is reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMethods(): void {
+          $mock = $this->createMock(Mailer::class);
+          $mock->expects($this->once())->method('sendInvoce')->willReturn(true);
+          $mock->method('sendInvoce')->willReturn(true);
+          $mock->method('sendInvoice')->willReturn(true);
+
+          $stub = $this->createStub(Mailer::class);
+          $stub->method('sendInvoce')->willReturn(true);
+
+          $configured = $this->createConfiguredMock(Mailer::class, ['sendInvoice' => true]);
+          $configured->method('sendInvoce')->willReturn(true);
+
+          $built = $this->getMockBuilder(Mailer::class)->getMock();
+          $built->method('sendInvoce')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                    | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 14   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 15   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 19   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 22   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 25   |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method is reported on typed properties and for every literal name
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        private const TYPO = 'sendInvoce';
+
+        /** @var Mailer&\PHPUnit\Framework\MockObject\Stub */
+        private $docblockStub;
+
+        private \PHPUnit\Framework\MockObject\MockObject&Mailer $nativeMock;
+
+        #[\Override]
+        public function setUp(): void {
+          $this->docblockStub = $this->createStub(Mailer::class);
+          $this->nativeMock = $this->createMock(Mailer::class);
+        }
+
+        public function testProperties(): void {
+          $this->docblockStub->method('sendInvoce')->willReturn(true);
+          $this->nativeMock->method(self::TYPO)->willReturn(true);
+        }
+
+        public function testUnion(): void {
+          $mailer = $this->createStub(Mailer::class);
+          $mailer->method(random_int(0, 1) ? 'sendInvoice' : 'sendInvoce')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                    | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 26   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 27   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 32   |
+    And I see no other errors
+
+  Scenario: Mocking a method PHPUnit adds to a Traversable double is not reported
+    Given I have the following code
+      """
+      /**
+       * @psalm-mutable
+       * @extends \Traversable<int, int>
+       */
+      interface Numbers extends \Traversable {}
+
+      /**
+       * @psalm-mutable
+       * @extends \IteratorAggregate<int, string>
+       */
+      interface Letters extends \IteratorAggregate {}
+
+      final class MyTestCase extends TestCase {
+        public function testTraversable(): void {
+          $traversable = $this->createMock(\Traversable::class);
+          $traversable->method('current')->willReturn(1);
+          $traversable->method('nope')->willReturn(1);
+        }
+
+        public function testDerivedInterface(): void {
+          $numbers = $this->createStub(Numbers::class);
+          $numbers->method('current')->willReturn(1);
+          $numbers->method('nope')->willReturn(1);
+        }
+
+        public function testAggregate(): void {
+          $letters = $this->createStub(Letters::class);
+          $letters->method('getIterator')->willReturn(new \ArrayIterator([]));
+          $letters->method('current')->willReturn(1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                           | Line |
+      | UndefinedMethod | Trying to mock an undefined method Traversable::nope()            | 21   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Numbers::nope()             | 27   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Letters::current()          | 33   |
+    And I see no other errors
+
+  Scenario: Mocking a property hook by name is not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testHooks(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method('$value::get')->willReturn(true);
+          $mailer->method('$value::set')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Mocking an undefined method can be suppressed per call
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testSuppressed(): void {
+          $mailer = $this->createStub(Mailer::class);
+          /** @psalm-suppress UndefinedMethod */
+          $mailer->method('sendInvoce')->willReturn(true);
+          $mailer->method('sendInvoise')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                     |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoise() |
+    And I see no other errors
+
+  Scenario: Mocking an existing method is not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Sender {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Mailer extends Sender {}
+
+      /** @psalm-immutable */
+      trait Logs {
+        /** @psalm-pure */
+        public function log(): int { return 1; }
+      }
+
+      /** @psalm-mutable */
+      class Base {
+        /** @psalm-impure */
+        public function fromBase(): void {}
+      }
+
+      /**
+       * @psalm-mutable
+       * @method int magic()
+       */
+      final class Child extends Base {
+        use Logs;
+
+        /** @psalm-impure */
+        final public function finalMethod(): void {}
+
+        /** @psalm-impure */
+        private function hidden(): void {}
+
+        /** @psalm-impure */
+        public static function make(): void {}
+      }
+
+      /**
+       * @psalm-mutable
+       * @method int magicInterface()
+       */
+      interface Magic {}
+
+      /** @psalm-mutable */
+      final class Dynamic {
+        /** @psalm-impure */
+        public function __call(string $name, array $arguments): mixed { return null; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testExisting(): void {
+          $mailer = $this->createStub(Mailer::class);
+          $mailer->method('send')->willReturn(true);
+          $mailer->method('SEND')->willReturn(true);
+
+          $child = $this->createMock(Child::class);
+          $child->method('fromBase')->willReturn(null);
+          $child->method('log')->willReturn(1);
+          $child->method('hidden')->willReturn(null);
+          $child->method('finalMethod')->willReturn(null);
+          $child->method('make')->willReturn(null);
+          $child->method('magic')->willReturn(1);
+
+          $this->createStub(Magic::class)->method('magicInterface')->willReturn(1);
+          $this->createStub(Dynamic::class)->method('anything')->willReturn(1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Mock method calls Psalm cannot check are not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Auditor {
+        /** @psalm-impure */
+        public function expects(): Rule;
+      }
+
+      /** @psalm-mutable */
+      interface Dispatcher {
+        /** @psalm-impure */
+        public function expects(): \PHPUnit\Framework\MockObject\Stub&Mailer;
+      }
+
+      /** @psalm-mutable */
+      final class Rule {
+        /** @psalm-impure */
+        public function method(string $name): self { return $this; }
+      }
+
+      /** @psalm-mutable */
+      final class Configurable {
+        /** @psalm-impure */
+        public function method(string $name): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        private static function typoName(): string {
+          return 'typo';
+        }
+
+        public function testUnchecked(string $name): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method($name)->willReturn(true);
+          $mailer->method(self::typoName())->willReturn(true);
+          $mailer->method($this->logicalOr('typo', 'sendInvoice'))->willReturn(true);
+
+          $expectation = $mailer->expects($this->once());
+          $expectation->method('typo')->willReturn(true);
+
+          /** @psalm-suppress UndefinedClass, MixedMethodCall */
+          $this->createStub(MissingClass::class)->method('typo')->willReturn(true);
+
+          $this->createStub(Configurable::class)->method('typo');
+          $this->createStub(Auditor::class)->expects()->method('typo');
+          $this->createStub(Dispatcher::class)->expects()->method('sendInvoice');
+
+          $this->assertSame(1, 1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A method that is only mocked by name is still reported as unused
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      abstract class Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMocked(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method('sendInvoice')->willReturn(true);
+          $this->assertSame(1, 1);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\Mailer::sendInvoice |
+    And I see no other errors
+
+  Scenario: setUp without a call to the parent is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: tearDown, setUpBeforeClass and tearDownAfterClass without a call to the parent are reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                      |
+      | MissingParentCall | Missing call to parent::tearDown()           |
+      | MissingParentCall | Missing call to parent::setUpBeforeClass()   |
+      | MissingParentCall | Missing call to parent::tearDownAfterClass() |
+    And I see no other errors
+
+  Scenario: A hook inherited from a shared trait without a call to the parent is reported once, at the trait
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      /** @psalm-immutable */
+      trait NoParentSetUp {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+        }
+      }
+
+      final class FirstTestCase extends BaseTestCase {
+        use NoParentSetUp;
+      }
+
+      final class SecondTestCase extends BaseTestCase {
+        use NoParentSetUp;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: A setUp from a trait that calls the parent is not reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      trait CallsParentSetUp {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use CallsParentSetUp;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A parent whose setUp comes from a trait is checked
+    Given I have the following code
+      """
+      trait SharedSetUp {
+        protected function setUp(): void {
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase {
+        use SharedSetUp;
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: Calls to the parent in any position of the method are accepted
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class FinallyTestCase extends BaseTestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          try {
+            $this->assertTrue(true);
+          } finally {
+            parent::tearDown();
+          }
+        }
+      }
+
+      final class CaseInsensitiveTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+          PARENT::SETUP();
+        }
+      }
+
+      final class BranchTestCase extends BaseTestCase {
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          if (random_int(0, 1) === 1) {
+            parent::setUpBeforeClass();
+          }
+        }
+      }
+
+      final class NamedParentTestCase extends BaseTestCase {
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          BaseTestCase::tearDownAfterClass();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A parent call inside a closure or a first class callable does not count
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          parent::setUpBeforeClass();
+        }
+
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          parent::tearDownAfterClass();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+          $later = function (): void {
+            parent::setUp();
+          };
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        public static function setUpBeforeClass(): void {
+          $callable = parent::setUpBeforeClass(...);
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        public static function tearDownAfterClass(): void {
+          $later = static fn(): mixed => parent::tearDownAfterClass();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                      |
+      | MissingParentCall | Missing call to parent::setUp()              |
+      | MissingParentCall | Missing call to parent::setUpBeforeClass()   |
+      | MissingParentCall | Missing call to parent::tearDownAfterClass() |
+    And I see no other errors
+
+  Scenario: Hooks that have no parent implementation to call are not reported
+    Given I have the following code
+      """
+      abstract class AbstractBaseTestCase extends TestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        abstract protected function setUp(): void;
+      }
+
+      final class AbstractParentTestCase extends AbstractBaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+        }
+      }
+
+      final class DirectTestCase extends TestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class InheritingTestCase extends BaseTestCase {
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: MissingParentCall can be suppressed on the method and on the class
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class MethodSuppressedTestCase extends BaseTestCase {
+        /**
+         * @psalm-suppress MissingParentCall
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+
+      /** @psalm-suppress MissingParentCall */
+      final class ClassSuppressedTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: MissingParentCall can be suppressed on the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      /**
+       * @psalm-suppress MissingParentCall
+       * @psalm-immutable
+       */
+      trait NoParentTearDown {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use NoParentTearDown;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A call to the ancestor that declares the hook counts as the parent call
+    Given I have the following code
+      """
+      abstract class GrandparentTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      abstract class ParentTestCase extends GrandparentTestCase {
+      }
+
+      final class NamedAncestorTestCase extends ParentTestCase {
+        #[\Override]
+        protected function setUp(): void {
+          GrandparentTestCase::setUp();
+        }
+      }
+
+      final class InheritedParentTestCase extends ParentTestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MissingTestCase extends ParentTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                            |
+      | MissingParentCall | Missing call to parent::tearDown() |
+    And I see no other errors
+
+  Scenario: A trait method aliased to a hook without a call to the parent is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      /** @psalm-immutable */
+      trait Initializer {
+        /** @psalm-capabilities read-props */
+        protected function initialize(): void {
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use Initializer {
+          initialize as setUp;
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                         |
+      | MissingParentCall | Missing call to parent::setUp() |
+    And I see no other errors
+
+  Scenario: A trait method aliased to a hook that calls the parent is not reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      trait Initializer {
+        protected function initialize(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use Initializer {
+          initialize as setUp;
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A call to self or static instead of the parent does not count
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class SelfTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+          self::setUp();
+        }
+      }
+
+      final class StaticTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+          static::tearDown();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                            |
+      | MissingParentCall | Missing call to parent::setUp()    |
+      | MissingParentCall | Missing call to parent::tearDown() |
+    And I see no other errors
+
+  Scenario: A call on an unknown class is left to UndefinedClass
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+          UnknownTestCase::setUp();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                                              |
+      | UndefinedClass | Class, interface or enum named NS\UnknownTestCase does not exist |
+    And I see no other errors
+
+  Scenario: A suppression on a trait from another file applies
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "MyTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       * @psalm-suppress MissingParentCall
+       */
+      trait MyTrait {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use MyTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A class suppression does not apply to a trait method from another file
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "MyTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /** @psalm-immutable */
+      trait MyTrait {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      /** @psalm-suppress MissingParentCall */
+      final class MyTestCase extends BaseTestCase {
+        use MyTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message                              |
+      | MissingParentCall    | Missing call to parent::tearDown()   |
+      | UnusedPsalmSuppress  | This suppression is never used       |
     And I see no other errors
