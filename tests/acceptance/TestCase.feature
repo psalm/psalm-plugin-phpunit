@@ -648,6 +648,358 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: Non-static implementation of an abstract #[DataProvider] is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Non-public implementation of an abstract #[DataProvider] is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract protected static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        protected static function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be public |
+    And I see no other errors
+
+  Scenario: Non-static implementation of an abstract @dataProvider is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Static implementation of an abstract @dataProvider is not reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public static function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Invalid implementation of an abstract data provider is reported once for a test of the class itself
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testInherited(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provide')]
+        public function testOwn(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     | Line |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static | 26   |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static | 30   |
+    And I see no other errors
+
+  Scenario: Invalid implementation of an abstract data provider is reported once for a deeper subclass
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      abstract class MiddleTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends MiddleTestCase {}
+
+      final class OtherTestCase extends MiddleTestCase {}
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                         |
+      | InvalidDataProvider | Data provider method NS\MiddleTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Invalid implementation of an abstract data provider can be suppressed on the provider
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         * @psalm-suppress InvalidDataProvider
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Invalid implementation of an abstract data provider can be suppressed on the test class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      /**
+       * @psalm-suppress InvalidDataProvider
+       */
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Non-static data provider of an inherited test is reported once
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {}
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                       |
+      | InvalidDataProvider | Data provider method NS\BaseTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Non-static trait implementation of an abstract data provider is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      /** @psalm-pure */
+      trait Provides {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use Provides;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
   Scenario: Invalid data provider can be suppressed on the test method
     Given I have the following code
       """
@@ -5530,6 +5882,78 @@ final class MyTestCase extends TestCase
     Then I see these errors
       | Type                    | Message                                                            | Line |
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @before docblock tag, use #[Before] instead | 7    |
+    And I see no other errors
+
+  Scenario: PHPUnit 12 reports a non-static implementation of an abstract #[DataProvider]
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: PHPUnit 12 ignores a docblock data provider of an inherited test
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public static function provide();
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                                                                    | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @dataProvider docblock tag, use #[DataProvider] or #[DataProviderExternal] instead | 13   |
     And I see no other errors
 
   Scenario: PHPUnit 12 reports an ignored @requires docblock tag

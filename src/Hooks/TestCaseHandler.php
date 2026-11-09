@@ -56,6 +56,7 @@ use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
+use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
 use RuntimeException;
@@ -312,6 +313,12 @@ final class TestCaseHandler implements
                 continue;
             }
 
+            // The class declaring an inherited test does not see the providers its descendants implement
+            if (!$declaring_class_storage->is_trait && $declaring_class_storage->name !== $class_storage->name) {
+                self::checkInheritedTestProviders($codebase, $class_storage, $method_name_lc, $method_storage);
+                continue;
+            }
+
             $stmt_method = $declaring_class_node->getMethod($declaring_method_name);
 
             if (!$stmt_method) {
@@ -417,33 +424,17 @@ final class TestCaseHandler implements
 
                 // Abstract providers are checked on the concrete classes implementing them
                 if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
-                    $provider_visibility = $provider_method_storage->visibility;
-                    $appearing_provider_id = $codebase->methods->getAppearingMethodId(
-                        MethodIdentifier::wrap($apparent_provider_method_name)
-                    );
-                    if (null !== $appearing_provider_id) {
-                        $provider_visibility = $codebase->classlike_storage_provider
-                            ->get($appearing_provider_id->fq_class_name)
-                            ->trait_visibility_map[$appearing_provider_id->method_name]
-                            ?? $provider_visibility;
-                    }
                     $suppressed_issues = $method_storage->suppressed_issues
                         + $declaring_class_storage->suppressed_issues
                         + $statements_source->getSuppressedIssues();
 
-                    if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
-                        IssueBuffer::accepts(new InvalidDataProvider(
-                            'Data provider method ' . $apparent_provider_method_name . ' must be public',
-                            $provider_docblock_location
-                        ), $suppressed_issues);
-                    }
-
-                    if (!$provider_method_storage->is_static) {
-                        IssueBuffer::accepts(new InvalidDataProvider(
-                            'Data provider method ' . $apparent_provider_method_name . ' must be static',
-                            $provider_docblock_location
-                        ), $suppressed_issues);
-                    }
+                    self::reportInvalidProviderSignature(
+                        $codebase,
+                        $provider_method_storage,
+                        $apparent_provider_method_name,
+                        $provider_docblock_location,
+                        $suppressed_issues,
+                    );
 
                     // Providers declared elsewhere are not read
                     $provider_node = $provider_id->fq_class_name === $class_storage->name
@@ -742,6 +733,97 @@ final class TestCaseHandler implements
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Checks the providers of a test inherited from an ancestor that the class implements or overrides itself.
+     *
+     * @param lowercase-string $test_name_lc
+     */
+    private static function checkInheritedTestProviders(
+        Codebase $codebase,
+        ClassLikeStorage $class_storage,
+        string $test_name_lc,
+        MethodStorage $test_storage
+    ): void {
+        $metadata = $test_storage->custom_metadata[DataProviderNarrowingHandler::METADATA_KEY] ?? null;
+        if (
+            $class_storage->parent_class === null
+            || !is_array($metadata)
+            || !((bool) $metadata['test'] || str_starts_with($test_name_lc, 'test'))
+        ) {
+            return;
+        }
+
+        /** @var list<array{string, string}> $providers */
+        $providers = $metadata['providers'];
+        foreach ($providers as [$provider_class, $provider_name]) {
+            if ($provider_class !== '' || str_contains($provider_name, '::')) {
+                continue;
+            }
+
+            // The parent already checked the provider it resolves
+            $provider_method_id = $codebase->getDeclaringMethodId($class_storage->name . '::' . $provider_name);
+            if (
+                $provider_method_id === null
+                || $provider_method_id === $codebase->getDeclaringMethodId(
+                    $class_storage->parent_class . '::' . $provider_name
+                )
+            ) {
+                continue;
+            }
+
+            $provider_id      = MethodIdentifier::wrap($provider_method_id);
+            $provider_storage = $codebase->methods->getStorage($provider_id);
+            if ($provider_storage->abstract || $provider_storage->location === null) {
+                continue;
+            }
+
+            $suppressed_issues = $provider_storage->suppressed_issues
+                + $codebase->classlike_storage_provider->get($provider_id->fq_class_name)->suppressed_issues;
+
+            self::reportInvalidProviderSignature(
+                $codebase,
+                $provider_storage,
+                $class_storage->name . '::' . $provider_name,
+                $provider_storage->location,
+                $suppressed_issues,
+            );
+        }
+    }
+
+    /** @param array<array-key, string> $suppressed_issues */
+    private static function reportInvalidProviderSignature(
+        Codebase $codebase,
+        MethodStorage $provider_method_storage,
+        string $apparent_provider_method_name,
+        CodeLocation $location,
+        array $suppressed_issues
+    ): void {
+        $provider_visibility   = $provider_method_storage->visibility;
+        $appearing_provider_id = $codebase->methods->getAppearingMethodId(
+            MethodIdentifier::wrap($apparent_provider_method_name)
+        );
+        if (null !== $appearing_provider_id) {
+            $provider_visibility = $codebase->classlike_storage_provider
+                ->get($appearing_provider_id->fq_class_name)
+                ->trait_visibility_map[$appearing_provider_id->method_name]
+                ?? $provider_visibility;
+        }
+
+        if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
+            IssueBuffer::accepts(new InvalidDataProvider(
+                'Data provider method ' . $apparent_provider_method_name . ' must be public',
+                $location
+            ), $suppressed_issues);
+        }
+
+        if (!$provider_method_storage->is_static) {
+            IssueBuffer::accepts(new InvalidDataProvider(
+                'Data provider method ' . $apparent_provider_method_name . ' must be static',
+                $location
+            ), $suppressed_issues);
         }
     }
 
