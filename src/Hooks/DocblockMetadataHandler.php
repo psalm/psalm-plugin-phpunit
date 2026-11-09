@@ -154,7 +154,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             return;
         }
 
-        foreach (DocblockSpecials::of($node) as $tag => $entries) {
+        foreach (DocblockSpecials::all($node) as $tag => $entries) {
             if (!isset(self::ATTRIBUTES[$tag])) {
                 continue;
             }
