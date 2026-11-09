@@ -4184,7 +4184,6 @@ Feature: TestCase
           $this->assertEquals(0.5, $float);
           $this->assertEquals($float, $float);
           $this->assertEquals($flag, !$flag);
-          $this->assertNotEquals(true, $flag);
         }
       }
       """
@@ -4202,7 +4201,30 @@ Feature: TestCase
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 20   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 21   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         | 22   |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   | 23   |
+    And I see no other errors
+
+  Scenario: assertEquals with a boolean expectation suggests assertTrue and assertFalse
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testBool(): void {
+          $flag = random_int(0, 1) === 1;
+          $this->assertEquals(true, $flag);
+          $this->assertEquals(FALSE, $flag);
+          $this->assertNotEquals(true, $flag);
+          self::assertNotEquals(false, $flag);
+          $this->assertEquals(true, true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                     | Line |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 8    |
+      | UnspecificBooleanAssertion | Use assertFalse() instead of assertEquals(false, ...)       | 9    |
+      | UnspecificBooleanAssertion | Use assertNotTrue() instead of assertNotEquals(true, ...)   | 10   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotEquals(false, ...) | 11   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 12   |
     And I see no other errors
 
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
@@ -4222,6 +4244,8 @@ Feature: TestCase
           $this->assertEquals(1, $text);
           $this->assertEquals(1, $float);
           $this->assertEquals(true, $int);
+          $this->assertNotEquals(false, $text);
+          $this->assertEquals(true, $int ? true : null);
           $this->assertEquals(0, $maybeInt);
           $this->assertEquals($maybeInt, $int);
           $this->assertEquals(null, $int);
