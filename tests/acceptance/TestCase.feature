@@ -3150,6 +3150,146 @@ Feature: TestCase
       | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
     And I see no other errors
 
+  Scenario: assertEquals with both arguments of the same scalar type suggests assertSame
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testScalars(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $float = (float) $int;
+          $flag = $int === 1;
+          $choice = $int ? 'a' : 'b';
+          $this->assertEquals(1, $int);
+          $this->assertNotEquals($int, 2);
+          self::assertEquals($int, $int);
+          static::assertEquals($int, $int);
+          \PHPUnit\Framework\Assert::assertEquals($int, $int);
+          $this->assertEquals('a', $text);
+          $this->assertNotEquals($text, strrev($text));
+          $this->assertEquals($choice, $text);
+          $this->assertEquals(0.5, $float);
+          $this->assertEquals($float, $float);
+          $this->assertEquals($flag, !$flag);
+          $this->assertNotEquals(true, $flag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                      | Message                                                                             |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type int    |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type string |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   |
+    And I see no other errors
+
+  Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
+    Given I have the following code
+      """
+      enum Suit: string {
+        case Hearts = 'h';
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOthers(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $float = (float) $int;
+          $maybeInt = $int ? 1 : null;
+          $intOrText = $int ? 1 : 'a';
+          $this->assertEquals(1, $text);
+          $this->assertEquals(1, $float);
+          $this->assertEquals(true, $int);
+          $this->assertEquals(0, $maybeInt);
+          $this->assertEquals($maybeInt, $int);
+          $this->assertEquals(null, $int);
+          $this->assertEquals(1, $intOrText);
+          $this->assertEquals($intOrText, $intOrText);
+          $this->assertEquals(1, json_decode('1'));
+          $this->assertEquals([1], [1]);
+          $this->assertEquals(new \stdClass(), new \stdClass());
+          $this->assertEquals(Suit::Hearts, Suit::Hearts);
+          $this->assertEqualsWithDelta(1.0, $float, 0.1);
+          $this->assertEqualsIgnoringCase('a', $text);
+          $this->assertEquals(expected: 1, actual: $int);
+          $this->assertEquals(...[1, $int]);
+          $check = $this->assertEquals(...);
+          $check(1, $int);
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertEquals suggestion is only reported at error level 1
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="2" findUnusedCode="false" >
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $this->assertEquals(1, random_int(0, 1));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertEquals suggestion can be suppressed in the config
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" >
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+          <PluginIssue name="UnspecificEqualsAssertion" errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $this->assertEquals(1, random_int(0, 1));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Assertions without a literal expectation or a plain count are not reported
     Given I have the following code
       """
@@ -3232,6 +3372,8 @@ Feature: TestCase
           $this->assertSame(true, $flag);
           /** @psalm-suppress UnspecificCountAssertion */
           $this->assertSame(1, count($lines));
+          /** @psalm-suppress UnspecificEqualsAssertion */
+          $this->assertEquals(1, random_int(0, 1));
         }
       }
       """
