@@ -465,8 +465,7 @@ final class TestCaseHandler implements
                     if ($provider_node !== null) {
                         self::reportPositionalAfterNamed(
                             $statements_source,
-                            $provider_node,
-                            $provider_method_storage->has_yield,
+                            $provider_node->stmts ?? [],
                             'a dataset provided by ' . $provider_method_id . '()',
                             $suppressed_issues,
                         );
@@ -490,6 +489,18 @@ final class TestCaseHandler implements
             }
 
             foreach ($closure_providers as $closure) {
+                // A closure of a trait lives in another file than the one analysed
+                if (!$declaring_class_storage->is_trait) {
+                    self::reportPositionalAfterNamed(
+                        $statements_source,
+                        $closure['statements'],
+                        'a dataset provided by #[DataProviderClosure]',
+                        $method_storage->suppressed_issues
+                            + $declaring_class_storage->suppressed_issues
+                            + $statements_source->getSuppressedIssues(),
+                    );
+                }
+
                 $closure_return_type = DataProviderClosureHandler::returnType($method_storage, $closure['position']);
                 if ($closure_return_type === null) {
                     continue;
@@ -599,6 +610,11 @@ final class TestCaseHandler implements
                             $provider_return_type_location
                         ));
                     }
+                    continue;
+                }
+
+                // An empty array has no datasets to check
+                if ($provider_return_type->type_params[1]->isNever()) {
                     continue;
                 }
 
@@ -789,22 +805,23 @@ final class TestCaseHandler implements
      * PHPUnit passes string dataset keys as named arguments, and PHP rejects a positional argument after them.
      * Only literal datasets are read: Psalm's array shapes do not keep the key order.
      *
+     * @param array<array-key, Node\Stmt> $statements the body of a provider method or closure
      * @param array<array-key, string> $suppressed_issues
      */
     private static function reportPositionalAfterNamed(
         StatementsSource $source,
-        ClassMethod $provider,
-        bool $generator,
+        array $statements,
         string $provided_by,
         array $suppressed_issues
     ): void {
-        $visitor = new class ($generator) extends NodeVisitorAbstract {
-            /** @var list<Array_> */
-            public array $datasets = [];
+        $visitor = new class extends NodeVisitorAbstract {
+            public bool $generator = false;
 
-            public function __construct(private readonly bool $generator)
-            {
-            }
+            /** @var list<Array_> */
+            public array $returned = [];
+
+            /** @var list<Array_> */
+            public array $yielded = [];
 
             #[\Override]
             public function enterNode(Node $node)
@@ -813,26 +830,32 @@ final class TestCaseHandler implements
                     return NodeVisitor::DONT_TRAVERSE_CHILDREN;
                 }
 
-                // PHPUnit ignores the return value of a generator
-                $sets = ($node instanceof Return_ && !$this->generator) || $node instanceof YieldFrom
-                    ? $node->expr
-                    : null;
+                $sets = $node instanceof Return_ || $node instanceof YieldFrom ? $node->expr : null;
                 foreach ($sets instanceof Array_ ? $sets->items : [] as $item) {
                     if (!$item->unpack && $item->value instanceof Array_) {
-                        $this->datasets[] = $item->value;
+                        if ($node instanceof Return_) {
+                            $this->returned[] = $item->value;
+                        } else {
+                            $this->yielded[] = $item->value;
+                        }
                     }
                 }
 
+                if ($node instanceof YieldFrom || $node instanceof Yield_) {
+                    $this->generator = true;
+                }
+
                 if ($node instanceof Yield_ && $node->value instanceof Array_) {
-                    $this->datasets[] = $node->value;
+                    $this->yielded[] = $node->value;
                 }
 
                 return null;
             }
         };
-        (new NodeTraverser($visitor))->traverse($provider->stmts ?? []);
+        (new NodeTraverser($visitor))->traverse($statements);
 
-        foreach ($visitor->datasets as $dataset) {
+        // PHPUnit ignores the return value of a generator
+        foreach ($visitor->generator ? $visitor->yielded : $visitor->returned as $dataset) {
             $named    = false;
             $violated = false;
             $seen     = [];
@@ -1103,7 +1126,7 @@ final class TestCaseHandler implements
      * The closure of each #[DataProviderClosure] whose argument is a literal closure, by the start offset that
      * DataProviderClosureHandler keys its return type by.
      *
-     * @return list<array{line: int, position: int}>
+     * @return list<array{line: int, position: int, statements: array<array-key, Node\Stmt>}>
      */
     private static function getClosureProviders(ClassMethod $method, Aliases $aliases): array
     {
@@ -1118,7 +1141,13 @@ final class TestCaseHandler implements
                 $args    = self::attributeArguments($attribute);
                 $closure = $args['closure'] ?? $args[0] ?? null;
                 if ($closure instanceof Expr\Closure || $closure instanceof Expr\ArrowFunction) {
-                    $closures[] = ['line' => $attribute->getStartLine(), 'position' => $closure->getStartFilePos()];
+                    $closures[] = [
+                        'line'       => $attribute->getStartLine(),
+                        'position'   => $closure->getStartFilePos(),
+                        'statements' => $closure instanceof Expr\Closure
+                            ? $closure->stmts
+                            : [new Return_($closure->expr)],
+                    ];
                 }
             }
         }

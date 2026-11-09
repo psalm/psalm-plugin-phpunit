@@ -9497,3 +9497,54 @@ final class MyTestCase extends TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: An empty #[DataProviderClosure] does not stop the other providers from being checked
+    Given PHPUnit identifies as version "13.1.0"
+    And PHPUnit declares the DataProviderClosure attribute
+    And I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\DataProviderClosure;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['not an int']];
+        }
+
+        #[DataProviderClosure(static fn (): iterable => [])]
+        #[DataProviderClosure(static fn (): iterable => [[1]])]
+        #[DataProvider('provide')]
+        public function testDouble(int $value): void {
+          $this->assertSame($value * 2, $value + $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testDouble expects int, string provided by NS\MyTestCase::provide():(iterable<int, list{string}>) | 19 |
+    And I see no other errors
+
+  Scenario: A positional entry after a named one in a #[DataProviderClosure] dataset is reported
+    Given PHPUnit identifies as version "13.1.0"
+    And PHPUnit declares the DataProviderClosure attribute
+    And I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProviderClosure;
+
+      final class MyTestCase extends TestCase {
+        #[DataProviderClosure(static fn (): iterable => [['b' => 2, 0 => 1]])]
+        public function testFoo(int $a, int $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
+    And I see no other errors

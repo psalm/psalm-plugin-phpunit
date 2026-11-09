@@ -211,14 +211,11 @@ final class Context implements BehatContext
         }
 
         if ($this->declaresDataProviderClosure) {
-            $withStubs = \preg_replace(
-                '#</psalm>#',
+            $xml = \str_replace(
+                '</psalm>',
                 sprintf("  <stubs><file name=\"%s\"/></stubs>\n</psalm>", __DIR__ . '/../stubs/DataProviderClosure.phpstub'),
                 $xml,
-                1,
             );
-            invariant($withStubs !== null, 'Cannot read the config');
-            $xml = $withStubs;
         }
 
         $this->writeFile('psalm.xml', $xml);
