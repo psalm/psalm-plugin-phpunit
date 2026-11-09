@@ -75,7 +75,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
 
         self::report(
             $class_node,
-            $class_storage->location,
+            $class_storage->stmt_location ?? $class_storage->location,
             self::suppressions($class_storage->location, [], $class_storage, $source),
         );
 
@@ -90,7 +90,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             );
             self::report(
                 $codebase->classlikes->getTraitNode($trait_storage->name),
-                $trait_storage->location,
+                $trait_storage->stmt_location ?? $trait_storage->location,
                 $suppressions,
             );
         }
@@ -112,7 +112,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
             self::report(
                 $method_node,
-                $method_storage->location,
+                $method_storage->stmt_location ?? $method_storage->location,
                 self::suppressions(
                     $method_storage->location,
                     $method_storage->suppressed_issues + $declaring_class->suppressed_issues,
