@@ -18,7 +18,6 @@ use function is_string;
  * How PHPUnit unpacks a dataset with string keys into the test call: int keys are positional, string keys name
  * a parameter (or, without a matching parameter, land in the variadic one).
  *
- * @api
  * @psalm-immutable
  */
 final class DatasetBinding
@@ -28,14 +27,12 @@ final class DatasetBinding
      * @param list<string> $unknown names that match no parameter and no variadic parameter
      * @param list<string> $duplicate names of parameters that a positional entry has already filled
      * @param list<string> $missing required parameters that nothing in a sealed dataset can fill
-     * @param bool $has_definite_named_key whether a string key is certainly present
      */
     public function __construct(
         public readonly array $arguments,
         public readonly array $unknown,
         public readonly array $duplicate,
         public readonly array $missing,
-        public readonly bool $has_definite_named_key,
     ) {
     }
 
@@ -133,12 +130,6 @@ final class DatasetBinding
             }
         }
 
-        return new self(
-            $arguments,
-            $unknown,
-            $duplicate,
-            $missing,
-            array_filter($named, static fn (Union $type): bool => !$type->possibly_undefined) !== [],
-        );
+        return new self($arguments, $unknown, $duplicate, $missing);
     }
 }
