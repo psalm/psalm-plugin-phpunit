@@ -26,6 +26,7 @@ use PHPUnit\Framework\Attributes\DependsUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
+use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
@@ -43,6 +44,7 @@ use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
 use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
+use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
 use RuntimeException;
@@ -56,6 +58,7 @@ use function array_values;
 use function count;
 use function explode;
 use function in_array;
+use function is_string;
 use function ltrim;
 use function max;
 use function preg_match;
@@ -480,7 +483,8 @@ final class TestCaseHandler implements
                     Type\Union $potential_argument_type,
                     Type\Union $param_type,
                     bool $is_optional,
-                    int $param_offset
+                    int $param_offset,
+                    ?string $param_name = null
                 ) use (
                     $codebase,
                     $method_name,
@@ -488,6 +492,8 @@ final class TestCaseHandler implements
                     $provider_return_type_string,
                     $provider_docblock_location
                 ): void {
+                    $argument = 'Argument ' . ($param_offset + 1)
+                        . ($param_name === null ? '' : ' ($' . $param_name . ')');
                     if ($is_optional) {
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
@@ -495,7 +501,7 @@ final class TestCaseHandler implements
                         // ok
                     } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -503,7 +509,7 @@ final class TestCaseHandler implements
                         ));
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' is not optional, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -511,7 +517,7 @@ final class TestCaseHandler implements
                         ));
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            'Argument ' . ($param_offset + 1) . ' of ' . $method_name
+                            $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
@@ -542,6 +548,17 @@ final class TestCaseHandler implements
                         }
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
+                } elseif (self::hasStringKeys($dataset_type)) {
+                    self::checkNamedDataset(
+                        $dataset_type,
+                        $method_storage->params,
+                        $method_name,
+                        $provider_method_id,
+                        $provider_return_type_string,
+                        $provider_docblock_location,
+                        $dependency_values,
+                        $checkParam,
+                    );
                 } else { // TKeyedArray
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
@@ -599,6 +616,138 @@ final class TestCaseHandler implements
                     }
                 }
             }
+        }
+    }
+
+    /** @psalm-pure */
+    private static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type): bool
+    {
+        foreach ($dataset_type->properties as $key => $_) {
+            if (is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * PHPUnit unpacks the dataset into the test call: int keys are positional, string keys name a parameter
+     * (or, without a matching parameter, land in the variadic one), and the return values of depended-upon tests
+     * are appended as positional arguments.
+     *
+     * @param list<FunctionLikeParameter> $params
+     * @param \Closure(Type\Union, Type\Union, bool, int, string=): void $checkParam
+     */
+    private static function checkNamedDataset(
+        Type\Atomic\TKeyedArray $dataset_type,
+        array $params,
+        string $method_name,
+        string $provider_method_id,
+        string $provider_return_type_string,
+        CodeLocation $provider_docblock_location,
+        int $dependency_values,
+        \Closure $checkParam
+    ): void {
+        $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
+
+        $positional = [];
+        $named      = [];
+        foreach ($dataset_type->properties as $key => $type) {
+            if (is_string($key)) {
+                $named[$key] = $type;
+            } else {
+                $positional[] = $type;
+            }
+        }
+
+        $params_by_name = [];
+        $variadic_offset = null;
+        $variadic_type   = Type::getMixed();
+        foreach ($params as $offset => $param) {
+            if ($param->is_variadic) {
+                $variadic_offset = $offset;
+                $variadic_type   = new Type\Union(array_values(self::getAtomics($param->type ?? Type::getMixed())));
+                break;
+            }
+            $params_by_name[$param->name] = $offset;
+        }
+
+        foreach ($positional as $offset => $type) {
+            if ($variadic_offset !== null && $offset >= $variadic_offset) {
+                $checkParam($type, $variadic_type, true, $offset);
+                continue;
+            }
+            if (!isset($params[$offset])) {
+                break;
+            }
+            $checkParam($type, $params[$offset]->type ?? Type::getMixed(), $params[$offset]->is_optional, $offset);
+        }
+
+        foreach ($named as $name => $type) {
+            $offset = $params_by_name[$name] ?? null;
+
+            if ($offset === null && $variadic_offset !== null) {
+                $checkParam($type, $variadic_type, true, $variadic_offset, $name);
+            } elseif ($offset === null) {
+                if (!$type->possibly_undefined) {
+                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                        'Parameter $' . $name . ' does not exist on ' . $method_name . ', provided by ' . $provided_by,
+                        $provider_docblock_location,
+                        $method_name
+                    ));
+                }
+            } elseif ($offset < count($positional)) {
+                if (!$type->possibly_undefined) {
+                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                        'Parameter $' . $name . ' has already been used in ' . $method_name
+                        . ', provided by ' . $provided_by,
+                        $provider_docblock_location,
+                        $method_name
+                    ));
+                }
+            } else {
+                $param = $params[$offset];
+                $checkParam($type, $param->type ?? Type::getMixed(), $param->is_optional, $offset, $name);
+            }
+        }
+
+        if ($dependency_values > 0) {
+            foreach ($named as $type) {
+                if (!$type->possibly_undefined) {
+                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                        'Cannot use positional argument after named argument: PHPUnit appends the return value of a'
+                        . ' depended-upon test to dataset ' . $provided_by,
+                        $provider_docblock_location,
+                        $method_name
+                    ));
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        // an unsealed shape may carry further keys, which could name the missing parameter
+        if (!$dataset_type->isSealed()) {
+            return;
+        }
+
+        foreach ($params as $offset => $param) {
+            if ($param->is_variadic) {
+                break;
+            }
+            if ($param->is_optional || $offset < count($positional) || isset($named[$param->name])) {
+                continue;
+            }
+
+            IssueBuffer::accepts(new Issue\TooFewArguments(
+                'Too few arguments for ' . $method_name . ' - parameter $' . $param->name
+                . ' is not provided by ' . $provided_by,
+                $provider_docblock_location,
+                $method_name
+            ));
+            break;
         }
     }
 
