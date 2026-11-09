@@ -4,17 +4,26 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
+use PhpParser\Node;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Expr\Yield_;
+use PhpParser\Node\Expr\YieldFrom;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
+use PhpParser\Node\Scalar\Int_;
 use PhpParser\Node\Scalar\String_;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Return_;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor;
+use PhpParser\NodeVisitorAbstract;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
@@ -45,6 +54,7 @@ use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
 use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
+use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
@@ -376,7 +386,8 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $provider_method_storage = $codebase->methods->getStorage(MethodIdentifier::wrap($provider_method_id));
+                $provider_id             = MethodIdentifier::wrap($provider_method_id);
+                $provider_method_storage = $codebase->methods->getStorage($provider_id);
 
                 // Abstract providers are checked on the concrete classes implementing them
                 if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
@@ -406,6 +417,20 @@ final class TestCaseHandler implements
                             'Data provider method ' . $apparent_provider_method_name . ' must be static',
                             $provider_docblock_location
                         ), $suppressed_issues);
+                    }
+
+                    // Providers declared elsewhere are not read
+                    $provider_node = $provider_id->fq_class_name === $class_storage->name
+                        ? $class_node->getMethod($provider_id->method_name)
+                        : null;
+                    if ($provider_node !== null) {
+                        self::reportPositionalAfterNamed(
+                            $statements_source,
+                            $provider_node,
+                            $provider_method_storage->has_yield,
+                            'a dataset provided by ' . $provider_method_id . '()',
+                            $suppressed_issues,
+                        );
                     }
                 }
 
@@ -690,6 +715,90 @@ final class TestCaseHandler implements
                         $checkParam($potential_argument_type, $param_type, $param->is_optional, $param_offset);
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * PHPUnit passes string dataset keys as named arguments, and PHP rejects a positional argument after them.
+     * Only literal datasets are read: Psalm's array shapes do not keep the key order.
+     *
+     * @param array<array-key, string> $suppressed_issues
+     */
+    private static function reportPositionalAfterNamed(
+        StatementsSource $source,
+        ClassMethod $provider,
+        bool $generator,
+        string $provided_by,
+        array $suppressed_issues
+    ): void {
+        $visitor = new class ($generator) extends NodeVisitorAbstract {
+            /** @var list<Array_> */
+            public array $datasets = [];
+
+            public function __construct(private readonly bool $generator)
+            {
+            }
+
+            #[\Override]
+            public function enterNode(Node $node)
+            {
+                if ($node instanceof Node\FunctionLike || $node instanceof ClassLike) {
+                    return NodeVisitor::DONT_TRAVERSE_CHILDREN;
+                }
+
+                // PHPUnit ignores the return value of a generator
+                $sets = ($node instanceof Return_ && !$this->generator) || $node instanceof YieldFrom
+                    ? $node->expr
+                    : null;
+                foreach ($sets instanceof Array_ ? $sets->items : [] as $item) {
+                    if (!$item->unpack && $item->value instanceof Array_) {
+                        $this->datasets[] = $item->value;
+                    }
+                }
+
+                if ($node instanceof Yield_ && $node->value instanceof Array_) {
+                    $this->datasets[] = $node->value;
+                }
+
+                return null;
+            }
+        };
+        (new NodeTraverser($visitor))->traverse($provider->stmts ?? []);
+
+        foreach ($visitor->datasets as $dataset) {
+            $named    = false;
+            $violated = false;
+            $seen     = [];
+            $next     = 0;
+            foreach ($dataset->items as $item) {
+                $key = $item->key;
+                if ($item->unpack || ($key !== null && !$key instanceof String_ && !$key instanceof Int_)) {
+                    continue 2;
+                }
+
+                // PHP casts keys like '1' to int
+                if ($key instanceof String_ && (string) (int) $key->value !== $key->value) {
+                    $named = true;
+                    continue;
+                }
+
+                $position = $key === null ? $next : (int) $key->value;
+                $next     = max($next, $position + 1);
+
+                // An array keeps the place of a key's first insertion, so overwriting a positional key is harmless
+                if ($named && !isset($seen[$position])) {
+                    $violated = true;
+                }
+
+                $seen[$position] = true;
+            }
+
+            if ($violated) {
+                IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                    'Cannot use positional argument after named argument in ' . $provided_by,
+                    new CodeLocation($source, $dataset)
+                ), $suppressed_issues);
             }
         }
     }
