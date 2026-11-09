@@ -18,7 +18,6 @@ use function count;
 use function implode;
 use function in_array;
 use function sprintf;
-use function str_starts_with;
 use function strtolower;
 
 /**
@@ -35,7 +34,13 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         'phpunit\\framework\\mockobject\\stub',
     ];
 
-    private const MOCK_OBJECT_NAMESPACE = 'phpunit\\framework\\mockobject\\';
+    /** What expects() returns: PHPUnit 11 (Builder\*), PHPUnit 12 and 13 */
+    private const EXPECTATION_BUILDERS = [
+        'phpunit\\framework\\mockobject\\builder\\invocationmocker',
+        'phpunit\\framework\\mockobject\\builder\\invocationstubber',
+        'phpunit\\framework\\mockobject\\invocationmocker',
+        'phpunit\\framework\\mockobject\\invocationstubber',
+    ];
 
     #[\Override]
     public static function afterExpressionAnalysis(AfterExpressionAnalysisEvent $event): ?bool
@@ -58,7 +63,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         if (
             $double instanceof MethodCall
             && self::isNamed($double, 'expects')
-            && self::isPhpUnitMockObjectType($typeProvider->getType($double))
+            && self::isExpectationBuilder($typeProvider->getType($double))
         ) {
             $double = $double->var;
         }
@@ -152,7 +157,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
      *
      * @psalm-pure
      */
-    private static function isPhpUnitMockObjectType(?Union $type): bool
+    private static function isExpectationBuilder(?Union $type): bool
     {
         if ($type === null || !$type->isSingle()) {
             return false;
@@ -161,7 +166,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         $atomic = $type->getSingleAtomic();
 
         return $atomic instanceof TNamedObject
-            && str_starts_with(strtolower($atomic->value), self::MOCK_OBJECT_NAMESPACE);
+            && in_array(strtolower($atomic->value), self::EXPECTATION_BUILDERS, true);
     }
 
     /**

@@ -3442,6 +3442,12 @@ Feature: TestCase
       }
 
       /** @psalm-mutable */
+      interface Dispatcher {
+        /** @psalm-impure */
+        public function expects(): \PHPUnit\Framework\MockObject\Stub&Mailer;
+      }
+
+      /** @psalm-mutable */
       final class Rule {
         /** @psalm-impure */
         public function method(string $name): self { return $this; }
@@ -3473,6 +3479,7 @@ Feature: TestCase
 
           $this->createStub(Configurable::class)->method('typo');
           $this->createStub(Auditor::class)->expects()->method('typo');
+          $this->createStub(Dispatcher::class)->expects()->method('sendInvoice');
 
           $this->assertSame(1, 1);
         }
