@@ -3892,7 +3892,67 @@ Feature: TestCase
       | UndefinedClass | Class, interface or enum named NS\UnknownTestCase does not exist |
     And I see no other errors
 
-  Scenario: A class suppression applies to a trait from another file and counts as used
+  Scenario: A suppression on a trait from another file applies
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "MyTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       * @psalm-suppress MissingParentCall
+       */
+      trait MyTrait {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        use MyTrait;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A class suppression does not apply to a trait method from another file
     Given I have the following config
       """
       <?xml version="1.0"?>
@@ -3952,4 +4012,8 @@ Feature: TestCase
       }
       """
     When I run Psalm
-    Then I see no errors
+    Then I see these errors
+      | Type                 | Message                              |
+      | MissingParentCall    | Missing call to parent::tearDown()   |
+      | UnusedPsalmSuppress  | This suppression is never used       |
+    And I see no other errors
