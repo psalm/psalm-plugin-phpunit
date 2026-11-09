@@ -24,7 +24,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.1'
+                  php-version: '8.2'
                   tools: composer:v2
                   coverage: none
               env:
@@ -64,7 +64,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.1'
+                  php-version: '8.2'
                   tools: composer:v2, cs2pr
                   coverage: none
               env:
@@ -125,7 +125,7 @@ jobs:
         strategy:
             matrix:
                 # Pull requests test the lowest and highest PHP; pushes, the schedule and manual runs test all.
-                php: ${{ fromJSON(github.event_name == 'pull_request' && '["8.1", "8.4"]' || '["8.1", "8.2", "8.3", "8.4"]') }}
+                php: ${{ fromJSON(github.event_name == 'pull_request' && '["8.2", "8.4"]' || '["8.2", "8.3", "8.4"]') }}
                 deps: ['high', 'low', 'stable']
                 exclude:
                   - php: 8.4
