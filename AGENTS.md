@@ -12,6 +12,9 @@ Layout:
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`.
+- `src/Hooks/DocblockMetadataHandler.php`, `src/Issue/IgnoredDocblockMetadata.php` and
+  `src/PhpUnitVersion.php`: on PHPUnit 12 and newer (major of `PHPUnit\Runner\Version::id()`) docblock
+  metadata is ignored by PHPUnit, so the plugin reports it and stops honouring it in `TestCaseHandler`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
@@ -156,6 +159,10 @@ workaround explicitly in the report.
   - `Then I see these errors` (table `| Type | Message |`): each row must match an issue's
     exact type **and** exact full message. Matched issues are removed;
   - `And I see no other errors`: nothing is left over. Without it, extra issues pass silently;
+  - `Given PHPUnit identifies as version "12.5.0"` loads a fake `PHPUnit\Runner\Version` through the
+    config's `autoloader` (the file is deleted after the scenario). `TestCase.feature` pins `11.5.0` in
+    its Background, so docblock scenarios do not depend on the installed PHPUnit; scenarios for 12 and
+    newer override it;
   - `When I run Psalm with dead code detection` adds `--find-dead-code`;
     `When I run Psalm on "<file>"` and `Then I see exit code N` also exist.
 - Ways a scenario silently asserts nothing:

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
@@ -27,13 +26,13 @@ use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
-use Psalm\DocComment;
-use Psalm\Exception\DocblockParseException;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
+use Psalm\PhpUnitPlugin\PhpUnitVersion;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -63,8 +62,6 @@ use function str_contains;
 use function str_ends_with;
 use function str_starts_with;
 use function strtolower;
-use function substr_count;
-use function trim;
 
 final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -682,7 +679,7 @@ final class TestCaseHandler implements
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
-            self::getDocblockSpecials($method),
+            PhpUnitVersion::ignoresDocblockMetadata() ? [] : DocblockSpecials::of($method),
             // Attributes take priority over docblocks
             self::getAttributeSpecials($method, $aliases),
         );
@@ -820,7 +817,7 @@ final class TestCaseHandler implements
             return $targets;
         }
 
-        foreach (self::getDocblockSpecials($method)['depends'] ?? [] as [, $value]) {
+        foreach (DocblockSpecials::of($method)['depends'] ?? [] as [, $value]) {
             $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
@@ -864,55 +861,5 @@ final class TestCaseHandler implements
             'test'         => self::attributeValue($method, $aliases, Test::class),
             'dataProvider' => self::attributeValue($method, $aliases, DataProvider::class),
         ], static fn(array|null $special): bool => $special !== null);
-    }
-
-    /** @return array<string, list<array{int, string}>> */
-    private static function getDocblockSpecials(ClassMethod $method): array
-    {
-        $docblock = $method->getDocComment();
-        if (!$docblock) {
-            return [];
-        }
-
-        try {
-            $parsed_comment = self::getParsedComment($docblock);
-        } catch (DocblockParseException $e) {
-            return [];
-        }
-
-        if (!isset($parsed_comment['specials'])) {
-            return [];
-        }
-
-        // Psalm keys tags by absolute file offset, which is useless for issue locations.
-        $start_pos = $docblock->getStartFilePos();
-        $to_line   = static fn(int $offset): int => $docblock->getStartLine()
-            + substr_count($docblock->getText(), "\n", 0, $offset - $start_pos);
-
-        return array_map(
-            static function (array $tags) use ($to_line): array {
-                $entries = [];
-                foreach ($tags as $offset => $data) {
-                    $entries[] = [$to_line($offset), trim($data)];
-                }
-
-                return $entries;
-            },
-            $parsed_comment['specials']
-        );
-    }
-
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
-    {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
-
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
     }
 }

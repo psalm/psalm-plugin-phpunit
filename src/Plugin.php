@@ -19,5 +19,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\AssertSameSuggestionHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\AssertSameSuggestionHandler::class);
+
+        class_exists(Hooks\DocblockMetadataHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\DocblockMetadataHandler::class);
     }
 }

@@ -39,6 +39,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 * Statements after `$this->expectException()` and its siblings are not reported as `UnusedFunctionCall`, `UnusedMethodCall` or `MissingThrowsDocblock`.
 * Exceptions declared by PHPUnit's own API (assertions, `createMock()`, `createStub()` and so on) are not reported as `MissingThrowsDocblock`. Exceptions in your `<ignoreExceptions>` stay ignored.
 * `assertSame(null, ...)`, `assertSame(true|false, ...)` and `assertSame(n, count(...))` are reported as `UnspecificNullAssertion`, `UnspecificBooleanAssertion` and `UnspecificCountAssertion` (at `errorLevel="1"`), suggesting `assertNull()`, `assertTrue()`/`assertFalse()` and `assertCount()`.
+* On PHPUnit 12 and newer, which ignores metadata in docblocks, `@test`, `@dataProvider`, `@covers` and the other docblock tags are reported as `IgnoredDocblockMetadata`, suggesting the attribute to use (`#[Test]`, `#[DataProvider]`, `#[CoversClass]`, ...). They no longer count as test or data provider declarations.
 * `$this->prophesize(Foo::class)` is typed as `ObjectProphecy<Foo>`, and magic calls on it resolve to `MethodProphecy`.
 * `assertNotEmpty($x)` narrows `$x` to its non-empty type (`?Customer` becomes `Customer`, `list<int>|null` becomes `non-empty-list<int>`).
 
