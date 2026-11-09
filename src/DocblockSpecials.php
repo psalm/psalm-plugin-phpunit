@@ -34,6 +34,7 @@ final class DocblockSpecials
         'testWith' => true,
         'ticket' => true,
         'uses' => true,
+        'usesDefaultClass' => true,
     ];
 
     /**

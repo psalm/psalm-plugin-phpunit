@@ -1033,10 +1033,7 @@ final class TestCaseHandler implements
                 }
 
                 $has_attributes = true;
-                $args           = [];
-                foreach ($attribute->args as $position => $arg) {
-                    $args[$arg->name?->toString() ?? $position] = $arg->value;
-                }
+                $args           = self::attributeArguments($attribute);
 
                 $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
                 $method_name = $args['methodName'] ?? $args[1] ?? null;
@@ -1198,11 +1195,13 @@ final class TestCaseHandler implements
     }
 
     /**
-     * PHPUnit's ParserChain ignores docblock annotations on a method that has any PHPUnit attribute.
+     * PHPUnit's ParserChain ignores docblock annotations on a class or method that has any PHPUnit attribute.
+     *
+     * @internal
      */
-    private static function hasPhpUnitAttribute(ClassMethod $method, Aliases $aliases): bool
+    public static function hasPhpUnitAttribute(ClassLike|ClassMethod $node, Aliases $aliases): bool
     {
-        foreach ($method->getAttrGroups() as $group) {
+        foreach ($node->attrGroups as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
                 if (str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\')) {
@@ -1230,10 +1229,7 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $args = [];
-                foreach ($attribute->args as $position => $arg) {
-                    $args[$arg->name?->toString() ?? $position] = $arg->value;
-                }
+                $args = self::attributeArguments($attribute);
 
                 $is_external  = self::DEPENDS_ATTRIBUTES[$attribute_class];
                 $target_name  = $args['methodName'] ?? $args[$is_external ? 1 : 0] ?? null;
@@ -1267,7 +1263,23 @@ final class TestCaseHandler implements
         return $targets;
     }
 
-    private static function classFromExpression(
+    /**
+     * @return array<array-key, Expr> named arguments by name, the others by position
+     * @psalm-mutation-free
+     * @internal
+     */
+    public static function attributeArguments(Attribute $attribute): array
+    {
+        $args = [];
+        foreach ($attribute->args as $position => $arg) {
+            $args[$arg->name?->toString() ?? $position] = $arg->value;
+        }
+
+        return $args;
+    }
+
+    /** @internal */
+    public static function classFromExpression(
         Expr|null $expression,
         Aliases $aliases,
         ClassLikeStorage $class
