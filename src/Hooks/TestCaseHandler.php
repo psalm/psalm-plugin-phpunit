@@ -302,7 +302,7 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            $appends_dependency_value = self::appendsDependencyValue(
+            $appends_dependency_value = !$docblock_providers_ignored && self::appendsDependencyValue(
                 $codebase,
                 $class_node,
                 $class_storage,
@@ -595,7 +595,7 @@ final class TestCaseHandler implements
                         ));
                     }
 
-                    if ($appends_dependency_value && self::hasDefiniteStringKey($dataset_type)) {
+                    if ($appends_dependency_value && self::hasStringKeys($dataset_type, required_only: true)) {
                         IssueBuffer::accepts(new Issue\InvalidNamedArgument(
                             'Cannot use positional argument after named argument in ' . $method_name
                             . ': PHPUnit appends the return value of a depended-upon test to dataset ' . $provided_by,
@@ -677,22 +677,10 @@ final class TestCaseHandler implements
     }
 
     /** @psalm-pure */
-    private static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type): bool
-    {
-        foreach ($dataset_type->properties as $key => $_) {
-            if (is_string($key)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /** @psalm-pure */
-    private static function hasDefiniteStringKey(Type\Atomic\TKeyedArray $dataset_type): bool
+    private static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type, bool $required_only = false): bool
     {
         foreach ($dataset_type->properties as $key => $type) {
-            if (is_string($key) && !$type->possibly_undefined) {
+            if (is_string($key) && !($required_only && $type->possibly_undefined)) {
                 return true;
             }
         }
@@ -962,9 +950,10 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Only the first dependency counts: from PHPUnit 11.5 through 13.0 collecting stops at the first void dependency
-     * and at the first one larger than this test. A test of the same class shares its class-level size, so only
-     * size groups in the two method docblocks (PHPUnit 11) can make it larger.
+     * Up to PHPUnit 12.5.39 and 13.4.2 (and on 11.5) only the first dependency counts: collecting stops at the first
+     * void dependency and at the first one larger than this test. A test of the same class shares its class-level
+     * size, so only size groups in the two method docblocks (PHPUnit 11) can make it larger. Newer releases skip
+     * both and pass the value of any later dependency.
      */
     private static function appendsDependencyValue(
         Codebase $codebase,
@@ -973,7 +962,19 @@ final class TestCaseHandler implements
         ClassMethod $method,
         Aliases $aliases
     ): bool {
-        $first = self::getDependencyTargets($method, $aliases, $class)[0] ?? null;
+        $targets = self::getDependencyTargets($method, $aliases, $class);
+
+        if (!PhpUnitVersion::stopsCollectingDependencyValuesEarly()) {
+            foreach ($targets as $target) {
+                if ($target !== null && self::dependencyReturnsValue($codebase, $target) === true) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $first = $targets[0] ?? null;
         if ($first === null || self::dependencyReturnsValue($codebase, $first) !== true) {
             return false;
         }
