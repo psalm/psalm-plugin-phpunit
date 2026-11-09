@@ -1,6 +1,7 @@
 # psalm-plugin-phpunit: working conventions
 
-`master` is the development branch and the base of feature PRs.
+`0.22.x` is the maintenance branch of 0.22, the last release line for Psalm 6 and PHP 8.1:
+bug fixes only, as PRs with `--base 0.22.x`. Features go to `master` (1.x).
 Remotes: `origin` = psalm/psalm-plugin-phpunit. PR branches go to your own fork's remote
 (find it with `git remote -v` and `gh api user --jq .login`; add it if missing). Never push
 PR branches to `origin`.
@@ -38,21 +39,22 @@ These come first, before every other rule here:
 ## Validating changes: CI, then a single scenario locally
 
 CI (`.github/workflows/ci.yml`) is the source of truth:
-- `psalm` (PHP 8.1): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
+- `psalm` (PHP 8.4): `COMPOSER_ROOT_VERSION=0.22.x-dev composer update --prefer-dist`, then
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
 - `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
 - `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`.
-- `tests`: deps high/low/stable × PHP 8.1 and 8.4 on pull requests, PHP 8.1 to 8.4 on pushes,
-  the weekly schedule and manual runs (8.4 low excluded). `composer update` (plus
-  `--prefer-lowest` or `--prefer-stable`) at the root **and** in `tools/behat`, then
-  `tools/behat/behat-parallel.sh`: one Behat process per scenario, one per CPU at a time,
-  printing the output of failed scenarios only.
+- `tests`: Psalm 6 and 7 × deps high/low/stable × PHP 8.1 and 8.4 on pull requests, PHP 8.1
+  to 8.4 on pushes and manual runs (8.4 low and Psalm 7 on 8.1 excluded). `composer update
+  --with vimeo/psalm:^6` or `^7` (plus `--prefer-lowest` or `--prefer-stable`) at the root
+  **and** in `tools/behat`, then `tools/behat/behat-parallel.sh` (with
+  `BEHAT_SKIP_TAGS=@psalm7` on Psalm 6): one Behat process per scenario, one per CPU at a
+  time, printing the output of failed scenarios only.
 
-`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.1 - high
-deps"), not these YAML ids.
+`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.1 - Psalm 6 -
+high deps"), not these YAML ids.
 
 Locally:
-- Install like CI: `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist -n` at the
+- Install like CI: `COMPOSER_ROOT_VERSION=0.22.x-dev composer update --prefer-dist -n` at the
   root, and the same in `tools/behat`. That rewrites the tracked `tools/behat/composer.lock`:
   `git checkout tools/behat/composer.lock` afterwards.
 - **Running a single scenario is fine, and recommended** (~2 s) for reproducing an issue or
@@ -73,11 +75,10 @@ Locally:
 
 ### Psalm versions
 
-The CI low jobs (`--prefer-lowest`) resolve the lowest Psalm 7 that supports the PHP version, the
-high and stable jobs the newest. The low and stable jobs pin Psalm 7 (`--with vimeo/psalm:^7`,
-`^7.0.0-rc3` for low): `composer.json` also allows Psalm 6, which CI never runs, and which
-`--prefer-stable` would pick on PHP 8.1. They can report different issues (from 7.0.0-rc28 the
-purity suggestions are opt-in via `suggestPurityAnnotations`).
+`composer.json` allows Psalm `^6 || ^7.2`: Psalm 7.0 and 7.1 require `psalm/plugin-phpunit:
+^0.21`, so they never install 0.22.x, and Psalm 7.2 needs PHP 8.2. The low jobs resolve
+Psalm 6.0.0 or 7.2.0, the high and stable jobs the newest. They can report different issues
+(from 7.0.0-rc28 the purity suggestions are opt-in via `suggestPurityAnnotations`).
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
   events), run the relevant scenarios on both (skill `plugin-repro`).
@@ -85,12 +86,12 @@ purity suggestions are opt-in via `suggestPurityAnnotations`).
 ## Pull requests
 
 - Push the branch to your fork, then
-  `gh pr create --repo psalm/psalm-plugin-phpunit --base master`.
+  `gh pr create --repo psalm/psalm-plugin-phpunit --base 0.22.x`.
 - Then poll `gh pr checks <n> --repo psalm/psalm-plugin-phpunit`. For `gh run list`,
   `--commit "$(git rev-parse <sha>)"` is reliable (a short SHA silently lists nothing);
   `--branch` sometimes returns stale runs. A failed job:
   `gh run view <id> --log-failed`.
-- Prefer a PR even when asked to fix something on master.
+- Prefer a PR even when asked to fix something on `0.22.x`.
 - **Description:** follow skill `pr-description` (one-line bug + Before/After code blocks
   from a scenario of the PR that asserts the fix, nothing else). Use it to write new
   descriptions and to reformat existing ones when asked.
@@ -102,10 +103,11 @@ purity suggestions are opt-in via `suggestPurityAnnotations`).
   Create the release with `gh release create <tag> --generate-notes --repo
   psalm/psalm-plugin-phpunit`; a one-line summary above the generated notes is welcome for
   bigger releases (as in 0.21.0).
-- Psalm 7.0.0 and master list `psalm/plugin-phpunit: ^0.21` in `require`: this plugin is
-  bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out of the
-  dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168), and add
-  a line there for every new dev-only path.
+- Psalm 7.2 and later list `psalm/plugin-phpunit: ^0.21 || ^0.22 || ^1.0` in `require`: this
+  plugin is bundled, so a 0.22.x release also reaches Psalm 7 users who can't install 1.x
+  (PHPUnit 10). Keep dev-only files out of the dist archive with `export-ignore` in
+  `.gitattributes` (`tools/` was added in #168), and add a line there for every new
+  dev-only path.
 - Never use `--admin` to bypass red required checks unless asked for that specific PR.
 
 ## Agents and subagents
