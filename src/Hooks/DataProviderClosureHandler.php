@@ -23,12 +23,17 @@ use WeakMap;
  */
 final class DataProviderClosureHandler implements AfterExpressionAnalysisInterface
 {
-    /** @var WeakMap<MethodStorage, array<int, Union>>|null */
+    /** @var WeakMap<object, array<int, Union>>|null */
     private static ?WeakMap $returnTypes = null;
 
     public static function returnType(MethodStorage $storage, int $position): ?Union
     {
-        $types = self::$returnTypes === null ? [] : (self::$returnTypes[$storage] ?? []);
+        if (self::$returnTypes === null || !isset(self::$returnTypes[$storage])) {
+            return null;
+        }
+
+        /** @var array<int, Union> $types */
+        $types = self::$returnTypes[$storage];
 
         return $types[$position] ?? null;
     }
@@ -66,7 +71,13 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
             return null;
         }
 
-        self::$returnTypes ??= new WeakMap();
+        if (self::$returnTypes === null) {
+            /** @var WeakMap<object, array<int, Union>> $return_types */
+            $return_types       = new WeakMap();
+            self::$returnTypes = $return_types;
+        }
+
+        /** @var array<int, Union> $types */
         $types = self::$returnTypes[$storage] ?? [];
 
         $types[$closure->getStartFilePos()] = $return_type;
