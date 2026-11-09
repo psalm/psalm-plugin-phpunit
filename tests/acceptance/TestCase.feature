@@ -1515,7 +1515,7 @@ Feature: TestCase
          * @psalm-pure
          */
         public static function provide(): iterable {
-          return [['tag' => 1, 1 => 2]];
+          return [[1 => 2, 'tag' => 1]];
         }
 
         #[DataProvider('provide')]
@@ -1641,6 +1641,239 @@ Feature: TestCase
       | Type            | Message |
       | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<'other', int>}>) |
     And I see no other errors
+
+  Scenario: A positional dataset entry after a named one is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [
+            ['b' => 'x', 0 => 1],
+            [0 => 2, 'b' => 'y'],
+            ['b' => 'z', '0' => 3],
+          ];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function generated(): iterable {
+          yield ['b' => 'x', 1];
+          yield from [['b' => 'y', 2]];
+        }
+
+        #[DataProvider('provide')]
+        #[DataProvider('generated')]
+        public function testSomething(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+
+        #[DataProvider('provide')]
+        public function testSharingProvider(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message | Line |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::provide() | 14 |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::provide() | 16 |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::generated() | 25 |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::generated() | 26 |
+    And I see no other errors
+
+  Scenario: A positional dataset entry after a named one is reported for docblock providers
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['b' => 'x', 0 => 1]];
+        }
+
+        /**
+         * @dataProvider provide
+         */
+        public function testSomething(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::provide() |
+    And I see no other errors
+
+  Scenario: A positional dataset entry after a named one is not reported when the test suppresses it
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['b' => 'x', 0 => 1]];
+        }
+
+        /**
+         * @psalm-suppress InvalidNamedArgument
+         */
+        #[DataProvider('provide')]
+        public function testSomething(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Datasets without a positional entry after a named one are not reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        private const NAME = 'b';
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function positionalFirst(): iterable {
+          return [[0 => 1, 'b' => 'x'], [1, 'b' => 'y']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, 1: string}>
+         * @psalm-pure
+         */
+        public static function allPositional(): iterable {
+          return [[1, 'x'], [0 => 2, 1 => 'y']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, b: string}>
+         * @psalm-pure
+         */
+        public static function allNamed(): iterable {
+          yield ['a' => 1, 'b' => 'x'];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function unknownKey(): iterable {
+          return [[self::NAME => 'x', 0 => 1]];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function unpacked(): iterable {
+          $named = ['b' => 'x'];
+
+          return [[...$named, 0 => 1]];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function built(): iterable {
+          $dataset = ['b' => 'x', 0 => 1];
+
+          return [$dataset];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         */
+        public static function delegating(): iterable {
+          return self::built();
+        }
+
+        /**
+         * @return iterable<array-key, array{0: int, 1: string}>
+         * @psalm-pure
+         */
+        public static function spreadReturn(): iterable {
+          return [...['case' => [1, 'x'], [2, 'y']]];
+        }
+
+        /**
+         * @return \Generator<array-key, array{0: int, 1: string}, mixed, mixed>
+         * @psalm-pure
+         */
+        public static function spreadYield(): \Generator {
+          yield from [...['case' => [1, 'x'], [2, 'y']]];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, 1: int}>
+         * @psalm-pure
+         */
+        public static function numericKeys(): iterable {
+          return [['1' => 2, 0 => 1]];
+        }
+
+        /**
+         * @return \Generator<int, array{0: int, b: string}, mixed, mixed>
+         * @psalm-pure
+         */
+        public static function generator(): \Generator {
+          yield [0 => 1, 'b' => 'x'];
+
+          return [['b' => 'x', 0 => 1]];
+        }
+
+        #[DataProvider('positionalFirst')]
+        #[DataProvider('unknownKey')]
+        #[DataProvider('unpacked')]
+        #[DataProvider('built')]
+        #[DataProvider('delegating')]
+        #[DataProvider('generator')]
+        #[DataProvider('spreadReturn')]
+        #[DataProvider('spreadYield')]
+        public function testSomething(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+
+        #[DataProvider('numericKeys')]
+        public function testNumericKeys(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+
+        #[DataProvider('allPositional')]
+        public function testPositional(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+
+        #[DataProvider('allNamed')]
+        public function testNamed(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
 
   Scenario: Dependency values still count when a possibly undefined string key is the only key
     Given I have the following code
