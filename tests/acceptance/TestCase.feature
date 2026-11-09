@@ -6632,10 +6632,6 @@ final class MyTestCase extends TestCase
       final class MyTestCase extends TestCase
       {
         use HelperTrait;
-
-        public function testSomething(): void {
-          $this->expectNotToPerformAssertions();
-        }
       }
       """
     When I run Psalm
