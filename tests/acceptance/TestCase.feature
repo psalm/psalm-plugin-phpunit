@@ -1876,7 +1876,6 @@ Feature: TestCase
         /**
          * @return iterable<int, array{0: int, b: string}>
          * @psalm-pure
-         * @psalm-suppress DuplicateArrayKey
          */
         public static function provide(): iterable {
           return [
@@ -1893,7 +1892,12 @@ Feature: TestCase
       }
       """
     When I run Psalm
-    Then I see no errors
+    Then I see these errors
+      | Type                 | Message |
+      | DuplicateArrayKey    | Key '0' already exists on array |
+      | DuplicateArrayKey    | Key '0' already exists on array |
+      | DuplicateArrayKey    | Key '0' already exists on array |
+    And I see no other errors
 
   Scenario: A new positional dataset key after an overwritten one is still reported
     Given I have the following code
@@ -1904,7 +1908,6 @@ Feature: TestCase
         /**
          * @return iterable<int, array{0: int, 1: int, b: string}>
          * @psalm-pure
-         * @psalm-suppress DuplicateArrayKey
          */
         public static function provide(): iterable {
           return [[0 => 1, 'b' => 'x', 0 => 2, 3]];
@@ -1919,6 +1922,7 @@ Feature: TestCase
     When I run Psalm
     Then I see these errors
       | Type                 | Message |
+      | DuplicateArrayKey    | Key '0' already exists on array |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::provide() |
     And I see no other errors
 
