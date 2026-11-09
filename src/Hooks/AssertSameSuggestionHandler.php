@@ -15,6 +15,7 @@ use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificCountAssertion;
+use Psalm\PhpUnitPlugin\Issue\UnspecificEqualsAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
 use Psalm\Type\Atomic\TNamedObject;
 use UnexpectedValueException;
@@ -29,7 +30,8 @@ use function substr;
 use function ucfirst;
 
 /**
- * Suggests the dedicated assertion for assertSame(null|true|false, ...) and assertSame(n, count(...)).
+ * Suggests the dedicated assertion for assertSame(null|true|false, ...) and assertSame(n, count(...)),
+ * and assertSame() over assertEquals() when both arguments are of the same scalar type.
  */
 final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterface
 {
@@ -42,10 +44,13 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     ];
 
     /** @var array<string, array{string, string}> */
-    private const COUNT_METHODS = self::SAME_METHODS + [
+    private const EQUALS_METHODS = [
         'assertequals' => ['assertEquals', ''],
         'assertnotequals' => ['assertNotEquals', 'Not'],
     ];
+
+    /** @var array<string, array{string, string}> */
+    private const COUNT_METHODS = self::SAME_METHODS + self::EQUALS_METHODS;
 
     #[\Override]
     public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
@@ -77,6 +82,19 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = UnspecificCountAssertion::class;
             $message = sprintf('Use assert%sCount() instead of %s(..., count(...))', $not, $name);
+        } elseif (
+            isset(self::EQUALS_METHODS[$method])
+            && ($family = self::scalarFamily($expected, $event)) !== null
+            && $family === self::scalarFamily($actual, $event)
+        ) {
+            [$name, $not] = self::EQUALS_METHODS[$method];
+            $issueClass = UnspecificEqualsAssertion::class;
+            $message = sprintf(
+                'Use assert%sSame() instead of %s(), both arguments are of type %s',
+                $not,
+                $name,
+                $family,
+            );
         } else {
             return;
         }
@@ -107,6 +125,29 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         $expectedType = $event->getStatementsSource()->getNodeTypeProvider()->getType($expected);
 
         return $expectedType !== null && $expectedType->isInt() && self::isCountCall($actual, $event);
+    }
+
+    /**
+     * The scalar type of an expression, when it is one family only. assertEquals() on two values of one scalar
+     * type compares them exactly like assertSame() does. Null is not ignored: assertEquals(0, null) passes,
+     * assertSame(0, null) does not.
+     *
+     * @return 'int'|'float'|'string'|'bool'|null
+     */
+    private static function scalarFamily(Expr $expr, AfterMethodCallAnalysisEvent $event): ?string
+    {
+        $type = $event->getStatementsSource()->getNodeTypeProvider()->getType($expr);
+        if ($type === null) {
+            return null;
+        }
+
+        return match (true) {
+            $type->isInt() => 'int',
+            $type->isFloat() => 'float',
+            $type->isString() => 'string',
+            $type->isBool() || $type->isTrue() || $type->isFalse() => 'bool',
+            default => null,
+        };
     }
 
     private static function isGlobalCount(Name $name, AfterMethodCallAnalysisEvent $event): bool

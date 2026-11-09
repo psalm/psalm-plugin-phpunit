@@ -53,7 +53,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -83,7 +83,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -119,7 +119,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -149,7 +149,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -212,7 +212,7 @@ Feature: TestCase
         #[\PHPUnit\Framework\Attributes\DataProvider('first')]
         #[\PHPUnit\Framework\Attributes\DataProvider('second')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
     """
@@ -242,7 +242,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -269,7 +269,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -293,7 +293,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -317,7 +317,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -344,7 +344,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -371,7 +371,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -398,7 +398,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -425,7 +425,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -456,7 +456,7 @@ Feature: TestCase
          * @dataProvider External::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -486,7 +486,7 @@ Feature: TestCase
          * @dataProvider External::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -519,7 +519,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -549,7 +549,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -573,7 +573,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
 
@@ -611,7 +611,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -638,7 +638,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -719,7 +719,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -757,7 +757,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -792,7 +792,7 @@ Feature: TestCase
          * @dataProvider provider2
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -825,7 +825,7 @@ Feature: TestCase
         #[Attributes\DataProvider('provider1')]
         #[Attributes\DataProvider('provider2')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -851,7 +851,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -880,7 +880,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -906,7 +906,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -935,7 +935,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -964,7 +964,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -993,7 +993,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1024,7 +1024,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1053,7 +1053,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1079,7 +1079,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1108,7 +1108,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1137,7 +1137,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, int $i) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1586,7 +1586,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1609,7 +1609,7 @@ Feature: TestCase
          * @return void
          */
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1627,19 +1627,19 @@ Feature: TestCase
       final class MyTestCase extends TestCase
       {
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         /**
          * @test
          */
         public function somethingElse(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         #[Attributes\Test]
         public function somethingElseWithAttribute(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1655,7 +1655,7 @@ Feature: TestCase
          * @return void
          */
         public function somethingElse(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1707,7 +1707,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1732,7 +1732,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1755,7 +1755,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1778,7 +1778,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1804,7 +1804,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1840,7 +1840,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1875,7 +1875,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1908,7 +1908,7 @@ Feature: TestCase
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1943,7 +1943,7 @@ Feature: TestCase
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -3691,6 +3691,146 @@ Feature: TestCase
       | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
     And I see no other errors
 
+  Scenario: assertEquals with both arguments of the same scalar type suggests assertSame
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testScalars(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $float = (float) $int;
+          $flag = $int === 1;
+          $choice = $int ? 'a' : 'b';
+          $this->assertEquals(1, $int);
+          $this->assertNotEquals($int, 2);
+          self::assertEquals($int, $int);
+          static::assertEquals($int, $int);
+          \PHPUnit\Framework\Assert::assertEquals($int, $int);
+          $this->assertEquals('a', $text);
+          $this->assertNotEquals($text, strrev($text));
+          $this->assertEquals($choice, $text);
+          $this->assertEquals(0.5, $float);
+          $this->assertEquals($float, $float);
+          $this->assertEquals($flag, !$flag);
+          $this->assertNotEquals(true, $flag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                      | Message                                                                             | Line |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 12   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type int    | 13   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 14   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 15   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 16   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       | 17   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type string | 18   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       | 19   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 20   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 21   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         | 22   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   | 23   |
+    And I see no other errors
+
+  Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
+    Given I have the following code
+      """
+      enum Suit: string {
+        case Hearts = 'h';
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOthers(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $float = (float) $int;
+          $maybeInt = $int ? 1 : null;
+          $intOrText = $int ? 1 : 'a';
+          $this->assertEquals(1, $text);
+          $this->assertEquals(1, $float);
+          $this->assertEquals(true, $int);
+          $this->assertEquals(0, $maybeInt);
+          $this->assertEquals($maybeInt, $int);
+          $this->assertEquals(null, $int);
+          $this->assertEquals(1, $intOrText);
+          $this->assertEquals($intOrText, $intOrText);
+          $this->assertEquals(1, json_decode('1'));
+          $this->assertEquals([1], [1]);
+          $this->assertEquals(new \stdClass(), new \stdClass());
+          $this->assertEquals(Suit::Hearts, Suit::Hearts);
+          $this->assertEqualsWithDelta(1.0, $float, 0.1);
+          $this->assertEqualsIgnoringCase('a', $text);
+          $this->assertEquals(expected: 1, actual: $int);
+          $this->assertEquals(...[1, $int]);
+          $check = $this->assertEquals(...);
+          $check(1, $int);
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertEquals suggestion is only reported at error level 1
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="2" findUnusedCode="false" >
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $this->assertEquals(1, random_int(0, 1));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertEquals suggestion can be suppressed in the config
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" >
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+          <PluginIssue name="UnspecificEqualsAssertion" errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $this->assertEquals(1, random_int(0, 1));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Assertions without a literal expectation or a plain count are not reported
     Given I have the following code
       """
@@ -3773,6 +3913,8 @@ Feature: TestCase
           $this->assertSame(true, $flag);
           /** @psalm-suppress UnspecificCountAssertion */
           $this->assertSame(1, count($lines));
+          /** @psalm-suppress UnspecificEqualsAssertion */
+          $this->assertEquals(1, random_int(0, 1));
         }
       }
       """

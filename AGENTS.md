@@ -13,7 +13,8 @@ Layout:
   `AfterClassLikeAnalysis`, `AfterCodebasePopulated`, `AfterMethodCallAnalysis`).
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
-  `assertFalse()` and `assertCount()` over `assertSame()`.
+  `assertFalse()` and `assertCount()` over `assertSame()`, and `assertSame()` over `assertEquals()`
+  for two arguments of one scalar type.
 - `src/Hooks/IntersectionMockReturnTypeProvider.php`: the `MethodReturnTypeProviderInterface` hook that types
   `createMockForIntersectionOfInterfaces()` and `createStubForIntersectionOfInterfaces()`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
