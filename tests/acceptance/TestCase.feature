@@ -3491,3 +3491,109 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Malformed annotation in a trait from another file is suppressed on the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "HelperTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Suppression on the test class does not reach a trait method from another file
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "HelperTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 12   |
+      | UnusedPsalmSuppress      | This suppression is never used          | 6    |
+    And I see no other errors

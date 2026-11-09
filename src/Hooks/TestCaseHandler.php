@@ -299,14 +299,13 @@ final class TestCaseHandler implements
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
                 && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
 
-            self::reportMalformedTags(
-                $stmt_method,
-                $method_storage->location,
-                $method_storage->suppressed_issues
-                    + $declaring_class_storage->suppressed_issues
-                    + $class_storage->suppressed_issues
-                    + $statements_source->getSuppressedIssues(),
-            );
+            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
+            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
+            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
+                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
+            }
+
+            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
