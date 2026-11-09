@@ -2,7 +2,6 @@
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use PhpParser\Node\Arg;
 use PHPUnit\Framework\TestCase;
 use Psalm\Plugin\EventHandler\Event\MethodReturnTypeProviderEvent;
 use Psalm\Plugin\EventHandler\MethodReturnTypeProviderInterface;
@@ -40,17 +39,15 @@ final class IntersectionMockReturnTypeProvider implements MethodReturnTypeProvid
     public static function getMethodReturnType(MethodReturnTypeProviderEvent $event): ?Union
     {
         $doubleClass = self::DOUBLE_CLASSES[$event->getMethodNameLowercase()] ?? null;
-        $call = $event->getStmt();
-        if ($doubleClass === null || $call->isFirstClassCallable()) {
+        if ($doubleClass === null) {
             return null;
         }
 
-        $args = $call->getArgs();
+        $args = $event->getCallArgs();
         if (count($args) !== 1) {
             return null;
         }
 
-        /** @var Arg $arg */
         $arg = $args[0];
         if ($arg->unpack || ($arg->name !== null && strtolower($arg->name->name) !== 'interfaces')) {
             return null;
