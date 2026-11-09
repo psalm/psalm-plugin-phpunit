@@ -172,7 +172,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer dependencies (low deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest --with vimeo/psalm:^7.0.0-rc3
+              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
               if: ${{matrix.deps == 'low'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -184,7 +184,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer dependencies (stable deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --with vimeo/psalm:^7
+              run: composer update --prefer-dist --no-interaction --prefer-stable
               if: ${{matrix.deps == 'stable'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
