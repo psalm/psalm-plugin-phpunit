@@ -40,9 +40,9 @@ final class DatasetBinding
      * up to the first possibly undefined one, because the entries after it may shift into its position.
      *
      * @param list<FunctionLikeParameter> $params
-     * @param Codebase|null $codebase decides whether the values of an unsealed dataset can fill missing parameters
+     * @param Codebase $codebase decides whether the values of an unsealed dataset can fill missing parameters
      */
-    public static function bind(TKeyedArray $dataset, array $params, ?Codebase $codebase = null): self
+    public static function bind(TKeyedArray $dataset, array $params, Codebase $codebase): self
     {
         $positional = [];
         $named      = [];
@@ -131,7 +131,7 @@ final class DatasetBinding
                 !$param->is_optional
                 && $offset >= count($positional)
                 && !isset($named[$param->name])
-                && !self::mayBeSuppliedByFallback($dataset, $param, $codebase)
+                && !self::mayBeSuppliedByFallback($codebase, $dataset, $param)
             ) {
                 $missing[] = $param->name;
             }
@@ -141,19 +141,16 @@ final class DatasetBinding
     }
 
     /**
-     * An unsealed dataset may carry further string keys. Without a codebase to compare types, any of them might
-     * supply the parameter.
+     * An unsealed dataset may carry further string keys, which can supply the parameter if their key can be a
+     * string and their value can be passed to it.
      */
     private static function mayBeSuppliedByFallback(
+        Codebase $codebase,
         TKeyedArray $dataset,
-        FunctionLikeParameter $param,
-        ?Codebase $codebase
+        FunctionLikeParameter $param
     ): bool {
         if ($dataset->fallback_params === null) {
             return false;
-        }
-        if ($codebase === null) {
-            return true;
         }
 
         [$key_type, $value_type] = $dataset->fallback_params;
