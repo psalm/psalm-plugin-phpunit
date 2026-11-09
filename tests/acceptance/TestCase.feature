@@ -6695,3 +6695,126 @@ final class MyTestCase extends TestCase
       | MissingParentCall | Missing call to parent::assertPreConditions()  |
       | MissingParentCall | Missing call to parent::assertPostConditions() |
     And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of mocks is reported for each type lacking it
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function send(): bool;
+
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMissingOnOneType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testMissingOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testDefinedOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('send')->willReturn(true);
+        }
+
+        public function testExpects(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->expects($this->once())->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testInlineUnion(bool $flag): void {
+          ($flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class))->method('sendInvoice');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 23   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce()    | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoce()  | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 38   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 42   |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of stubs and mocks is reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testStubAndMock(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createMock(Notifier::class);
+          $double->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testStubs(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createStub(Notifier::class);
+          $double->method('send')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 20   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::send()          | 25   |
+    And I see no other errors
+
+  Scenario: Union members Psalm cannot check do not hide the checked ones
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      final class Configurable {
+        /** @psalm-impure */
+        public function method(string $name): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOwnMethod(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : new Configurable();
+          $double->method('typo');
+        }
+
+        public function testNotADouble(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : null;
+          $double->method('typo');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                              | Line |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 20   |
+      | PossiblyNullReference | Cannot call method method on possibly null value     | 25   |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 25   |
+    And I see no other errors
