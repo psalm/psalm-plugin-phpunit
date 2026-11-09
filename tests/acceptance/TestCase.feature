@@ -2743,7 +2743,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2773,7 +2773,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2804,7 +2804,7 @@ Feature: TestCase
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         #[Attributes\DataProviderExternal(External::class, 'missing')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2834,7 +2834,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2864,7 +2864,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2897,7 +2897,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2924,7 +2924,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal('NS\External', 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2956,7 +2956,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Ext(methodName: 'provide', className: Provider::class)]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2991,7 +2991,7 @@ Feature: TestCase
         #[Attributes\DataProviderExternal(self::class, 'own')]
         #[Attributes\DataProviderExternal(parent::class, 'base')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3036,7 +3036,7 @@ Feature: TestCase
         #[Attributes\DataProvider('own')]
         #[Attributes\DataProviderExternal(External::class, 'second')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3063,7 +3063,7 @@ Feature: TestCase
       trait MyTestTrait {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testInTrait(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
 
@@ -3089,7 +3089,7 @@ Feature: TestCase
          * @dataProvider Fixtures::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3152,7 +3152,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3171,7 +3171,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(Missing::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3193,7 +3193,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[DataProviderExternal('NS\External', 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -4261,3 +4261,406 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see no errors
+
+  Scenario: Annotation without a value is reported instead of a provider error
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @dataProvider*/
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 7    |
+    And I see no other errors
+
+  Scenario: Annotation alone on its line is reported on that line, not merged with the description below
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @dataProvider
+         * Some description of the test
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
+    And I see no other errors
+
+  Scenario: Other value annotations and class docblocks are checked too
+    Given I have the following code
+      """
+      /** @covers*/
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @depends
+         * @group
+         * @dataProvider(provide)
+         */
+        public function testFirst(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                                              | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value                                  | 5    |
+      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value                                 | 9    |
+      | InvalidPhpUnitAnnotation | Annotation "@group" has no value                                   | 10   |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" must be followed by a space and a value | 11   |
+    And I see no other errors
+
+  Scenario: Description lines below a valid provider annotation are not part of the provider name
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @dataProvider provide
+         * more words about it
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+
+        /**
+         * @psalm-pure
+         * @return list<array{int}>
+         */
+        public static function provide(): array {
+          return [[1]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Annotations on methods that are not tests are checked
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @psalm-pure
+         * @dataProvider
+         */
+        public function helper(): int {
+          return 1;
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 9    |
+    And I see no other errors
+
+  Scenario: Malformed annotations can be suppressed on the method and on the class
+    Given I have the following code
+      """
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       * @covers
+       */
+      final class SuppressedClassTest extends TestCase
+      {
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+
+      final class SuppressedMethodTest extends TestCase
+      {
+        /**
+         * @psalm-suppress InvalidPhpUnitAnnotation
+         * @depends
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Malformed annotation in a trait method is reported on the trait's line
+    Given I have the following code
+      """
+      trait HelperTrait
+      {
+        /** @dataProvider*/
+        public function testFromTrait(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 7    |
+    And I see no other errors
+
+  Scenario: Malformed annotation next to a PHPUnit attribute is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @depends*/
+        #[\PHPUnit\Framework\Attributes\Test]
+        public function checkSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                             | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value  | 7    |
+    And I see no other errors
+
+  Scenario: Well formed value annotations are not reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @dataProvider provide*/
+        public function testWithProvider(int $int): void {
+          $this->assertSame(1, $int);
+        }
+
+        /**
+         * @depends	testWithProvider
+         * @group	slow
+         */
+        public function testAfter(): void {
+          $this->expectNotToPerformAssertions();
+        }
+
+        /**
+         * @psalm-pure
+         * @return list<array{int}>
+         */
+        public static function provide(): array {
+          return [[1]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A testWith annotation with its datasets on the following lines is not reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @testWith
+         *   [1]
+         *   [2]
+         */
+        public function testMultiline(int $int): void {
+          $this->assertSame(1, $int % 2);
+        }
+
+        /**
+         * @testWith [1]
+         *           [3]
+         */
+        public function testSameLine(int $int): void {
+          $this->assertSame(1, $int % 2);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A testWith annotation without datasets is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @testWith
+         */
+        public function testEmpty(int $int): void {
+          $this->assertSame(1, $int);
+        }
+
+        /** @testWith[1] */
+        public function testGlued(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                                         | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@testWith" has no value                             | 8    |
+      | InvalidPhpUnitAnnotation | Annotation "@testWith" must be followed by a space and a value | 14   |
+    And I see no other errors
+
+  Scenario: Malformed annotation in a trait method is suppressed on the test class using the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      /** @psalm-immutable */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Malformed annotation in a trait from another file is suppressed on the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "HelperTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Suppression on the test class does not reach a trait method from another file
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "HelperTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 12   |
+      | UnusedPsalmSuppress      | This suppression is never used          | 6    |
+    And I see no other errors
