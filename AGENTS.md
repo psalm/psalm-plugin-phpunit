@@ -14,6 +14,8 @@ Layout:
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`.
+- `src/Hooks/IntersectionMockReturnTypeProvider.php`: the `MethodReturnTypeProviderInterface` hook that types
+  `createMockForIntersectionOfInterfaces()` and `createStubForIntersectionOfInterfaces()`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
