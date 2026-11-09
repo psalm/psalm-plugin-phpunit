@@ -73,8 +73,18 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
 
         self::report($class_node, $class_storage->location, $class_storage->suppressed_issues);
 
-        // Inherited methods are reported with the class that declares them. A trait method is reported once
-        // for every class using it, at the same location with the same message, which Psalm deduplicates.
+        // PHPUnit 11 also reads the class docblock of every trait the test case uses.
+        foreach ($class_storage->used_traits as $trait_name) {
+            $trait_storage = $codebase->classlike_storage_provider->get($trait_name);
+            self::report(
+                $codebase->classlikes->getTraitNode($trait_storage->name),
+                $trait_storage->location,
+                array_merge($class_storage->suppressed_issues, $trait_storage->suppressed_issues),
+            );
+        }
+
+        // Inherited methods are reported with the class that declares them. A trait docblock or method is reported
+        // once for every class using it, at the same location with the same message, which Psalm deduplicates.
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
             $declaring_class = $codebase->classlike_storage_provider->get($declaring_method_id->fq_class_name);
             $declaring_class_node = match (true) {

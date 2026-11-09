@@ -3415,6 +3415,33 @@ Feature: TestCase
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @requires docblock tag, use #[RequiresPhp], #[RequiresPhpExtension], #[RequiresOperatingSystem] or another #[Requires*] instead | 15   |
     And I see no other errors
 
+  Scenario: PHPUnit 12 reports an ignored docblock tag of a shared trait once
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following code
+      """
+      /**
+       * @group shared
+       */
+      trait SharedTests {
+        public function testShared(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class FirstTestCase extends TestCase {
+        use SharedTests;
+      }
+
+      final class SecondTestCase extends TestCase {
+        use SharedTests;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                          | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 6    |
+    And I see no other errors
+
   Scenario: PHPUnit 11 pin survives a config with its own autoloader
     Given PHPUnit identifies as version "11.5.0"
     And I have the following code in "autoload.php"
