@@ -22,6 +22,8 @@ Layout:
 - `src/Hooks/DocblockMetadataHandler.php`, `src/Issue/IgnoredDocblockMetadata.php` and
   `src/PhpUnitVersion.php`: on PHPUnit 12 and newer (`PHPUnit\Runner\Version::majorVersionNumber()`) docblock
   metadata is ignored by PHPUnit, so the plugin reports it and stops honouring it in `TestCaseHandler`.
+- `src/Hooks/MissingParentCallHandler.php` and `src/Issue/MissingParentCall.php`: the
+  `AfterClassLikeAnalysis` hook and plugin issue for `setUp()`-style overrides without a `parent::` call.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
