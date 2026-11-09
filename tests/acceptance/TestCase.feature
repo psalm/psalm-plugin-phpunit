@@ -658,7 +658,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -726,7 +726,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         /**
          * @dataProvider provide
@@ -785,7 +785,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Invalid implementation of an abstract data provider is reported once for a test of the class itself
+  Scenario: Invalid implementation of an abstract data provider is reported for both the inherited and the own test
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes;
@@ -795,7 +795,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testInherited(int $int): void {
@@ -836,7 +836,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -875,7 +875,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -908,7 +908,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -971,7 +971,7 @@ Feature: TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -999,6 +999,62 @@ Feature: TestCase
       | Type                | Message                                                     |
       | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
     And I see no other errors
+
+  Scenario: Non-static trait implementation of an abstract data provider can be suppressed on the test class
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public function provide();
+
+        #[Attributes\DataProvider('provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      /** @psalm-pure */
+      trait Provides {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      /**
+       * @psalm-suppress InvalidDataProvider
+       */
+      final class MyTestCase extends BaseTestCase {
+        use Provides;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
 
   Scenario: Invalid data provider can be suppressed on the test method
     Given I have the following code
@@ -5895,7 +5951,7 @@ final class MyTestCase extends TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
@@ -5929,7 +5985,7 @@ final class MyTestCase extends TestCase
          * @return iterable<int,array<int,int>>
          * @psalm-pure
          */
-        abstract public static function provide();
+        abstract public function provide();
 
         /**
          * @dataProvider provide

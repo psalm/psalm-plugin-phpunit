@@ -315,7 +315,13 @@ final class TestCaseHandler implements
 
             // The class declaring an inherited test does not see the providers its descendants implement
             if (!$declaring_class_storage->is_trait && $declaring_class_storage->name !== $class_storage->name) {
-                self::checkInheritedTestProviders($codebase, $class_storage, $method_name_lc, $method_storage);
+                self::checkInheritedTestProviders(
+                    $codebase,
+                    $statements_source,
+                    $class_storage,
+                    $method_name_lc,
+                    $method_storage,
+                );
                 continue;
             }
 
@@ -743,6 +749,7 @@ final class TestCaseHandler implements
      */
     private static function checkInheritedTestProviders(
         Codebase $codebase,
+        StatementsSource $statements_source,
         ClassLikeStorage $class_storage,
         string $test_name_lc,
         MethodStorage $test_storage
@@ -780,8 +787,13 @@ final class TestCaseHandler implements
                 continue;
             }
 
+            // Keys are source offsets, which array_merge() would renumber
             $suppressed_issues = $provider_storage->suppressed_issues
                 + $codebase->classlike_storage_provider->get($provider_id->fq_class_name)->suppressed_issues;
+            // The analysed class's offsets mean nothing in a trait's file
+            if ($provider_storage->location->file_path === $statements_source->getFilePath()) {
+                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
+            }
 
             self::reportInvalidProviderSignature(
                 $codebase,
