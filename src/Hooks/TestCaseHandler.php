@@ -551,6 +551,7 @@ final class TestCaseHandler implements
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
                     self::checkNamedDataset(
+                        $codebase,
                         $dataset_type,
                         $method_storage->params,
                         $method_name,
@@ -640,6 +641,7 @@ final class TestCaseHandler implements
      * @param \Closure(Type\Union, Type\Union, bool, int, string|null=): void $checkParam
      */
     private static function checkNamedDataset(
+        Codebase $codebase,
         Type\Atomic\TKeyedArray $dataset_type,
         array $params,
         string $method_name,
@@ -650,7 +652,7 @@ final class TestCaseHandler implements
         \Closure $checkParam
     ): void {
         $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
-        $binding     = DatasetBinding::bind($dataset_type, $params);
+        $binding     = DatasetBinding::bind($dataset_type, $params, $codebase);
 
         foreach ($binding->arguments as $argument) {
             $checkParam(

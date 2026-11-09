@@ -1433,6 +1433,56 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: Int-keyed entries after a possibly undefined one are not bound to fixed parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{tag: int, 0?: int, 1: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1, 1 => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b = 0, int $tag = 0): void {
+          $this->assertNotEmpty($a . $b . $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Unsealed datasets whose values cannot fill a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'x' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, array $b): void {
+          $this->assertNotEmpty($a);
+          $this->assertNotEmpty($b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<string, int>}>) |
+    And I see no other errors
+
   Scenario: Dependency values still count when a possibly undefined string key is the only key
     Given I have the following code
       """

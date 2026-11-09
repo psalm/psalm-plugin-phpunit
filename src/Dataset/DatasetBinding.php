@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Dataset;
 
+use Psalm\Codebase;
 use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Type;
 use Psalm\Type\Atomic\TKeyedArray;
@@ -17,8 +18,6 @@ use function is_string;
 /**
  * How PHPUnit unpacks a dataset with string keys into the test call: int keys are positional, string keys name
  * a parameter (or, without a matching parameter, land in the variadic one).
- *
- * @psalm-immutable
  */
 final class DatasetBinding
 {
@@ -37,13 +36,13 @@ final class DatasetBinding
     }
 
     /**
-     * Only entries that are certainly present are reported as unknown or duplicate.
+     * Only entries that are certainly present are reported as unknown or duplicate. Int-keyed entries are bound
+     * up to the first possibly undefined one, because the entries after it may shift into its position.
      *
      * @param list<FunctionLikeParameter> $params
-     *
-     * @psalm-capabilities read-props
+     * @param Codebase|null $codebase decides whether the values of an unsealed dataset can fill missing parameters
      */
-    public static function bind(TKeyedArray $dataset, array $params): self
+    public static function bind(TKeyedArray $dataset, array $params, ?Codebase $codebase = null): self
     {
         $positional = [];
         $named      = [];
@@ -79,6 +78,11 @@ final class DatasetBinding
         $duplicate = [];
 
         foreach ($positional as $position => $type) {
+            // array_merge() renumbers int keys: if this entry is absent, the following ones take its place
+            if ($type->possibly_undefined) {
+                break;
+            }
+
             if ($variadic_offset !== null && $position >= $variadic_offset) {
                 $arguments[] = new BoundArgument($position, null, $type, $variadic_type, true);
             } elseif (isset($params[$position])) {
@@ -119,17 +123,42 @@ final class DatasetBinding
         }
 
         $missing = [];
-        if ($dataset->isSealed()) {
-            foreach ($params as $offset => $param) {
-                if ($param->is_variadic) {
-                    break;
-                }
-                if (!$param->is_optional && $offset >= count($positional) && !isset($named[$param->name])) {
-                    $missing[] = $param->name;
-                }
+        foreach ($params as $offset => $param) {
+            if ($param->is_variadic) {
+                break;
+            }
+            if (
+                !$param->is_optional
+                && $offset >= count($positional)
+                && !isset($named[$param->name])
+                && !self::mayBeSuppliedByFallback($dataset, $param, $codebase)
+            ) {
+                $missing[] = $param->name;
             }
         }
 
         return new self($arguments, $unknown, $duplicate, $missing);
+    }
+
+    /**
+     * An unsealed dataset may carry further string keys. Without a codebase to compare types, any of them might
+     * supply the parameter.
+     */
+    private static function mayBeSuppliedByFallback(
+        TKeyedArray $dataset,
+        FunctionLikeParameter $param,
+        ?Codebase $codebase
+    ): bool {
+        if ($dataset->fallback_params === null) {
+            return false;
+        }
+        if ($codebase === null) {
+            return true;
+        }
+
+        [$key_type, $value_type] = $dataset->fallback_params;
+
+        return $codebase->canTypeBeContainedByType($key_type, Type::getString())
+            && $codebase->canTypeBeContainedByType($value_type, $param->type ?? Type::getMixed());
     }
 }
