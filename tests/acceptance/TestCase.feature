@@ -3745,6 +3745,11 @@ Feature: TestCase
         protected function setUp(): void {
           parent::setUp();
         }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
       }
 
       abstract class ParentTestCase extends GrandparentTestCase {
@@ -3777,7 +3782,7 @@ Feature: TestCase
          * @psalm-capabilities read-props
          */
         #[\Override]
-        protected function setUp(): void {
+        protected function tearDown(): void {
         }
 
         public function testMissing(): void {
@@ -3787,8 +3792,8 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type              | Message                         |
-      | MissingParentCall | Missing call to parent::setUp() |
+      | Type              | Message                            |
+      | MissingParentCall | Missing call to parent::tearDown() |
     And I see no other errors
 
   Scenario: A trait method aliased to a hook without a call to the parent is reported
