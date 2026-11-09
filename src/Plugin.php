@@ -20,6 +20,15 @@ final class Plugin implements PluginEntryPointInterface
         class_exists(Hooks\AssertSameSuggestionHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\AssertSameSuggestionHandler::class);
 
+        class_exists(Hooks\MockMethodHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\MockMethodHandler::class);
+
+        class_exists(Hooks\IntersectionMockReturnTypeProvider::class, true);
+        $psalm->registerHooksFromClass(Hooks\IntersectionMockReturnTypeProvider::class);
+
+        class_exists(Hooks\DocblockMetadataHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\DocblockMetadataHandler::class);
+
         class_exists(Hooks\MissingParentCallHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\MissingParentCallHandler::class);
     }
