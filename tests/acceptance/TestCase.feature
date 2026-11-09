@@ -4251,7 +4251,7 @@ Feature: TestCase
          * more words about it
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         /**
@@ -4361,7 +4361,7 @@ Feature: TestCase
       {
         /** @dataProvider provide*/
         public function testWithProvider(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         /**
@@ -4395,7 +4395,7 @@ Feature: TestCase
          *   [2]
          */
         public function testMultiline(int $int): void {
-          $this->assertEquals(1, $int % 2);
+          $this->assertSame(1, $int % 2);
         }
 
         /**
@@ -4403,7 +4403,7 @@ Feature: TestCase
          *           [3]
          */
         public function testSameLine(int $int): void {
-          $this->assertEquals(1, $int % 2);
+          $this->assertSame(1, $int % 2);
         }
       }
       """
@@ -4419,12 +4419,12 @@ Feature: TestCase
          * @testWith
          */
         public function testEmpty(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         /** @testWith[1] */
         public function testGlued(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
