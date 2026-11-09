@@ -34,7 +34,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 ## Features
 
 * Properties initialized in `setUp()` or a `@before` / `#[Before]` method count as initialized, so no false `MissingConstructor`.
-* Data providers are validated: the provider exists, is `public static` (`InvalidDataProvider`), returns an `iterable`, and its datasets match the parameters of the test method.
+* Data providers (`@dataProvider`, `#[DataProvider]`, `#[DataProviderExternal]`) are validated: the provider exists, is `public static` (`InvalidDataProvider`), returns an `iterable`, and its datasets match the parameters of the test method.
 * Test methods, their data providers, and `TestCase` classes are not reported as unused code.
 * Statements after `$this->expectException()` and its siblings are not reported as `UnusedFunctionCall`, `UnusedMethodCall` or `MissingThrowsDocblock`.
 * Exceptions declared by PHPUnit's own API (assertions, `createMock()`, `createStub()` and so on) are not reported as `MissingThrowsDocblock`. Exceptions in your `<ignoreExceptions>` stay ignored.
