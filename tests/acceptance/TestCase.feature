@@ -53,7 +53,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -83,7 +83,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -119,7 +119,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -149,7 +149,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -212,7 +212,7 @@ Feature: TestCase
         #[\PHPUnit\Framework\Attributes\DataProvider('first')]
         #[\PHPUnit\Framework\Attributes\DataProvider('second')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
     """
@@ -242,7 +242,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -269,7 +269,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -293,7 +293,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -317,7 +317,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -344,7 +344,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -371,7 +371,7 @@ Feature: TestCase
          * @dataProvider provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -398,7 +398,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -425,7 +425,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -456,7 +456,7 @@ Feature: TestCase
          * @dataProvider External::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -486,7 +486,7 @@ Feature: TestCase
          * @dataProvider External::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -519,7 +519,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -549,7 +549,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -573,7 +573,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
 
@@ -611,7 +611,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -638,7 +638,7 @@ Feature: TestCase
 
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -719,7 +719,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -757,7 +757,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -792,7 +792,7 @@ Feature: TestCase
          * @dataProvider provider2
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -825,7 +825,7 @@ Feature: TestCase
         #[Attributes\DataProvider('provider1')]
         #[Attributes\DataProvider('provider2')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -851,7 +851,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -880,7 +880,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -906,7 +906,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -935,7 +935,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -964,7 +964,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -993,7 +993,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1024,7 +1024,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1053,7 +1053,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1079,7 +1079,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1108,7 +1108,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1137,7 +1137,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, int $i) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1586,7 +1586,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1609,7 +1609,7 @@ Feature: TestCase
          * @return void
          */
         public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1627,19 +1627,19 @@ Feature: TestCase
       final class MyTestCase extends TestCase
       {
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         /**
          * @test
          */
         public function somethingElse(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
 
         #[Attributes\Test]
         public function somethingElseWithAttribute(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1655,7 +1655,7 @@ Feature: TestCase
          * @return void
          */
         public function somethingElse(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1707,7 +1707,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1732,7 +1732,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1755,7 +1755,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1778,7 +1778,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1804,7 +1804,7 @@ Feature: TestCase
          */
         #[Attributes\DataProvider('provide')]
        public function testSomething(int $int) {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -1840,7 +1840,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1875,7 +1875,7 @@ Feature: TestCase
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1908,7 +1908,7 @@ Feature: TestCase
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
@@ -1943,7 +1943,7 @@ Feature: TestCase
         public function testSomething(): void {
           $this->i->method('work')->willReturn(1);
 
-          $this->assertEquals(1, $this->i->work());
+          $this->assertSame(1, $this->i->work());
         }
       }
       """
