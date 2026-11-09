@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
@@ -29,14 +28,14 @@ use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\CodeLocation;
-use Psalm\DocComment;
-use Psalm\Exception\DocblockParseException;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
+use Psalm\PhpUnitPlugin\PhpUnitVersion;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -66,8 +65,6 @@ use function str_contains;
 use function str_ends_with;
 use function str_starts_with;
 use function strtolower;
-use function substr_count;
-use function trim;
 
 final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -83,27 +80,6 @@ final class TestCaseHandler implements
         DependsExternal::class => true,
         DependsExternalUsingDeepClone::class => true,
         DependsExternalUsingShallowClone::class => true,
-    ];
-
-    /**
-     * PHPUnit takes the value of these tags from the rest of the line.
-     *
-     * @var array<string, true>
-     */
-    private const VALUE_TAGS = [
-        'backupGlobals' => true,
-        'backupStaticAttributes' => true,
-        'covers' => true,
-        'coversDefaultClass' => true,
-        'dataProvider' => true,
-        'depends' => true,
-        'group' => true,
-        'preserveGlobalState' => true,
-        'requires' => true,
-        'testDox' => true,
-        'testWith' => true,
-        'ticket' => true,
-        'uses' => true,
     ];
 
     private const EXPECT_EXCEPTION_METHODS = [
@@ -711,11 +687,21 @@ final class TestCaseHandler implements
         return isset(self::getSpecials($method, $aliases)['before']);
     }
 
+    /**
+     * PHPUnit 12 ignores docblock metadata altogether.
+     *
+     * @return array<string, list<array{int, string}>> Each entry is [file line, value]
+     */
+    private static function docblockSpecials(ClassMethod $method): array
+    {
+        return PhpUnitVersion::ignoresDocblockMetadata() ? [] : DocblockSpecials::of($method);
+    }
+
     /** @return array<string, list<array{int, string}>> Each entry is [file line, value] */
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
-            self::getDocblockSpecials($method),
+            self::docblockSpecials($method),
             // Attributes take priority over docblocks
             self::getAttributeSpecials($method, $aliases),
         );
@@ -782,7 +768,7 @@ final class TestCaseHandler implements
                     $entry[1],
                     $reference_aliases,
                 ),
-                self::getDocblockSpecials($method)['dataProvider'] ?? [],
+                self::docblockSpecials($method)['dataProvider'] ?? [],
             );
     }
 
@@ -950,7 +936,7 @@ final class TestCaseHandler implements
             return $targets;
         }
 
-        foreach (self::getDocblockSpecials($method)['depends'] ?? [] as [, $value]) {
+        foreach (self::docblockSpecials($method)['depends'] ?? [] as [, $value]) {
             $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
@@ -995,115 +981,22 @@ final class TestCaseHandler implements
         ], static fn(array|null $special): bool => $special !== null);
     }
 
-    /** @return array<string, list<array{int, string}>> */
-    private static function getDocblockSpecials(ClassMethod $method): array
-    {
-        $docblock = $method->getDocComment();
-        if (!$docblock) {
-            return [];
-        }
-
-        $entries = [];
-        foreach (self::getDocblockTags($docblock) as $tag => $values) {
-            foreach ($values as $offset => $data) {
-                // PHPUnit ignores a malformed tag, so there is no provider, dependency or group to look up
-                if (self::malformedProblem($docblock, $tag, $offset, $data) !== null) {
-                    continue;
-                }
-
-                $entries[$tag][] = [self::docblockLine($docblock, $offset), self::firstLine($data)];
-            }
-        }
-
-        return $entries;
-    }
-
     /** @param array<array-key, string> $suppressed_issues */
     private static function reportMalformedTags(
         ClassLike|ClassMethod $node,
         CodeLocation $location,
         array $suppressed_issues,
     ): void {
-        $docblock = $node->getDocComment();
-        if (!$docblock) {
+        // Nothing is read from a docblock on PHPUnit 12, malformed or not
+        if (PhpUnitVersion::ignoresDocblockMetadata()) {
             return;
         }
 
-        foreach (self::getDocblockTags($docblock) as $tag => $values) {
-            foreach ($values as $offset => $data) {
-                $problem = self::malformedProblem($docblock, $tag, $offset, $data);
-                if ($problem === null) {
-                    continue;
-                }
-
-                IssueBuffer::accepts(new InvalidPhpUnitAnnotation(
-                    'Annotation "@' . $tag . '" ' . $problem,
-                    $location->setCommentLine(self::docblockLine($docblock, $offset)),
-                ), $suppressed_issues);
-            }
+        foreach (DocblockSpecials::malformed($node) as ['tag' => $tag, 'line' => $line, 'problem' => $problem]) {
+            IssueBuffer::accepts(new InvalidPhpUnitAnnotation(
+                'Annotation "@' . $tag . '" ' . $problem,
+                $location->setCommentLine($line),
+            ), $suppressed_issues);
         }
-    }
-
-    /**
-     * @return string|null What is wrong with the tag, null when PHPUnit accepts it
-     *
-     * @psalm-pure
-     */
-    private static function malformedProblem(Doc $docblock, string $tag, int $offset, string $data): string|null
-    {
-        if (!isset(self::VALUE_TAGS[$tag])) {
-            return null;
-        }
-
-        // PHPUnit's `@testWith\s+` spans line breaks, so the datasets may start on the line below the tag.
-        // Psalm then starts the value at that line break.
-        if ($tag === 'testWith') {
-            if (trim($data) === '') {
-                return 'has no value';
-            }
-
-            if (ltrim($data) !== $data) {
-                return null;
-            }
-        } elseif (self::firstLine($data) === '') {
-            return 'has no value';
-        }
-
-        $char_before_value = $docblock->getText()[$offset - $docblock->getStartFilePos() - 1];
-
-        return $char_before_value === ' ' || $char_before_value === "\t"
-            ? null
-            : 'must be followed by a space and a value';
-    }
-
-    /** @return array<string, array<int, string>> Values keyed by tag, then by absolute file offset */
-    private static function getDocblockTags(Doc $docblock): array
-    {
-        try {
-            return DocComment::parsePreservingLength($docblock, true)->tags;
-        } catch (DocblockParseException $e) {
-            return [];
-        }
-    }
-
-    /**
-     * PHPUnit reads a tag's value from its own line only, Psalm also folds the following lines into it.
-     *
-     * @psalm-pure
-     */
-    private static function firstLine(string $data): string
-    {
-        return trim(explode("\n", $data, 2)[0]);
-    }
-
-    /**
-     * Psalm keys tags by absolute file offset, which is useless for issue locations.
-     *
-     * @psalm-pure
-     */
-    private static function docblockLine(Doc $docblock, int $offset): int
-    {
-        return $docblock->getStartLine()
-            + substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos());
     }
 }
