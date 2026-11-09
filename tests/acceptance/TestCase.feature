@@ -6635,35 +6635,21 @@ final class MyTestCase extends TestCase
       }
 
       final class MyTestCase extends BaseTestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function assertPreConditions(): void {
         }
 
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function assertPostConditions(): void {
-        }
-
-        public function testSomething(): void {
-          $this->assertTrue(true);
         }
       }
 
       final class DirectTestCase extends TestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
+        /** @psalm-capabilities read-props */
         #[\Override]
         protected function assertPreConditions(): void {
-        }
-
-        public function testDirect(): void {
-          $this->assertTrue(true);
         }
       }
 
@@ -6676,10 +6662,6 @@ final class MyTestCase extends TestCase
         #[\Override]
         protected function assertPostConditions(): void {
           parent::assertPostConditions();
-        }
-
-        public function testCalling(): void {
-          $this->assertTrue(true);
         }
       }
       """
