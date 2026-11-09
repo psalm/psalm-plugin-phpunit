@@ -963,7 +963,17 @@ final class TestCaseHandler implements
             return null;
         }
 
-        if (self::firstLine($data) === '') {
+        // PHPUnit's `@testWith\s+` spans line breaks, so the datasets may start on the line below the tag.
+        // Psalm then starts the value at that line break.
+        if ($tag === 'testWith') {
+            if (trim($data) === '') {
+                return 'has no value';
+            }
+
+            if (ltrim($data) !== $data) {
+                return null;
+            }
+        } elseif (self::firstLine($data) === '') {
             return 'has no value';
         }
 
@@ -978,7 +988,7 @@ final class TestCaseHandler implements
     private static function getDocblockTags(Doc $docblock): array
     {
         try {
-            return self::getParsedComment($docblock)['specials'];
+            return DocComment::parsePreservingLength($docblock)->tags;
         } catch (DocblockParseException $e) {
             return [];
         }
@@ -1003,19 +1013,5 @@ final class TestCaseHandler implements
     {
         return $docblock->getStartLine()
             + substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos());
-    }
-
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
-    {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
-
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
     }
 }
