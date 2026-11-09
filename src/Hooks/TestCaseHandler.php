@@ -302,7 +302,10 @@ final class TestCaseHandler implements
             self::reportMalformedTags(
                 $stmt_method,
                 $method_storage->location,
-                $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
+                $method_storage->suppressed_issues
+                    + $declaring_class_storage->suppressed_issues
+                    + $class_storage->suppressed_issues
+                    + $statements_source->getSuppressedIssues(),
             );
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);

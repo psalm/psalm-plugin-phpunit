@@ -3450,3 +3450,44 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Malformed annotation in a trait method is suppressed on the test class using the trait
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code
+      """
+      /** @psalm-immutable */
+      trait HelperTrait
+      {
+        /**
+         * @return void
+         * @psalm-capabilities read-props
+         * @dataProvider*/
+        public function testFromTrait() {}
+      }
+
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       */
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
