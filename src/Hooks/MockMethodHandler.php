@@ -74,11 +74,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
 
         $doubleType = $typeProvider->getType($double);
         $argType = $typeProvider->getType($args[0]->value);
-        if ($doubleType === null || $argType === null) {
-            return null;
-        }
-
-        if (!$argType->allStringLiterals()) {
+        if ($doubleType === null || $argType === null || !$argType->allStringLiterals()) {
             return null;
         }
 

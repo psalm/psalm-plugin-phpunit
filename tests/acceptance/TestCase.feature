@@ -6730,14 +6730,14 @@ final class MyTestCase extends TestCase
 
         public function testNotADouble(bool $flag): void {
           $double = $flag ? $this->createMock(Mailer::class) : null;
-          /** @psalm-suppress PossiblyNullReference */
           $double->method('typo');
         }
       }
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                              | Line |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::typo() | 20   |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::typo() | 26   |
+      | Type                  | Message                                              | Line |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 20   |
+      | PossiblyNullReference | Cannot call method method on possibly null value     | 25   |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 25   |
     And I see no other errors
