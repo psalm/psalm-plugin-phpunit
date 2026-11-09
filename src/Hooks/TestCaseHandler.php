@@ -148,30 +148,13 @@ final class TestCaseHandler implements
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
             if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
-                self::suppressMissingConstructor($storage);
+                $storage->suppressed_issues[] = 'MissingConstructor';
 
                 foreach (self::getDescendants($codebase, $name) as $dependent_name) {
                     $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
-                    self::suppressMissingConstructor($dependent_storage);
+                    $dependent_storage->suppressed_issues[] = 'MissingConstructor';
                 }
             }
-        }
-    }
-
-    /**
-     * Psalm tells suppressions added by plugins from docblock ones (keyed by source offset) by key 0, and neither
-     * reports nor tracks them as unused. A plain append would take the next offset-like key instead.
-     */
-    private static function suppressMissingConstructor(ClassLikeStorage $storage): void
-    {
-        if (in_array('MissingConstructor', $storage->suppressed_issues, true)) {
-            return;
-        }
-
-        if (isset($storage->suppressed_issues[0])) {
-            $storage->suppressed_issues[] = 'MissingConstructor';
-        } else {
-            $storage->suppressed_issues[0] = 'MissingConstructor';
         }
     }
 

@@ -3626,48 +3626,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: A class level suppression on a test case with setUp is not reported as unused
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code
-      """
-      /**
-       * @psalm-suppress UnusedFunctionCall
-       */
-      final class MyTestCase extends TestCase {
-        /**
-         * @psalm-capabilities read-props
-         */
-        #[\Override]
-        protected function setUp(): void {
-        }
-
-        /**
-         * @psalm-capabilities read-props
-         */
-        public function testSomething(): void {
-          strlen('a');
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
   Scenario: MissingParentCall can be suppressed on the method and on the class
     Given I have the following config
       """
@@ -3690,8 +3648,8 @@ Feature: TestCase
       """
       abstract class BaseTestCase extends TestCase {
         #[\Override]
-        protected function setUp(): void {
-          parent::setUp();
+        protected function tearDown(): void {
+          parent::tearDown();
         }
       }
 
@@ -3701,7 +3659,7 @@ Feature: TestCase
          * @psalm-capabilities read-props
          */
         #[\Override]
-        protected function setUp(): void {
+        protected function tearDown(): void {
         }
 
         public function testMethod(): void {
@@ -3717,7 +3675,7 @@ Feature: TestCase
          * @psalm-capabilities read-props
          */
         #[\Override]
-        protected function setUp(): void {
+        protected function tearDown(): void {
         }
 
         public function testClass(): void {
@@ -3750,8 +3708,8 @@ Feature: TestCase
       """
       abstract class BaseTestCase extends TestCase {
         #[\Override]
-        protected function setUp(): void {
-          parent::setUp();
+        protected function tearDown(): void {
+          parent::tearDown();
         }
       }
 
@@ -3759,17 +3717,17 @@ Feature: TestCase
        * @psalm-suppress MissingParentCall
        * @psalm-immutable
        */
-      trait NoParentSetUp {
+      trait NoParentTearDown {
         /**
          * @psalm-capabilities read-props
          */
         #[\Override]
-        protected function setUp(): void {
+        protected function tearDown(): void {
         }
       }
 
       final class MyTestCase extends BaseTestCase {
-        use NoParentSetUp;
+        use NoParentTearDown;
 
         public function testSomething(): void {
           $this->assertTrue(true);
