@@ -2660,7 +2660,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2690,7 +2690,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2721,7 +2721,7 @@ Feature: TestCase
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         #[Attributes\DataProviderExternal(External::class, 'missing')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2751,7 +2751,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2781,7 +2781,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2814,7 +2814,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2841,7 +2841,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal('NS\External', 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2873,7 +2873,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Ext(methodName: 'provide', className: Provider::class)]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2908,7 +2908,7 @@ Feature: TestCase
         #[Attributes\DataProviderExternal(self::class, 'own')]
         #[Attributes\DataProviderExternal(parent::class, 'base')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2953,7 +2953,7 @@ Feature: TestCase
         #[Attributes\DataProvider('own')]
         #[Attributes\DataProviderExternal(External::class, 'second')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -2980,7 +2980,7 @@ Feature: TestCase
       trait MyTestTrait {
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testInTrait(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
 
@@ -3006,7 +3006,7 @@ Feature: TestCase
          * @dataProvider Fixtures::provide
          */
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3069,7 +3069,7 @@ Feature: TestCase
          */
         #[Attributes\DataProviderExternal(External::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3088,7 +3088,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[Attributes\DataProviderExternal(Missing::class, 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
@@ -3110,7 +3110,7 @@ Feature: TestCase
       final class MyTestCase extends TestCase {
         #[DataProviderExternal('NS\External', 'provide')]
         public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
+          $this->assertSame(1, $int);
         }
       }
       """
