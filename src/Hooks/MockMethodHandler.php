@@ -2,22 +2,25 @@
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
+use Iterator;
+use IteratorAggregate;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
 use Psalm\CodeLocation;
+use Psalm\Codebase;
 use Psalm\Issue\UndefinedMethod;
 use Psalm\IssueBuffer;
 use Psalm\Plugin\EventHandler\AfterExpressionAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterExpressionAnalysisEvent;
-use Psalm\Type\Atomic\TLiteralString;
 use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Union;
+use Traversable;
 
-use function array_values;
 use function count;
 use function implode;
 use function in_array;
 use function sprintf;
+use function str_starts_with;
 use function strtolower;
 
 /**
@@ -85,22 +88,32 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
             }
         }
 
-        $methodNames = [];
-        foreach ($argType->getAtomicTypes() as $atomic) {
-            if (!$atomic instanceof TLiteralString) {
-                return null;
-            }
-
-            $methodNames[] = $atomic->value;
+        if (!$argType->allStringLiterals()) {
+            return null;
         }
 
-        foreach ($methodNames as $methodName) {
-            foreach ($mockedClasses as $mockedClass) {
+        // PHPUnit adds Iterator's methods to a double of Traversable and of an interface that extends only it
+        $lookupClasses = $mockedClasses;
+        foreach ($mockedClasses as $mockedClass) {
+            if (self::getsIteratorMethods($codebase, $mockedClass)) {
+                $lookupClasses[] = Iterator::class;
+            }
+        }
+
+        foreach ($argType->getLiteralStrings() as $literal) {
+            $methodName = $literal->value;
+
+            // PHPUnit configures property hooks as '$name::get' and '$name::set', which Psalm cannot look up
+            if (str_starts_with($methodName, '$')) {
+                continue;
+            }
+
+            foreach ($lookupClasses as $lookupClass) {
                 // No code location or source on purpose: mocking a method by name is not a call, so it must
                 // not make the method "used" for dead code detection.
                 if (
-                    $codebase->methodExists($mockedClass . '::' . $methodName, with_pseudo: true)
-                    || $codebase->methodExists($mockedClass . '::__call')
+                    $codebase->methodExists($lookupClass . '::' . $methodName, with_pseudo: true)
+                    || $codebase->methodExists($lookupClass . '::__call')
                 ) {
                     continue 2;
                 }
@@ -137,7 +150,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
 
         $isDouble = false;
         $mocked = [];
-        foreach ([$atomic, ...array_values($atomic->getIntersectionTypes())] as $part) {
+        foreach ([$atomic, ...$atomic->getIntersectionTypes()] as $part) {
             if (!$part instanceof TNamedObject) {
                 return [];
             }
@@ -150,6 +163,21 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         }
 
         return $isDouble ? $mocked : [];
+    }
+
+    /**
+     * Mirrors PHPUnit's Generator::testDouble() and generateCodeForTestDoubleClass().
+     */
+    private static function getsIteratorMethods(Codebase $codebase, string $class): bool
+    {
+        if (strtolower($class) === 'traversable') {
+            return true;
+        }
+
+        return $codebase->interfaceExists($class)
+            && $codebase->interfaceExtends($class, Traversable::class)
+            && !$codebase->interfaceExtends($class, Iterator::class)
+            && !$codebase->interfaceExtends($class, IteratorAggregate::class);
     }
 
     /**

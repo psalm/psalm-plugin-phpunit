@@ -3248,30 +3248,20 @@ Feature: TestCase
       }
 
       final class MyTestCase extends TestCase {
-        public function testExpects(): void {
-          $mailer = $this->createMock(Mailer::class);
-          $mailer->expects($this->once())->method('sendInvoce')->willReturn(true);
-        }
+        public function testMethods(): void {
+          $mock = $this->createMock(Mailer::class);
+          $mock->expects($this->once())->method('sendInvoce')->willReturn(true);
+          $mock->method('sendInvoce')->willReturn(true);
+          $mock->method('sendInvoice')->willReturn(true);
 
-        public function testDirect(): void {
-          $mailer = $this->createMock(Mailer::class);
-          $mailer->method('sendInvoce')->willReturn(true);
-          $mailer->method('sendInvoice')->willReturn(true);
-        }
+          $stub = $this->createStub(Mailer::class);
+          $stub->method('sendInvoce')->willReturn(true);
 
-        public function testStub(): void {
-          $mailer = $this->createStub(Mailer::class);
-          $mailer->method('sendInvoce')->willReturn(true);
-        }
+          $configured = $this->createConfiguredMock(Mailer::class, ['sendInvoice' => true]);
+          $configured->method('sendInvoce')->willReturn(true);
 
-        public function testConfiguredMock(): void {
-          $mailer = $this->createConfiguredMock(Mailer::class, ['sendInvoice' => true]);
-          $mailer->method('sendInvoce')->willReturn(true);
-        }
-
-        public function testMockBuilder(): void {
-          $mailer = $this->getMockBuilder(Mailer::class)->getMock();
-          $mailer->method('sendInvoce')->willReturn(true);
+          $built = $this->getMockBuilder(Mailer::class)->getMock();
+          $built->method('sendInvoce')->willReturn(true);
         }
       }
       """
@@ -3279,10 +3269,10 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message                                                    | Line |
       | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 14   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 15   |
       | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 19   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 22   |
       | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 25   |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 30   |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 35   |
     And I see no other errors
 
   Scenario: Mocking an undefined method is reported on typed properties and for every literal name
@@ -3326,6 +3316,69 @@ Feature: TestCase
       | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 27   |
       | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 32   |
     And I see no other errors
+
+  Scenario: Mocking a method PHPUnit adds to a Traversable double is not reported
+    Given I have the following code
+      """
+      /**
+       * @psalm-mutable
+       * @extends \Traversable<int, int>
+       */
+      interface Numbers extends \Traversable {}
+
+      /**
+       * @psalm-mutable
+       * @extends \IteratorAggregate<int, string>
+       */
+      interface Letters extends \IteratorAggregate {}
+
+      final class MyTestCase extends TestCase {
+        public function testTraversable(): void {
+          $traversable = $this->createMock(\Traversable::class);
+          $traversable->method('current')->willReturn(1);
+          $traversable->method('nope')->willReturn(1);
+        }
+
+        public function testDerivedInterface(): void {
+          $numbers = $this->createStub(Numbers::class);
+          $numbers->method('current')->willReturn(1);
+          $numbers->method('nope')->willReturn(1);
+        }
+
+        public function testAggregate(): void {
+          $letters = $this->createStub(Letters::class);
+          $letters->method('getIterator')->willReturn(new \ArrayIterator([]));
+          $letters->method('current')->willReturn(1);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                           | Line |
+      | UndefinedMethod | Trying to mock an undefined method Traversable::nope()            | 21   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Numbers::nope()             | 27   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Letters::current()          | 33   |
+    And I see no other errors
+
+  Scenario: Mocking a property hook by name is not reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testHooks(): void {
+          $mailer = $this->createMock(Mailer::class);
+          $mailer->method('$value::get')->willReturn(true);
+          $mailer->method('$value::set')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
 
   Scenario: Mocking an undefined method can be suppressed per call
     Given I have the following code
