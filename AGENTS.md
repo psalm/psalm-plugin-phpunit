@@ -1,6 +1,8 @@
 # psalm-plugin-phpunit: working conventions
 
-`master` is the development branch and the base of feature PRs.
+`master` is the development branch of 1.x and the base of feature PRs. `0.22.x` maintains
+0.22, the last release line for Psalm 6 and PHP 8.1: bug fixes only, as PRs with
+`--base 0.22.x` (its own AGENTS.md describes its CI).
 Remotes: `origin` = psalm/psalm-plugin-phpunit. PR branches go to your own fork's remote
 (find it with `git remote -v` and `gh api user --jq .login`; add it if missing). Never push
 PR branches to `origin`.
@@ -9,13 +11,14 @@ Layout:
 - `src/Plugin.php`: entry point. Registers `stubs/TestCase.phpstub` and `Hooks\TestCaseHandler`.
 - `src/Hooks/TestCaseHandler.php`: all the hooks (`AfterClassLikeVisit`,
   `AfterClassLikeAnalysis`, `AfterCodebasePopulated`, `AfterMethodCallAnalysis`).
+- `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
+  `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
+  `assertFalse()` and `assertCount()` over `assertSame()`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
   analyse `tools/behat/src/Context.php`). `Context` writes each scenario to
   `tools/behat/run/<random>/` and runs the **root** `vendor/bin/psalm` there.
-- `codeception.yml`, `tests/acceptance.suite.yml`, `tests/AcceptanceTester.php` and
-  `tests/Helper/` are not run by CI.
 
 Domain skills (load them before touching the area):
 - `plugin-repro`: scratch-project repros, base vs branch, comparing Psalm versions
@@ -38,17 +41,17 @@ These come first, before every other rule here:
 ## Validating changes: CI, then a single scenario locally
 
 CI (`.github/workflows/ci.yml`) is the source of truth:
-- `psalm` (PHP 8.1): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
+- `psalm` (PHP 8.2): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
 - `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
 - `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`.
-- `tests`: deps high/low/stable × PHP 8.1 and 8.4 on pull requests, PHP 8.1 to 8.4 on pushes,
+- `tests`: deps high/low/stable × PHP 8.2 and 8.4 on pull requests, PHP 8.2 to 8.4 on pushes,
   the weekly schedule and manual runs (8.4 low excluded). `composer update` (plus
   `--prefer-lowest` or `--prefer-stable`) at the root **and** in `tools/behat`, then
   `tools/behat/behat-parallel.sh`: one Behat process per scenario, one per CPU at a time,
   printing the output of failed scenarios only.
 
-`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.1 - high
+`gh` and the logs show the job names ("Static analysis", "Code style", "Test on 8.2 - high
 deps"), not these YAML ids.
 
 Locally:
@@ -73,11 +76,9 @@ Locally:
 
 ### Psalm versions
 
-The CI low jobs (`--prefer-lowest`) resolve the lowest Psalm 7 that supports the PHP version, the
-high and stable jobs the newest. The low and stable jobs pin Psalm 7 (`--with vimeo/psalm:^7`,
-`^7.0.0-rc3` for low): `composer.json` also allows Psalm 6, which CI never runs, and which
-`--prefer-stable` would pick on PHP 8.1. They can report different issues (from 7.0.0-rc28 the
-purity suggestions are opt-in via `suggestPurityAnnotations`).
+`composer.json` allows Psalm `^7.2`: 7.0 and 7.1 require `psalm/plugin-phpunit: ^0.21` and
+never install 1.x. The CI low jobs (`--prefer-lowest`) resolve Psalm 7.2.0, the high and
+stable jobs the newest. They can report different issues.
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
   events), run the relevant scenarios on both (skill `plugin-repro`).
@@ -102,10 +103,10 @@ purity suggestions are opt-in via `suggestPurityAnnotations`).
   Create the release with `gh release create <tag> --generate-notes --repo
   psalm/psalm-plugin-phpunit`; a one-line summary above the generated notes is welcome for
   bigger releases (as in 0.21.0).
-- Psalm 7.0.0 and master list `psalm/plugin-phpunit: ^0.21` in `require`: this plugin is
-  bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out of the
-  dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168), and add
-  a line there for every new dev-only path.
+- Psalm 7.2 and later list `psalm/plugin-phpunit: ^0.21 || ^0.22 || ^1.0` in `require`: this
+  plugin is bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out
+  of the dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168),
+  and add a line there for every new dev-only path.
 - Never use `--admin` to bypass red required checks unless asked for that specific PR.
 
 ## Agents and subagents
@@ -173,9 +174,6 @@ workaround explicitly in the report.
 - Fixtures must pass on the lowest and the newest Psalm: annotate them for purity (#166):
   data providers `@psalm-pure`, mocked interfaces `@psalm-mutable` with `@psalm-impure`
   methods. Never suppress the `Missing*Annotation` issues instead.
-- Scenarios that only pass on Psalm 7 (`@psalm-mutable`, `@psalm-capabilities`, `[pure]` in messages)
-  carry the tag `@psalm7`. On Psalm 6 run `vendor/bin/behat --tags '~@psalm7'`, or
-  `BEHAT_SKIP_TAGS=@psalm7 tools/behat/behat-parallel.sh`.
 - Put each docblock tag on its own line, in fixtures and in `src/`. `/** @psalm-pure @param
   ... */` silently drops every tag after the first.
 - Never start a docblock line in `src/` with an example `@psalm-...` tag; Psalm parses it as
@@ -184,7 +182,7 @@ workaround explicitly in the report.
 ## Code style
 
 - phpcs (`phpcs.xml.dist`): PSR12, short arrays, 120-character absolute line limit, applied
-  to `src/`, `tests/Helper` and `tests/AcceptanceTester.php`. Run `vendor/bin/phpcs`
+  to `src/`. Run `vendor/bin/phpcs`
   (`vendor/bin/phpcbf` fixes).
 - Match the surrounding code: comment density, naming, idiom.
 - Comments are concise and only explain what isn't obvious from the code:

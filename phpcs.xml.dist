@@ -10,9 +10,6 @@
 
     <!-- Paths to check -->
     <file>src</file>
-    <file>tests/Helper</file>
-    <file>tests/AcceptanceTester.php</file>
-
 
     <!-- inherit rules from: -->
     <rule ref="PSR12"/>

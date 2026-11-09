@@ -29,7 +29,6 @@ Feature: TestCase
 
       """
 
-  @psalm7
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -61,7 +60,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Stateful test case with @before produces no MissingConstructor
     Given I have the following code
       """
@@ -92,7 +90,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
     Given I have the following code
       """
@@ -129,7 +126,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """
@@ -166,14 +162,16 @@ Feature: TestCase
   Scenario: Missing data provider is reported
     Given I have the following code
     """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
          * @param mixed $int
          * @return void
          * @psalm-suppress UnusedMethod
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething($int) {
           $this->assertEquals(1, $int);
         }
@@ -225,10 +223,11 @@ Feature: TestCase
       | UndefinedMethod | Provider method NS\MyTestCase::second is not defined | 8    |
     And I see no other errors
 
-  @psalm7
   Scenario: Invalid iterable data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -240,8 +239,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -412,6 +411,8 @@ Feature: TestCase
   Scenario: Non-public non-static data provider is reported for both
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -422,9 +423,7 @@ Feature: TestCase
           yield [1];
         }
 
-        /**
-         * @dataProvider provide
-         */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -500,6 +499,8 @@ Feature: TestCase
   Scenario: Data provider made public by a trait adaptation is allowed
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-pure */
       trait Provides {
         /**
@@ -516,9 +517,7 @@ Feature: TestCase
           provide as public;
         }
 
-        /**
-         * @dataProvider provide
-         */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -530,6 +529,8 @@ Feature: TestCase
   Scenario: Data provider made non-public by a trait adaptation is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-pure */
       trait Provides {
         /**
@@ -546,9 +547,7 @@ Feature: TestCase
           provide as protected;
         }
 
-        /**
-         * @dataProvider provide
-         */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -563,6 +562,8 @@ Feature: TestCase
   Scenario: Abstract data provider is checked in the implementing class
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       abstract class BaseTestCase extends TestCase {
         /**
          * @return iterable<int,array<int,int>>
@@ -570,9 +571,7 @@ Feature: TestCase
          */
         abstract protected static function provide();
 
-        /**
-         * @dataProvider provide
-         */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -595,6 +594,8 @@ Feature: TestCase
   Scenario: Invalid data provider can be suppressed on the test method
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -606,9 +607,9 @@ Feature: TestCase
         }
 
         /**
-         * @dataProvider provide
          * @psalm-suppress InvalidDataProvider
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -620,6 +621,8 @@ Feature: TestCase
   Scenario: Invalid data provider can be suppressed on the test class
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /**
        * @psalm-suppress InvalidDataProvider
        */
@@ -633,9 +636,7 @@ Feature: TestCase
           yield [1];
         }
 
-        /**
-         * @dataProvider provide
-         */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int): void {
           $this->assertEquals(1, $int);
         }
@@ -644,7 +645,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Invalid data provider of a trait test can be suppressed on the trait method
     Given I have the following config
       """
@@ -665,14 +665,16 @@ Feature: TestCase
       """
     And I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
-         * @dataProvider provide
          * @psalm-suppress InvalidDataProvider
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_i) {}
       }
 
@@ -830,10 +832,11 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Invalid generator data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -845,8 +848,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -861,6 +864,8 @@ Feature: TestCase
   Scenario: Valid generator data provider is allowed
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -872,8 +877,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -885,6 +890,8 @@ Feature: TestCase
   Scenario: Invalid array data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -896,8 +903,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -912,6 +919,8 @@ Feature: TestCase
   Scenario: Underspecified array data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -923,8 +932,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -939,6 +948,8 @@ Feature: TestCase
   Scenario: Underspecified iterable data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -950,8 +961,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -963,10 +974,11 @@ Feature: TestCase
       | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
     And I see no other errors
 
-  @psalm7
   Scenario: Underspecified generator data provider is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -978,8 +990,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -994,6 +1006,8 @@ Feature: TestCase
   Scenario: Valid array data provider is allowed
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1007,8 +1021,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1017,10 +1031,11 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Valid object data provider is allowed
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1035,8 +1050,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1045,10 +1060,11 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Invalid dataset shape is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1060,8 +1076,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1073,10 +1089,11 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Invalid dataset array is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1088,8 +1105,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1101,10 +1118,11 @@ Feature: TestCase
       | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, int\|string provided by NS\MyTestCase::provide():(iterable[pure]<string, array<int, int\|string>>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Shape dataset with missing params is reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1116,8 +1134,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, int $i) {
           $this->assertEquals(1, $int);
         }
@@ -1227,16 +1245,16 @@ Feature: TestCase
   Scenario: Missing provider arguments are still reported when the test has a dependency
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         public function testOne(): string {
           $this->assertTrue(true);
           return 'bar';
         }
 
-        /**
-         * @dataProvider provide
-         * @depends testOne
-         */
+        #[Attributes\DataProvider('provide')]
+        #[Attributes\Depends('testOne')]
         public function testSecond(string $foo, string $baz, string $bar): void {
           $this->assertSame($foo, $bar . $baz);
         }
@@ -1259,15 +1277,15 @@ Feature: TestCase
   Scenario: Dependencies on void tests pass no value and are still required from the provider
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         public function testOne(): void {
           $this->assertTrue(true);
         }
 
-        /**
-         * @dataProvider provide
-         * @depends testOne
-         */
+        #[Attributes\DataProvider('provide')]
+        #[Attributes\Depends('testOne')]
         public function testSecond(string $foo, string $bar): void {
           $this->assertSame($foo, $bar);
         }
@@ -1356,16 +1374,16 @@ Feature: TestCase
   Scenario: Values supplied by the provider for dependency params are still checked
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         public function testOne(): int {
           $this->assertTrue(true);
           return 1;
         }
 
-        /**
-         * @dataProvider provide
-         * @depends testOne
-         */
+        #[Attributes\DataProvider('provide')]
+        #[Attributes\Depends('testOne')]
         public function testSecond(string $foo, int $bar): void {
           $this->assertSame($foo, (string) $bar);
         }
@@ -1450,16 +1468,16 @@ Feature: TestCase
   Scenario: Optional dataset offsets are not guaranteed to cover dependency params
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         public function testOne(): string {
           $this->assertTrue(true);
           return 'bar';
         }
 
-        /**
-         * @dataProvider provide
-         * @depends testOne
-         */
+        #[Attributes\DataProvider('provide')]
+        #[Attributes\Depends('testOne')]
         public function testSecond(string $foo, string $baz, string $bar): void {
           $this->assertSame($foo, $bar . $baz);
         }
@@ -1517,6 +1535,8 @@ Feature: TestCase
   Scenario: Variadic params are still checked against provider values when the test has a dependency
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         public function testOne(): string {
           $this->assertTrue(true);
@@ -1524,10 +1544,10 @@ Feature: TestCase
         }
 
         /**
-         * @dataProvider provide
-         * @depends testOne
          * @param int ...$values
          */
+        #[Attributes\DataProvider('provide')]
+        #[Attributes\Depends('testOne')]
         public function testSecond(int ...$values): void {
           $this->assertNotEmpty($values);
         }
@@ -1550,6 +1570,8 @@ Feature: TestCase
   Scenario: Referenced providers are not marked as unused
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /**
@@ -1561,8 +1583,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1670,6 +1692,8 @@ Feature: TestCase
   Scenario: Provider returning optional offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /** @var string */
@@ -1680,8 +1704,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
           $this->assertEquals(1, $int);
         }
@@ -1693,6 +1717,8 @@ Feature: TestCase
   Scenario: Provider omitting offsets is fine when test method has defaults for those params (specified as constants)
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /** @var string */
@@ -1703,8 +1729,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $int, string $_str = self::S) {
           $this->assertEquals(1, $int);
         }
@@ -1716,6 +1742,8 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset is fine when test method has default for that param
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
@@ -1724,8 +1752,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
           $this->assertEquals(1, $int);
         }
@@ -1737,6 +1765,8 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset with mismatching type is reported even when test method has default for that param
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:string}> */
@@ -1745,8 +1775,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
        public function testSomething(int $int = 2) {
           $this->assertEquals(1, $int);
         }
@@ -1761,6 +1791,8 @@ Feature: TestCase
   Scenario: Provider returning possibly undefined offset is marked when test method has no default for that param
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase
       {
         /** @return iterable<string,array{0?:int}> */
@@ -1769,8 +1801,8 @@ Feature: TestCase
         }
         /**
          * @return void
-         * @dataProvider provide
          */
+        #[Attributes\DataProvider('provide')]
        public function testSomething(int $int) {
           $this->assertEquals(1, $int);
         }
@@ -1782,7 +1814,6 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?: int}>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -1816,7 +1847,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Descendant of a test that has setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -1852,7 +1882,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Descendant of a test that has @before produces no MissingConstructor
     Given I have the following code
       """
@@ -1886,7 +1915,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
     Given I have the following code
       """
@@ -1922,7 +1950,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Test methods in traits are not marked as unused
     Given I have the following code
       """
@@ -1941,7 +1968,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Test methods marked with #[Test] in a trait are not marked as unused when the consuming class does not import the Test attribute
     Given I have the following code in "MyTestTrait.php"
       """
@@ -1967,7 +1993,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Test methods marked with a partially-imported #[Attributes\Test] in a trait are not marked as unused when the consuming class does not import the namespace
     Given I have the following code in "MyTestTrait.php"
       """
@@ -1993,7 +2018,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Test methods marked with an aliased #[Test] attribute in a trait are not marked as unused when the consuming class does not import the alias
     Given I have the following code in "MyTestTrait.php"
       """
@@ -2019,7 +2043,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Test methods marked with a fully-qualified #[Test] attribute are not marked as unused
     Given I have the following code in "BaseTestCase.php"
       """
@@ -2041,7 +2064,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Inherited test methods are not marked as unused
     Given I have the following code
       """
@@ -2058,10 +2080,11 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Data providers in traits are not marked as unused
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-pure */
       trait MyTestTrait {
         /**
@@ -2074,26 +2097,27 @@ Feature: TestCase
         use MyTestTrait;
         /**
          * @return void
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_i) {}
       }
       """
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Data providers in test case when test methods are in trait are not marked as unused
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_i) {}
       }
       final class MyTestCase extends TestCase {
@@ -2108,17 +2132,18 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Renamed imported test methods are validated
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function foo(int $_i) {}
       }
       final class MyTestCase extends TestCase {
@@ -2131,17 +2156,18 @@ Feature: TestCase
       | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
     And I see no other errors
 
-  @psalm7
   Scenario: Test methods and providers in trait used by a test case are validated
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       /** @psalm-immutable */
       trait MyTestTrait {
         /**
          * @return void
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(string $_p) {}
         /**
          * @return iterable<int,int[]>
@@ -2160,10 +2186,11 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Providers may omit variadic part for variadic tests
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
@@ -2173,21 +2200,22 @@ Feature: TestCase
           yield "data set" => [1];
         }
         /**
-         * @dataProvider provide
          * @param int ...$rest
          * @return void
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $i, ...$rest) {}
       }
       """
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Providers may omit non-variadic params with default for variadic tests
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
@@ -2197,21 +2225,22 @@ Feature: TestCase
           yield "data set" => [1];
         }
         /**
-         * @dataProvider provide
          * @param int ...$rest
          * @return void
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $i, string $s = "", ...$rest) {}
       }
       """
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Providers may not omit non-variadic params with no default for variadic tests
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{int}>
@@ -2221,11 +2250,11 @@ Feature: TestCase
           yield "data set" => [1];
         }
         /**
-         * @dataProvider provide
          * @param int ...$rest
          * @return void
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $i, string $s, ...$rest) {}
       }
       """
@@ -2235,10 +2264,11 @@ Feature: TestCase
       | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Providers generating incompatible datasets for variadic tests are reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string,array{0: float, 1?:string}>
@@ -2248,10 +2278,10 @@ Feature: TestCase
           yield "data set" => [1., "a"];
         }
         /**
-         * @dataProvider provide
          * @return void
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(float ...$rest) {}
       }
       """
@@ -2261,10 +2291,11 @@ Feature: TestCase
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable[pure]<string, array{0: float, 1?: string}>) |
     And I see no other errors
 
-  @psalm7
   Scenario: Untyped providers returns are not checked against test method signatures
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @psalm-suppress MissingReturnType
@@ -2274,10 +2305,10 @@ Feature: TestCase
           yield "data set" => ["a"];
         }
         /**
-         * @dataProvider provide
          * @return void
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(string $_s) {}
       }
       """
@@ -2332,16 +2363,17 @@ Feature: TestCase
       | Type            | Message                    |
       | InvalidDocblock | Unrecognised annotation @psalm-force-push-master |
 
-  @psalm7
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
-         * @dataProvider provide
          * @psalm-suppress MissingParamType
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething($data): void {}
 
         /**
@@ -2357,7 +2389,6 @@ Feature: TestCase
     Then I see exit code 0
     And I see no errors
 
-  @psalm7
   Scenario: Providers referenced in shorthand docblocks are not marked as unused
     Given I have the following code
       """
@@ -2380,7 +2411,7 @@ Feature: TestCase
     Then I see no errors
 
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: External providers are allowed
     Given I have the following code
       """
@@ -2406,7 +2437,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
@@ -2432,7 +2463,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
@@ -2458,7 +2489,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
@@ -2484,7 +2515,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
@@ -2512,7 +2543,7 @@ Feature: TestCase
       | Type            | Message                                                                                                                                  |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: External providers are available even when Psalm is asked to analyze single test case
     Given I have the following code in "test.php"
       """
@@ -2584,7 +2615,7 @@ Feature: TestCase
     When I run Psalm on "test.php"
     Then I see no errors
 
-  @ExternalProviders @psalm7
+  @ExternalProviders
   Scenario: Missing external provider classes are reported
     Given I have the following code
       """
@@ -2601,10 +2632,12 @@ Feature: TestCase
       | Type           | Message                          |
       | UndefinedClass | Class NS\External does not exist |
 
-  @List @psalm7
+  @List
   Scenario: Providers returning list are ok
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string, non-empty-list<int>>
@@ -2614,19 +2647,21 @@ Feature: TestCase
           yield "dataset name" => [1];
         }
         /**
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_p): void {}
       }
       """
     When I run Psalm
     Then I see no errors
 
-  @List @psalm7
+  @List
   Scenario: Providers returning mismatching list are reported
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return iterable<string, non-empty-list<string>>
@@ -2636,9 +2671,9 @@ Feature: TestCase
           yield "dataset name" => ["1"];
         }
         /**
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_p): void {}
       }
       """
@@ -2647,10 +2682,11 @@ Feature: TestCase
       | Type            | Message                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
 
-  @psalm7
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return ?\Generator<array-key, array<array-key,int>>
@@ -2660,19 +2696,20 @@ Feature: TestCase
           return null;
         }
         /**
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(int $_p): void {}
       }
       """
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: Providers returning null are flagged
     Given I have the following code
       """
+      use PHPUnit\Framework\Attributes;
+
       final class MyTestCase extends TestCase {
         /**
          * @return null
@@ -2682,9 +2719,9 @@ Feature: TestCase
           return null;
         }
         /**
-         * @dataProvider provide
          * @psalm-capabilities read-props
          */
+        #[Attributes\DataProvider('provide')]
         public function testSomething(): void {}
       }
       """
@@ -2723,7 +2760,6 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @psalm7
   Scenario: Unused calls before expectException and in other tests are still reported
     Given I have the following code
       """
@@ -2766,7 +2802,6 @@ Feature: TestCase
       | UnusedMethodCall   | The call to NS\Other::get is not used   |
     And I see no other errors
 
-  @psalm7
   Scenario: MissingThrowsDocblock is not reported after expectException
     Given I have the following config
       """
@@ -2837,7 +2872,6 @@ Feature: TestCase
       | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation           |
     And I see no other errors
 
-  @psalm7
   Scenario: MissingThrowsDocblock is not reported after expectException in a branch
     Given I have the following config
       """
@@ -2889,7 +2923,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @psalm7
   Scenario: MissingThrowsDocblock is not reported for exceptions of PHPUnit's own API
     Given I have the following config
       """
@@ -3044,6 +3077,161 @@ Feature: TestCase
         public function testCountable(\Countable $countable, \ArrayObject $items): void {
           $this->assertNotEmpty($countable);
           self::assertNotEmpty($items);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: assertSame with a null expectation suggests assertNull
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $this->assertSame(null, $value);
+          $this->assertNotSame(NULL, $value);
+          self::assertSame(\null, $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                 |
+      | UnspecificNullAssertion | Use assertNull() instead of assertSame(null, ...)       |
+      | UnspecificNullAssertion | Use assertNotNull() instead of assertNotSame(null, ...) |
+      | UnspecificNullAssertion | Use assertNull() instead of assertSame(null, ...)       |
+    And I see no other errors
+
+  Scenario: assertSame with a boolean expectation suggests assertTrue and assertFalse
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testBool(): void {
+          $flag = random_int(0, 1) === 1;
+          $this->assertSame(true, $flag);
+          $this->assertSame(false, $flag);
+          $this->assertNotSame(true, $flag);
+          self::assertNotSame(FALSE, $flag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertSame(true, ...)         |
+      | UnspecificBooleanAssertion | Use assertFalse() instead of assertSame(false, ...)       |
+      | UnspecificBooleanAssertion | Use assertNotTrue() instead of assertNotSame(true, ...)   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotSame(false, ...) |
+    And I see no other errors
+
+  Scenario: assertSame and assertEquals with count() suggest assertCount
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testCount(): void {
+          $lines = ['a', 'b', 'c'];
+          $collection = new \ArrayObject($lines);
+          $this->assertSame(3, count($lines));
+          $this->assertEquals(3, \count($lines));
+          $this->assertNotSame(2, count($lines));
+          $this->assertNotEquals(2, count($lines));
+          $this->assertSame(3, $collection->count());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                                          |
+      | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
+      | UnspecificCountAssertion | Use assertCount() instead of assertEquals(..., count(...))       |
+      | UnspecificCountAssertion | Use assertNotCount() instead of assertNotSame(..., count(...))   |
+      | UnspecificCountAssertion | Use assertNotCount() instead of assertNotEquals(..., count(...)) |
+      | UnspecificCountAssertion | Use assertCount() instead of assertSame(..., count(...))         |
+    And I see no other errors
+
+  Scenario: Assertions without a literal expectation or a plain count are not reported
+    Given I have the following code
+      """
+      /** @psalm-immutable */
+      final class Bag {
+        /** @psalm-pure */
+        public function count(): int { return 1; }
+      }
+
+      final class MyTestCase extends TestCase {
+        private const NOTHING = null;
+
+        private function maybe(): ?int {
+          return random_int(0, 1) ? 1 : null;
+        }
+
+        public function testOthers(): void {
+          $flag = random_int(0, 1) === 1;
+          $lines = [['a'], ['b']];
+          $this->assertNull($this->maybe());
+          $this->assertTrue($flag);
+          $this->assertCount(2, $lines);
+          $this->assertSame(1, $this->maybe());
+          $this->assertSame(self::NOTHING, $this->maybe());
+          $this->assertSame($flag, true);
+          $this->assertEquals(null, $this->maybe());
+          $this->assertSame(2, count($lines, COUNT_RECURSIVE));
+          $this->assertSame(2, (new Bag())->count());
+          $this->assertSame(2, strlen('ab'));
+          $this->assertNotSame('2', count($lines));
+          $this->assertSame(message: 'no', actual: $this->maybe(), expected: null);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: count() that is not the global function is not reported
+    Given I have the following code
+      """
+      use function strlen as count;
+
+      final class MyTestCase extends TestCase {
+        public function testAliasedCount(): void {
+          $this->assertSame(2, count('ab'));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: count() declared in the test namespace is not reported
+    Given I have the following code
+      """
+      /** @psalm-pure */
+      function count(string $text): int {
+        return strlen($text);
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testNamespacedCount(): void {
+          $this->assertSame(2, count('ab'));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Assertion suggestions can be suppressed
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testSuppressed(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $lines = ['a'];
+          /** @psalm-suppress UnspecificNullAssertion */
+          $this->assertSame(null, $value);
+          /** @psalm-suppress UnspecificBooleanAssertion */
+          $this->assertSame(true, $flag);
+          /** @psalm-suppress UnspecificCountAssertion */
+          $this->assertSame(1, count($lines));
         }
       }
       """

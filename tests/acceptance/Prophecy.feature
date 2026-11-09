@@ -1,4 +1,3 @@
-@psalm7
 Feature: Prophecy
   In order to use Prophecy in my test cases
   As a Psalm user

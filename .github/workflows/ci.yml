@@ -24,7 +24,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.1'
+                  php-version: '8.2'
                   tools: composer:v2
                   coverage: none
               env:
@@ -64,7 +64,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.1'
+                  php-version: '8.2'
                   tools: composer:v2, cs2pr
                   coverage: none
               env:
@@ -121,11 +121,10 @@ jobs:
     tests:
         name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
         runs-on: ubuntu-latest
-        continue-on-error: ${{matrix.php == '8.0'}}
         strategy:
             matrix:
                 # Pull requests test the lowest and highest PHP; pushes, the schedule and manual runs test all.
-                php: ${{ fromJSON(github.event_name == 'pull_request' && '["8.1", "8.4"]' || '["8.1", "8.2", "8.3", "8.4"]') }}
+                php: ${{ fromJSON(github.event_name == 'pull_request' && '["8.2", "8.4"]' || '["8.2", "8.3", "8.4"]') }}
                 deps: ['high', 'low', 'stable']
                 exclude:
                   - php: 8.4
@@ -173,7 +172,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer dependencies (low deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest --with vimeo/psalm:^7.0.0-rc3
+              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
               if: ${{matrix.deps == 'low'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
@@ -185,7 +184,7 @@ jobs:
                   COMPOSER_ROOT_VERSION: dev-master
 
             - name: Install composer dependencies (stable deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --with vimeo/psalm:^7
+              run: composer update --prefer-dist --no-interaction --prefer-stable
               if: ${{matrix.deps == 'stable'}}
               env:
                   COMPOSER_ROOT_VERSION: dev-master
