@@ -3415,6 +3415,91 @@ Feature: TestCase
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @requires docblock tag, use #[RequiresPhp], #[RequiresPhpExtension], #[RequiresOperatingSystem] or another #[Requires*] instead | 15   |
     And I see no other errors
 
+  Scenario: PHPUnit 11 pin survives a config with its own autoloader
+    Given PHPUnit identifies as version "11.5.0"
+    And I have the following code in "autoload.php"
+      """
+      <?php
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @test
+         */
+        public function itWorks(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: PHPUnit 12 pin survives a config with its own autoloader
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following code in "autoload.php"
+      """
+      <?php
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @test
+         */
+        public function itWorks(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                        | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead | 7    |
+    And I see no other errors
+
   Scenario: PHPUnit 12 leaves Psalm and other docblock tags alone
     Given PHPUnit identifies as version "12.5.43"
     And I have the following code

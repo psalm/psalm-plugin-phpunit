@@ -30,8 +30,10 @@ final class Context implements BehatContext
 {
     /** @var non-empty-string|null */
     private string|null $scenarioDirectory = null;
+    private string|null $phpunitVersion = null;
     /** @var non-empty-string|null */
     private string|null $phpunitVersionFile = null;
+    private string|null $ownAutoloader = null;
     private bool $configWritten = false;
     private string $codePreamble = '';
     private string|null $processOutput = null;
@@ -57,7 +59,7 @@ final class Context implements BehatContext
     {
         Filesystem\delete_directory($this->scenarioDirectory(), true);
 
-        if ($this->phpunitVersionFile !== null) {
+        if ($this->phpunitVersionFile !== null && Filesystem\is_file($this->phpunitVersionFile)) {
             Filesystem\delete_file($this->phpunitVersionFile);
         }
     }
@@ -133,31 +135,82 @@ final class Context implements BehatContext
     #[Given('I have the following config')]
     public function iHaveTheFollowingConfig(PyStringNode $config): void
     {
-        $autoloader = $this->phpunitVersionFile === null ? '' : sprintf('autoloader="%s"', $this->phpunitVersionFile);
+        $xml = sprintf($config->getRaw(), '');
 
-        $this->writeFile('psalm.xml', sprintf($config->getRaw(), $autoloader));
+        if ($this->phpunitVersion !== null) {
+            $xml = $this->withVersionShim($xml);
+        }
+
+        $this->writeFile('psalm.xml', $xml);
         $this->configWritten = true;
     }
 
     /**
-     * Psalm loads the config's autoloader before analysis, and the plugin reads the version from this class.
-     * The file lives beside the scenario directory so that it is not part of the analysed project.
-     * The first call has to come before the config step; later calls only change the version.
+     * Psalm loads the config's autoloader before analysis, and the plugin reads the version from the
+     * PHPUnit\Runner\Version class. The first call has to come before the config step; later calls only
+     * change the version.
      */
     #[Given('PHPUnit identifies as version :version')]
     public function phpunitIdentifiesAsVersion(string $version): void
     {
         invariant(
-            $this->phpunitVersionFile !== null || !$this->configWritten,
+            $this->phpunitVersion !== null || !$this->configWritten,
             'The PHPUnit version has to be given before the first config',
         );
 
+        $this->phpunitVersion = $version;
+
+        if ($this->phpunitVersionFile !== null) {
+            $this->writeVersionShim($this->phpunitVersionFile);
+        }
+    }
+
+    /**
+     * Every config gets the shim as its autoloader, whatever the config says: a scenario's own autoloader is
+     * required by the shim. The shim lives beside the scenario directory, so it is not part of the analysed project.
+     */
+    private function withVersionShim(string $xml): string
+    {
         $file = $this->phpunitVersionFile ??= $this->scenarioDirectory() . '-phpunit-version.php';
 
+        $own = null;
+        $xml = \preg_replace_callback(
+            '/(<psalm\b[^>]*?)\s+autoloader="([^"]*)"/',
+            static function (array $matches) use (&$own): string {
+                $own = $matches[2];
+
+                return $matches[1];
+            },
+            $xml,
+            1,
+        );
+        invariant($xml !== null, 'Cannot read the config');
+
+        $this->ownAutoloader = $own === null ? null : $this->resolveInScenario($own);
+        $this->writeVersionShim($file);
+
+        $xml = \preg_replace('/<psalm\b/', sprintf('<psalm autoloader="%s"', $file), $xml, 1);
+        invariant($xml !== null, 'Cannot read the config');
+
+        return $xml;
+    }
+
+    private function resolveInScenario(string $path): string
+    {
+        return \str_starts_with($path, '/') ? $path : $this->scenarioDirectory() . '/' . $path;
+    }
+
+    private function writeVersionShim(string $file): void
+    {
+        $version = $this->phpunitVersion;
+        invariant($version !== null, 'No PHPUnit version given');
+
         File\write($file, sprintf(
-            "<?php\nnamespace PHPUnit\\Runner;\nfinal class Version\n{\n"
-            . "    public static function id(): string\n    {\n        return %s;\n    }\n}\n",
+            "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
+            . "        public static function id(): string\n        {\n            return %s;\n        }\n    }\n}\n"
+            . "namespace {\n%s}\n",
             \var_export($version, true),
+            $this->ownAutoloader === null ? '' : sprintf("    require_once %s;\n", \var_export($this->ownAutoloader, true)),
         ), File\WriteMode::TRUNCATE);
     }
 
