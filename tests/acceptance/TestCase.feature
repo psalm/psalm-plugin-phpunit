@@ -4,7 +4,8 @@ Feature: TestCase
   I need Psalm to typecheck my test cases
 
   Background:
-    Given I have the following config
+    Given PHPUnit identifies as version "11.5.0"
+    And I have the following config
       """
       <?xml version="1.0"?>
       <psalm errorLevel="1" findUnusedCode="false" %s>

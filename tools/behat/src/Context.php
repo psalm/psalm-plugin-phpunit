@@ -30,6 +30,9 @@ final class Context implements BehatContext
 {
     /** @var non-empty-string|null */
     private string|null $scenarioDirectory = null;
+    /** @var non-empty-string|null */
+    private string|null $phpunitVersionFile = null;
+    private bool $configWritten = false;
     private string $codePreamble = '';
     private string|null $processOutput = null;
     /** @var int<0, 255> */
@@ -53,6 +56,10 @@ final class Context implements BehatContext
     public function cleanUpScenario(): void
     {
         Filesystem\delete_directory($this->scenarioDirectory(), true);
+
+        if ($this->phpunitVersionFile !== null) {
+            Filesystem\delete_file($this->phpunitVersionFile);
+        }
     }
 
     /** @return non-empty-string */
@@ -76,7 +83,7 @@ final class Context implements BehatContext
 
     private function writeFile(string $file, string $contents): void
     {
-        File\write($this->scenarioDirectory() . '/' . $file, $contents);
+        File\write($this->scenarioDirectory() . '/' . $file, $contents, File\WriteMode::TRUNCATE);
     }
 
     /** @param list<non-empty-string> $additionalFlags */
@@ -126,7 +133,32 @@ final class Context implements BehatContext
     #[Given('I have the following config')]
     public function iHaveTheFollowingConfig(PyStringNode $config): void
     {
-        $this->writeFile('psalm.xml', sprintf($config->getRaw(), ''));
+        $autoloader = $this->phpunitVersionFile === null ? '' : sprintf('autoloader="%s"', $this->phpunitVersionFile);
+
+        $this->writeFile('psalm.xml', sprintf($config->getRaw(), $autoloader));
+        $this->configWritten = true;
+    }
+
+    /**
+     * Psalm loads the config's autoloader before analysis, and the plugin reads the version from this class.
+     * The file lives beside the scenario directory so that it is not part of the analysed project.
+     * The first call has to come before the config step; later calls only change the version.
+     */
+    #[Given('PHPUnit identifies as version :version')]
+    public function phpunitIdentifiesAsVersion(string $version): void
+    {
+        invariant(
+            $this->phpunitVersionFile !== null || !$this->configWritten,
+            'The PHPUnit version has to be given before the first config',
+        );
+
+        $file = $this->phpunitVersionFile ??= $this->scenarioDirectory() . '-phpunit-version.php';
+
+        File\write($file, sprintf(
+            "<?php\nnamespace PHPUnit\\Runner;\nfinal class Version\n{\n"
+            . "    public static function id(): string\n    {\n        return %s;\n    }\n}\n",
+            \var_export($version, true),
+        ), File\WriteMode::TRUNCATE);
     }
 
     #[Given('I have the following code preamble')]
