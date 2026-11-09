@@ -215,13 +215,39 @@ final class TestCaseHandler implements
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            foreach (self::getDataProviders($method, $aliases, $aliases, $class_storage) as $provider) {
+            $providers = self::getDataProviders($method, $aliases, $aliases, $class_storage);
+            foreach ($providers as $provider) {
                 if ($provider['class'] === null) {
                     continue;
                 }
                 $codebase->queueClassLikeForScanning($provider['class']);
                 $file_storage->referenced_classlikes[strtolower($provider['class'])] = $provider['class'];
             }
+
+            $method_storage = $class_storage->methods[strtolower($method->name->name)] ?? null;
+            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
+            $has_attribute = self::hasPhpUnitAttribute($method, $aliases);
+            if (
+                $method_storage === null
+                || $providers === []
+                || ($has_attribute && self::getAttributeDataProviders($method, $aliases, $class_storage) === null)
+                || count($providers) < self::countProviderAttributes($method, $aliases)
+            ) {
+                continue;
+            }
+
+            $test_specials = $has_attribute
+                ? self::getAttributeSpecials($method, $aliases)
+                : self::docblockSpecials($method);
+            $method_storage->custom_metadata[DataProviderNarrowingHandler::METADATA_KEY] = [
+                // the test's own class is resolved at analysis, where a trait method has the class that uses it
+                'providers' => array_map(
+                    static fn(array $provider): array => [$provider['class'] ?? '', $provider['method']],
+                    $providers,
+                ),
+                'test'      => isset($test_specials['test']),
+                'depends'   => self::getDependencyTargets($method, $aliases, $class_storage) !== [],
+            ];
         }
     }
 
@@ -804,7 +830,7 @@ final class TestCaseHandler implements
     }
 
     /** @psalm-pure */
-    private static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type, bool $required_only = false): bool
+    public static function hasStringKeys(Type\Atomic\TKeyedArray $dataset_type, bool $required_only = false): bool
     {
         foreach ($dataset_type->properties as $key => $type) {
             if (is_string($key) && !($required_only && $type->possibly_undefined)) {
@@ -825,7 +851,7 @@ final class TestCaseHandler implements
         return $union->getAtomicTypes();
     }
 
-    private static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
+    public static function unionizeIterables(Codebase $codebase, Type\Union $iterables): Type\Atomic\TIterable
     {
         /** @var Type\Union[] $key_types */
         $key_types = [];
@@ -1145,6 +1171,30 @@ final class TestCaseHandler implements
         $return_type = $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
 
         return $return_type === null || !($return_type->isVoid() || $return_type->isNever());
+    }
+
+    /**
+     * getAttributeDataProviders() leaves out the attributes it cannot read, such as #[DataProvider(self::NAME)] and
+     * #[DataProviderClosure] (named by string, as not every supported PHPUnit version has it).
+     */
+    private static function countProviderAttributes(ClassMethod $method, Aliases $aliases): int
+    {
+        $provider_attributes = [
+            DataProvider::class,
+            DataProviderExternal::class,
+            'PHPUnit\\Framework\\Attributes\\DataProviderClosure',
+        ];
+        $count = 0;
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if (in_array($attribute_class, $provider_attributes, true)) {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
     }
 
     /**

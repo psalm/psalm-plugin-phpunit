@@ -31,5 +31,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\MissingParentCallHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\MissingParentCallHandler::class);
+
+        class_exists(Hooks\DataProviderNarrowingHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\DataProviderNarrowingHandler::class);
     }
 }
