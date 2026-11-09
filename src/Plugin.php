@@ -28,5 +28,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\DocblockMetadataHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\DocblockMetadataHandler::class);
+
+        class_exists(Hooks\MissingParentCallHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\MissingParentCallHandler::class);
     }
 }
