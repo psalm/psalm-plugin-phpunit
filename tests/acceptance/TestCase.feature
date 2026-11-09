@@ -1148,6 +1148,477 @@ Feature: TestCase
       | TooFewArguments |Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
+  Scenario: String-keyed datasets are matched to parameters by name
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{cents: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function prices(): iterable {
+          return [['cents' => 100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{currency: string, cents: int}>
+         * @psalm-pure
+         */
+        public static function reordered(): iterable {
+          return [['currency' => 'EUR', 'cents' => 100]];
+        }
+
+        /**
+         * @return iterable<int, array{b: int}>
+         * @psalm-pure
+         */
+        public static function skippingDefault(): iterable {
+          return [['b' => 3]];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function mixed(): iterable {
+          return [[100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, x: string}>
+         * @psalm-pure
+         */
+        public static function variadic(): iterable {
+          return [['a' => 1, 'x' => 'foo']];
+        }
+
+        #[DataProvider('prices')]
+        #[DataProvider('reordered')]
+        #[DataProvider('mixed')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+
+        #[DataProvider('skippingDefault')]
+        public function testDefaults(string $a = 'x', int $b = 2): void {
+          $this->assertNotEmpty($a . $b);
+        }
+
+        #[DataProvider('variadic')]
+        public function testVariadic(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed dataset entries are checked against the parameter they name
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{currency: int, cents: string}>
+         * @psalm-pure
+         */
+        public static function swapped(): iterable {
+          return [['currency' => 1, 'cents' => 'x']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, x: bool}>
+         * @psalm-pure
+         */
+        public static function variadic(): iterable {
+          return [['a' => 1, 'x' => true]];
+        }
+
+        #[DataProvider('swapped')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+
+        #[DataProvider('variadic')]
+        public function testVariadic(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 2 ($currency) of NS\MyTestCase::testPrice expects string, int provided by NS\MyTestCase::swapped():(iterable<int, array{cents: string, currency: int}>) |
+      | InvalidArgument | Argument 1 ($cents) of NS\MyTestCase::testPrice expects int, string provided by NS\MyTestCase::swapped():(iterable<int, array{cents: string, currency: int}>) |
+      | InvalidArgument | Argument 2 ($x) of NS\MyTestCase::testVariadic expects string, bool provided by NS\MyTestCase::variadic():(iterable<int, array{a: int, x: bool}>) |
+    And I see no other errors
+
+  Scenario: Unknown, already used and missing named parameters are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{cents: int, nope: string}>
+         * @psalm-pure
+         */
+        public static function unknown(): iterable {
+          return [['cents' => 1, 'nope' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, cents: int}>
+         * @psalm-pure
+         */
+        public static function overwriting(): iterable {
+          return [[1, 'cents' => 2]];
+        }
+
+        /**
+         * @return iterable<int, array{cents: int}>
+         * @psalm-pure
+         */
+        public static function missing(): iterable {
+          return [['cents' => 1]];
+        }
+
+        #[DataProvider('unknown')]
+        #[DataProvider('overwriting')]
+        #[DataProvider('missing')]
+        public function testPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidNamedArgument | Parameter $nope does not exist on NS\MyTestCase::testPrice, provided by NS\MyTestCase::unknown():(iterable<int, array{cents: int, nope: string}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::unknown():(iterable<int, array{cents: int, nope: string}>) |
+      | InvalidNamedArgument | Parameter $cents has already been used in NS\MyTestCase::testPrice, provided by NS\MyTestCase::overwriting():(iterable<int, array{0: int, cents: int}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::overwriting():(iterable<int, array{0: int, cents: int}>) |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testPrice - parameter $currency is not provided by NS\MyTestCase::missing():(iterable<int, array{cents: int}>) |
+    And I see no other errors
+
+  Scenario: Named dataset keys that cannot be checked precisely are not reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait HasPriceTest {
+        #[DataProvider('prices')]
+        public function testTraitPrice(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use HasPriceTest;
+
+        /**
+         * @return iterable<int, array{cents: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function prices(): iterable {
+          return [['cents' => 100, 'currency' => 'EUR']];
+        }
+
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function unsealed(): iterable {
+          return [['a' => 1, 'b' => 2]];
+        }
+
+        /**
+         * @return iterable<int, array<string, int>>
+         * @psalm-pure
+         */
+        public static function generic(): iterable {
+          return [['a' => 1, 'b' => 2]];
+        }
+
+        #[DataProvider('unsealed')]
+        #[DataProvider('generic')]
+        public function testUnsealed(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Docblock data providers with string keys are matched to parameters by name
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{currency: string, cents: int}>
+         * @psalm-pure
+         */
+        public static function reordered(): iterable {
+          return [['currency' => 'EUR', 'cents' => 100]];
+        }
+
+        /**
+         * @dataProvider reordered
+         */
+        public function testDocblock(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Possibly undefined named dataset keys are reported once
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 ($a) of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{a?: int}>) |
+    And I see no other errors
+
+  Scenario: Possibly undefined positional entries do not fill parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, a: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a = 0): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Optional named entries for parameters filled by a positional entry are not checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, a?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Int-keyed entries after a possibly undefined one are not bound to fixed parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{tag: int, 0?: int, 1: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1, 1 => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b = 0, int $tag = 0): void {
+          $this->assertNotEmpty($a . $b . $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The first possibly undefined positional entry is checked against its own parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, tag: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $tag): void {
+          $this->assertNotSame($a, $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{0?: int, tag: int}>) |
+    And I see no other errors
+
+  Scenario: Optional positional entries that can only land in a variadic parameter are checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, 1?: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function optional(): iterable {
+          return [[1, 'x' => 'foo']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, 1?: string, 2: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function shifting(): iterable {
+          return [[1, 'a', true, 'x' => 'foo']];
+        }
+
+        #[DataProvider('optional')]
+        #[DataProvider('shifting')]
+        public function testSomething(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::optional():(iterable<int, array{0: int, 1?: bool, x: string}>) |
+      | InvalidArgument | Argument 3 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::shifting():(iterable<int, array{0: int, 1?: string, 2: bool, x: string}>) |
+    And I see no other errors
+
+  Scenario: Unsealed datasets whose values cannot fill a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'x' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, array $b): void {
+          $this->assertNotEmpty($a);
+          $this->assertNotEmpty($b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<string, int>}>) |
+    And I see no other errors
+
+  Scenario: Unsealed datasets whose extra keys cannot name a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<'other', int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'other' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<'other', int>}>) |
+    And I see no other errors
+
+  Scenario: Dependency values still count when a possibly undefined string key is the only key
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{x?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{x?: int}>) | 22 |
+    And I see no other errors
+
   Scenario: @depends values are not required from the @dataProvider
     Given I have the following code
       """
