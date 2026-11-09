@@ -4184,7 +4184,6 @@ Feature: TestCase
           $this->assertEquals(0.5, $float);
           $this->assertEquals($float, $float);
           $this->assertEquals($flag, !$flag);
-          $this->assertNotEquals(true, $flag);
         }
       }
       """
@@ -4202,7 +4201,30 @@ Feature: TestCase
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 20   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 21   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         | 22   |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   | 23   |
+    And I see no other errors
+
+  Scenario: assertEquals with a boolean expectation suggests assertTrue and assertFalse
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testBool(): void {
+          $flag = random_int(0, 1) === 1;
+          $this->assertEquals(true, $flag);
+          $this->assertEquals(FALSE, $flag);
+          $this->assertNotEquals(true, $flag);
+          self::assertNotEquals(false, $flag);
+          $this->assertEquals(true, true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                     | Line |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 8    |
+      | UnspecificBooleanAssertion | Use assertFalse() instead of assertEquals(false, ...)       | 9    |
+      | UnspecificBooleanAssertion | Use assertNotTrue() instead of assertNotEquals(true, ...)   | 10   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotEquals(false, ...) | 11   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 12   |
     And I see no other errors
 
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
@@ -4222,6 +4244,8 @@ Feature: TestCase
           $this->assertEquals(1, $text);
           $this->assertEquals(1, $float);
           $this->assertEquals(true, $int);
+          $this->assertNotEquals(false, $text);
+          $this->assertEquals(true, $int ? true : null);
           $this->assertEquals(0, $maybeInt);
           $this->assertEquals($maybeInt, $int);
           $this->assertEquals(null, $int);
@@ -6617,6 +6641,182 @@ final class MyTestCase extends TestCase
       | Type                 | Message                              |
       | MissingParentCall    | Missing call to parent::tearDown()   |
       | UnusedPsalmSuppress  | This suppression is never used       |
+    And I see no other errors
+
+  Scenario: assertPreConditions and assertPostConditions without a call to the parent are reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPostConditions(): void {
+        }
+      }
+
+      final class DirectTestCase extends TestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+      }
+
+      final class CallingTestCase extends BaseTestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                         |
+      | MissingParentCall | Missing call to parent::assertPreConditions()  |
+      | MissingParentCall | Missing call to parent::assertPostConditions() |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of mocks is reported for each type lacking it
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function send(): bool;
+
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMissingOnOneType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testMissingOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testDefinedOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('send')->willReturn(true);
+        }
+
+        public function testExpects(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->expects($this->once())->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testInlineUnion(bool $flag): void {
+          ($flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class))->method('sendInvoice');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 23   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce()    | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoce()  | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 38   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 42   |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of stubs and mocks is reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testStubAndMock(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createMock(Notifier::class);
+          $double->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testStubs(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createStub(Notifier::class);
+          $double->method('send')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 20   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::send()          | 25   |
+    And I see no other errors
+
+  Scenario: Union members Psalm cannot check do not hide the checked ones
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      final class Configurable {
+        /** @psalm-impure */
+        public function method(string $name): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOwnMethod(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : new Configurable();
+          $double->method('typo');
+        }
+
+        public function testNotADouble(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : null;
+          $double->method('typo');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                              | Line |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 20   |
+      | PossiblyNullReference | Cannot call method method on possibly null value     | 25   |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 25   |
     And I see no other errors
 
   Scenario: Unknown @psalm tag does not hide a missing @dataProvider
