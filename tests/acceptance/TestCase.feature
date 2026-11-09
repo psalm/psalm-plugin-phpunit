@@ -2632,6 +2632,557 @@ Feature: TestCase
       | Type           | Message                          |
       | UndefinedClass | Class NS\External does not exist |
 
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] providers are allowed
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] providers are not marked as unused
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: Unreferenced external providers are still marked as unused
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function other() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                            |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\External::other |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Mismatched #[DataProviderExternal] providers are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<string, array<int,string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield "dataset name" => ["1"];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                        |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Missing #[DataProviderExternal] method is reported on the line of its own attribute
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        #[Attributes\DataProviderExternal(External::class, 'missing')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                             | Line |
+      | UndefinedMethod | Provider method NS\External::missing is not defined | 20   |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Non-static #[DataProviderExternal] provider is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                  |
+      | InvalidDataProvider | Data provider method NS\External::provide must be static |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Non-public #[DataProviderExternal] provider is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        protected static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                  |
+      | InvalidDataProvider | Data provider method NS\External::provide must be public |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Invalid #[DataProviderExternal] provider can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-suppress InvalidDataProvider
+         */
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] with a class name string is checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<string, array<int,string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield "dataset name" => ["1"];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal('NS\External', 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message                                                                                                                                        |
+      | InvalidArgument      | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
+      | ArgumentTypeCoercion | Argument 1 of PHPUnit\Framework\Attributes\DataProviderExternal::__construct expects class-string, but parent type 'NS\\\\External' provided   |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] class is resolved through an import alias and named arguments
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProviderExternal as Ext;
+      use NS\External as Provider;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Ext(methodName: 'provide', className: Provider::class)]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] accepts self::class and parent::class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function base() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function own() {
+          yield [1];
+        }
+
+        #[Attributes\DataProviderExternal(self::class, 'own')]
+        #[Attributes\DataProviderExternal(parent::class, 'base')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] can be repeated and mixed with #[DataProvider]
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function first() {
+          yield [1];
+        }
+
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function second() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function own() {
+          yield [1];
+        }
+
+        #[Attributes\DataProviderExternal(External::class, 'first')]
+        #[Attributes\DataProvider('own')]
+        #[Attributes\DataProviderExternal(External::class, 'second')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] of a trait test method is checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<string, array<int,string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield "dataset name" => ["1"];
+        }
+      }
+
+      trait MyTestTrait {
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testInTrait(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use MyTestTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                      |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testInTrait expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Docblock data provider is unused when the test has a #[DataProviderExternal] attribute
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function legacy() {
+          yield [1];
+        }
+
+        /**
+         * @dataProvider legacy
+         */
+        #[Attributes\DataProviderExternal(External::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                               |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::legacy |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: Missing #[DataProviderExternal] class is reported once by Psalm
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProviderExternal(Missing::class, 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                                                  |
+      | UndefinedClass | Class, interface or enum named NS\Missing does not exist |
+    And I see no other errors
+
+  @ExternalProviders
+  Scenario: #[DataProviderExternal] with a class name string is available even when Psalm is asked to analyze single test case
+    Given I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+      use PHPUnit\Framework\Attributes\DataProviderExternal;
+
+      final class MyTestCase extends TestCase {
+        #[DataProviderExternal('NS\External', 'provide')]
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    And I have the following code in "ext.php"
+      """
+      <?php
+      namespace NS;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<string, array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield "dataset name" => [1];
+        }
+      }
+      """
+    And I have the following code in "autoload.php"
+      """
+      <?php
+      spl_autoload_register(function(string $class) {
+          /** @var ?array<string,string> $classes */
+          static $classes = null;
+
+          if (null === $classes) {
+              $classes = [
+                  'NS\\MyTestCase' => 'test.php',
+                  'NS\\External'   => 'ext.php',
+              ];
+          }
+
+          if (array_key_exists($class, $classes)) {
+              /** @psalm-suppress UnresolvableInclude */
+              include $classes[$class];
+          }
+      });
+      """
+    And I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    When I run Psalm on "test.php"
+    Then I see these errors
+      | Type                 | Message                                                                                                                                      |
+      | ArgumentTypeCoercion | Argument 1 of PHPUnit\Framework\Attributes\DataProviderExternal::__construct expects class-string, but parent type 'NS\\\\External' provided |
+    And I see no other errors
+
   @List
   Scenario: Providers returning list are ok
     Given I have the following code
@@ -2679,7 +3230,7 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                                                                                              |
+      | Type            | Message                                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
 
   Scenario: Providers returning nullable generator are ok
@@ -2795,11 +3346,11 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type               | Message                                 |
-      | UnusedFunctionCall | The call to json_decode is not used     |
-      | UnusedMethodCall   | The call to NS\Value::get is not used   |
-      | UnusedFunctionCall | The call to json_encode is not used     |
-      | UnusedMethodCall   | The call to NS\Other::get is not used   |
+      | Type               | Message                               |
+      | UnusedFunctionCall | The call to json_decode is not used   |
+      | UnusedMethodCall   | The call to NS\Value::get is not used |
+      | UnusedFunctionCall | The call to json_encode is not used   |
+      | UnusedMethodCall   | The call to NS\Other::get is not used |
     And I see no other errors
 
   Scenario: MissingThrowsDocblock is not reported after expectException
@@ -2865,11 +3416,11 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                  | Message                                                                                               |
+      | Type                  | Message                                                                                             |
       | MissingThrowsDocblock | InvalidArgumentException is thrown but not caught - please either catch or add a @throws annotation |
       | MissingThrowsDocblock | InvalidArgumentException is thrown but not caught - please either catch or add a @throws annotation |
-      | MissingThrowsDocblock | DomainException is thrown but not caught - please either catch or add a @throws annotation            |
-      | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation           |
+      | MissingThrowsDocblock | DomainException is thrown but not caught - please either catch or add a @throws annotation          |
+      | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation         |
     And I see no other errors
 
   Scenario: MissingThrowsDocblock is not reported after expectException in a branch

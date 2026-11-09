@@ -18,6 +18,7 @@ use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\DependsExternal;
 use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
@@ -203,17 +204,12 @@ final class TestCaseHandler implements
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method, $aliases);
-            if (!isset($specials['dataProvider'])) {
-                continue;
-            }
-            foreach ($specials['dataProvider'] as [, $provider]) {
-                if (false !== strpos($provider, '::')) {
-                    [$class_name] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
-                    $codebase->queueClassLikeForScanning($fq_class_name);
-                    $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
+            foreach (self::getDataProviders($method, $aliases, $class_storage) as $provider) {
+                if ($provider['class'] === null) {
+                    continue;
                 }
+                $codebase->queueClassLikeForScanning($provider['class']);
+                $file_storage->referenced_classlikes[strtolower($provider['class'])] = $provider['class'];
             }
         }
     }
@@ -268,7 +264,7 @@ final class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method, $method_aliases);
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
+                && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -280,7 +276,8 @@ final class TestCaseHandler implements
                 'PHPUnit\Framework\TestSuite::run'
             );
 
-            if (!isset($specials['dataProvider'])) {
+            $providers = self::getDataProviders($stmt_method, $method_aliases, $class_storage);
+            if ($providers === []) {
                 continue;
             }
 
@@ -290,28 +287,27 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            foreach ($specials['dataProvider'] as [$line, $provider]) {
-                $provider_docblock_location = $method_storage->location->setCommentLine($line);
+            foreach ($providers as $provider) {
+                $provider_docblock_location = $method_storage->location->setCommentLine($provider['line']);
 
-                if (false !== strpos($provider, '::')) {
-                    [$class_name, $method_id] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+                if ($provider['class'] !== null) {
+                    $fq_class_name = $provider['class'];
 
                     if (!$codebase->classOrInterfaceExists($fq_class_name, $provider_docblock_location)) {
-                        IssueBuffer::accepts(new Issue\UndefinedClass(
-                            'Class ' . $fq_class_name . ' does not exist',
-                            $provider_docblock_location,
-                            $fq_class_name
-                        ));
+                        // Psalm reports the missing class of an attribute argument itself
+                        if (!$provider['external']) {
+                            IssueBuffer::accepts(new Issue\UndefinedClass(
+                                'Class ' . $fq_class_name . ' does not exist',
+                                $provider_docblock_location,
+                                $fq_class_name
+                            ));
+                        }
                         continue;
                     }
-                    $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
+                    $apparent_provider_method_name = $fq_class_name . '::' . $provider['method'];
                 } else {
-                    $apparent_provider_method_name = $class_storage->name . '::' . $provider;
+                    $apparent_provider_method_name = $class_storage->name . '::' . $provider['method'];
                 }
-
-                $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
-                assert($apparent_provider_method_name !== null);
 
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
@@ -728,6 +724,95 @@ final class TestCaseHandler implements
     }
 
     /**
+     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>
+     *     class is null for a provider of the test's own class
+     */
+    private static function getDataProviders(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
+    {
+        $attribute_providers = self::getAttributeDataProviders($method, $aliases, $class);
+        if ($attribute_providers !== null) {
+            return $attribute_providers;
+        }
+
+        return array_map(
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $aliases),
+            self::getDocblockSpecials($method)['dataProvider'] ?? [],
+        );
+    }
+
+    /**
+     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
+     */
+    private static function getAttributeDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        ClassLikeStorage $class
+    ): array|null {
+        $references = self::attributeValue($method, $aliases, DataProvider::class);
+        $has_attributes = $references !== null;
+        $providers = array_map(
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $aliases),
+            $references ?? [],
+        );
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if ($attribute_class !== DataProviderExternal::class) {
+                    continue;
+                }
+
+                $has_attributes = true;
+                $args           = [];
+                foreach ($attribute->args as $position => $arg) {
+                    $args[$arg->name?->toString() ?? $position] = $arg->value;
+                }
+
+                $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
+                $method_name = $args['methodName'] ?? $args[1] ?? null;
+                if ($class_name === null || !$method_name instanceof String_) {
+                    continue;
+                }
+
+                $providers[] = [
+                    'line'     => $attribute->getStartLine(),
+                    'class'    => $class_name,
+                    'method'   => $method_name->value,
+                    'external' => true,
+                ];
+            }
+        }
+
+        return $has_attributes ? $providers : null;
+    }
+
+    /**
+     * "Class::method" or "method" (optionally with trailing parentheses), as written in #[DataProvider] or
+     * a dataProvider docblock tag.
+     *
+     * @psalm-mutation-free
+     *
+     * @return array{line: int, class: string|null, method: string, external: bool}
+     */
+    private static function parseProviderReference(int $line, string $reference, Aliases $aliases): array
+    {
+        $parts  = explode('::', $reference, 2);
+        $method = preg_replace('/\(\s*\)$/', '', $parts[1] ?? $parts[0]);
+        assert($method !== null);
+
+        return [
+            'line'     => $line,
+            'class'    => isset($parts[1]) ? Type::getFQCLNFromString($parts[0], $aliases) : null,
+            'method'   => $method,
+            'external' => false,
+        ];
+    }
+
+    /**
      * PHPUnit appends the return value of every distinct depended-upon test that is not declared void or never
      * to the data provider values. Depending on a whole class passes no value.
      */
@@ -862,7 +947,6 @@ final class TestCaseHandler implements
         return array_filter([
             'before'       => self::attributeValue($method, $aliases, Before::class),
             'test'         => self::attributeValue($method, $aliases, Test::class),
-            'dataProvider' => self::attributeValue($method, $aliases, DataProvider::class),
         ], static fn(array|null $special): bool => $special !== null);
     }
 
