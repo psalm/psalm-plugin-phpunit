@@ -240,10 +240,26 @@ final class TestCaseHandler implements
         }
 
         self::reportMalformedTags(
+            $event,
             $class_node,
             new CodeLocation($statements_source, $class_node),
-            $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
+            [],
         );
+
+        // PHPUnit merges the class docblocks of the traits used directly by the test case, not of nested ones
+        foreach ($class_storage->used_traits as $trait_name) {
+            $trait_storage = $codebase->classlike_storage_provider->get($trait_name);
+            if (!$trait_storage->location) {
+                continue;
+            }
+
+            self::reportMalformedTags(
+                $event,
+                $codebase->classlikes->getTraitNode($trait_name),
+                $trait_storage->stmt_location ?? $trait_storage->location,
+                $trait_storage->suppressed_issues,
+            );
+        }
 
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
@@ -271,15 +287,14 @@ final class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method, $method_aliases);
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
+                && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
-            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
-            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
-            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
-                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
-            }
-
-            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
+            self::reportMalformedTags(
+                $event,
+                $stmt_method,
+                $method_storage->location,
+                $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
+            );
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -331,7 +346,10 @@ final class TestCaseHandler implements
                     $apparent_provider_method_name = $class_storage->name . '::' . $provider['method'];
                 }
 
-                $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
+                // getDeclaringMethodId() would truncate "Class::A::b" to "Class::A", so never look such a name up
+                $provider_method_id = str_contains($provider['method'], '::')
+                    ? null
+                    : $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
                 if (null === $provider_method_id) {
                     IssueBuffer::accepts(new Issue\UndefinedMethod(
@@ -826,8 +844,8 @@ final class TestCaseHandler implements
     /**
      * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
      *
-     * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. PHPUnit takes
-     * "Class::method" strings literally, so $reference_aliases (of the analysed file) resolve those.
+     * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. The "Class::method"
+     * references of docblock tags are resolved with $reference_aliases (of the analysed file).
      *
      * @return list<array{line: int, class: string|null, method: string, external: bool}>
      *     class is null for a provider of the test's own class
@@ -838,7 +856,7 @@ final class TestCaseHandler implements
         Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array {
-        return self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class)
+        return self::getAttributeDataProviders($method, $aliases, $class)
             ?? array_map(
                 static fn(array $entry): array => self::parseProviderReference(
                     $entry[0],
@@ -857,13 +875,18 @@ final class TestCaseHandler implements
     private static function getAttributeDataProviders(
         ClassMethod $method,
         Aliases $aliases,
-        Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array|null {
         $references = self::attributeValue($method, $aliases, DataProvider::class);
         $has_attributes = $references !== null;
+        // PHPUnit takes a #[DataProvider] argument literally as a method name of the test class
         $providers = array_map(
-            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
+            static fn(array $entry): array => [
+                'line'     => $entry[0],
+                'class'    => null,
+                'method'   => $entry[1],
+                'external' => false,
+            ],
             $references ?? [],
         );
 
@@ -899,8 +922,8 @@ final class TestCaseHandler implements
     }
 
     /**
-     * "Class::method" or "method" (optionally with trailing parentheses), as written in #[DataProvider] or
-     * a dataProvider docblock tag.
+     * "Class::method" or "method" (optionally with trailing parentheses), as written in a dataProvider
+     * docblock tag.
      *
      * @psalm-mutation-free
      *
@@ -1119,6 +1142,7 @@ final class TestCaseHandler implements
 
     /** @param array<array-key, string> $suppressed_issues */
     private static function reportMalformedTags(
+        AfterClassLikeAnalysisEvent $event,
         ClassLike|ClassMethod $node,
         CodeLocation $location,
         array $suppressed_issues,
@@ -1126,6 +1150,13 @@ final class TestCaseHandler implements
         // Nothing is read from a docblock on PHPUnit 12, malformed or not
         if (PhpUnitVersion::ignoresDocblockMetadata()) {
             return;
+        }
+
+        // Suppression keys are source offsets: those of the analysed class mean nothing in another file
+        $statements_source = $event->getStatementsSource();
+        if ($location->file_path === $statements_source->getFilePath()) {
+            $suppressed_issues += $event->getClasslikeStorage()->suppressed_issues
+                + $statements_source->getSuppressedIssues();
         }
 
         foreach (DocblockSpecials::malformed($node) as ['tag' => $tag, 'line' => $line, 'problem' => $problem]) {

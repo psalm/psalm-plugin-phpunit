@@ -74,8 +74,15 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         [$expected, $actual] = [$args[0]->value, $args[1]->value];
         $literal = $expected instanceof ConstFetch ? strtolower($expected->name->toString()) : null;
 
-        if (isset(self::SAME_METHODS[$method]) && in_array($literal, ['null', 'true', 'false'], true)) {
-            [$name, $not] = self::SAME_METHODS[$method];
+        // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool actual
+        if (
+            in_array($literal, ['null', 'true', 'false'], true)
+            && (isset(self::SAME_METHODS[$method])
+                || ($literal !== 'null'
+                    && isset(self::EQUALS_METHODS[$method])
+                    && self::scalarFamily($actual, $event) === 'bool'))
+        ) {
+            [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
             $message = sprintf('Use assert%s%s() instead of %s(%s, ...)', $not, ucfirst($literal), $name, $literal);
         } elseif (isset(self::COUNT_METHODS[$method]) && self::isIntegerCountComparison($expected, $actual, $event)) {

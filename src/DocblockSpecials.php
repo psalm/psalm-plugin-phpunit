@@ -7,7 +7,6 @@ namespace Psalm\PhpUnitPlugin;
 use PhpParser\Comment\Doc;
 use PhpParser\Node;
 use Psalm\DocComment;
-use Psalm\Exception\DocblockParseException;
 
 use function explode;
 use function ltrim;
@@ -92,11 +91,7 @@ final class DocblockSpecials
             return [];
         }
 
-        try {
-            $tags = DocComment::parsePreservingLength($docblock)->tags;
-        } catch (DocblockParseException) {
-            return [];
-        }
+        $tags = DocComment::parsePreservingLength($docblock, true)->tags;
 
         $entries = [];
         foreach ($tags as $tag => $values) {
