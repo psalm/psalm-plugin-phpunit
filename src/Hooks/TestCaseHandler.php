@@ -302,6 +302,13 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
+            $appends_dependency_value = self::appendsDependencyValue(
+                $codebase,
+                $class_node,
+                $class_storage,
+                $stmt_method,
+                $method_aliases,
+            );
             foreach ($providers as $provider) {
                 $provider_docblock_location = $method_storage->location->setCommentLine($provider['line']);
 
@@ -588,6 +595,17 @@ final class TestCaseHandler implements
                         ));
                     }
 
+                    if ($appends_dependency_value && self::hasDefiniteStringKey($dataset_type)) {
+                        IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                            'Cannot use positional argument after named argument in ' . $method_name
+                            . ': PHPUnit appends the return value of a depended-upon test to dataset ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+
+                        continue;
+                    }
+
                     // the return values of depended-upon tests fill the first parameters the dataset leaves open
                     $missing = array_slice($binding->missing, $dependency_values);
                     if ($missing !== []) {
@@ -663,6 +681,18 @@ final class TestCaseHandler implements
     {
         foreach ($dataset_type->properties as $key => $_) {
             if (is_string($key)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @psalm-pure */
+    private static function hasDefiniteStringKey(Type\Atomic\TKeyedArray $dataset_type): bool
+    {
+        foreach ($dataset_type->properties as $key => $type) {
+            if (is_string($key) && !$type->possibly_undefined) {
                 return true;
             }
         }
@@ -921,14 +951,7 @@ final class TestCaseHandler implements
                 }
                 $seen[strtolower($target)] = true;
 
-                $target_class = explode('::', $target)[0];
-                $target_id    = $codebase->classOrInterfaceExists($target_class)
-                    ? $codebase->getDeclaringMethodId($target)
-                    : null;
-                $return_type  = $target_id === null
-                    ? null
-                    : $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
-                if ($return_type !== null && ($return_type->isVoid() || $return_type->isNever())) {
+                if (self::dependencyReturnsValue($codebase, $target) === false) {
                     continue;
                 }
             }
@@ -936,6 +959,59 @@ final class TestCaseHandler implements
         }
 
         return $count;
+    }
+
+    /**
+     * Only the first dependency counts: from PHPUnit 11.5 through 13.0 collecting stops at the first void dependency
+     * and at the first one larger than this test. A test of the same class shares its class-level size, so only
+     * size groups in the two method docblocks (PHPUnit 11) can make it larger.
+     */
+    private static function appendsDependencyValue(
+        Codebase $codebase,
+        ClassLike $class_node,
+        ClassLikeStorage $class,
+        ClassMethod $method,
+        Aliases $aliases
+    ): bool {
+        $first = self::getDependencyTargets($method, $aliases, $class)[0] ?? null;
+        if ($first === null || self::dependencyReturnsValue($codebase, $first) !== true) {
+            return false;
+        }
+
+        [$target_class, $target_method] = explode('::', $first);
+        $target_node = strtolower($target_class) === strtolower($class->name)
+            ? $class_node->getMethod($target_method)
+            : null;
+        if ($target_node === null) {
+            return false;
+        }
+
+        $size_group = '/@(?:(?:group|ticket)\s+)?(?:small|medium|large)\b/';
+        foreach ([$method->getDocComment(), $target_node->getDocComment()] as $docblock) {
+            if ($docblock !== null && preg_match($size_group, $docblock->getText()) === 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return bool|null null when the target method cannot be resolved
+     */
+    private static function dependencyReturnsValue(Codebase $codebase, string $target): ?bool
+    {
+        $target_class = explode('::', $target)[0];
+        $target_id    = $codebase->classOrInterfaceExists($target_class)
+            ? $codebase->getDeclaringMethodId($target)
+            : null;
+        if ($target_id === null) {
+            return null;
+        }
+
+        $return_type = $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
+
+        return $return_type === null || !($return_type->isVoid() || $return_type->isNever());
     }
 
     /**

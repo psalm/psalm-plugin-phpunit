@@ -6618,3 +6618,267 @@ final class MyTestCase extends TestCase
       | MissingParentCall    | Missing call to parent::tearDown()   |
       | UnusedPsalmSuppress  | This suppression is never used       |
     And I see no other errors
+
+  Scenario: String-keyed datasets are reported when #[Depends] passes a value
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in NS\MyTestCase::testSecond: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) |
+    And I see no other errors
+
+  Scenario: String-keyed datasets are reported when @depends passes a value
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        /**
+         * @dataProvider provide
+         * @depends testOne
+         */
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in NS\MyTestCase::testSecond: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) |
+    And I see no other errors
+
+  Scenario: String-keyed datasets are reported when a value dependency is followed by a void one
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testValue(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        public function testVoid(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testValue')]
+        #[Depends('testVoid')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in NS\MyTestCase::testSecond: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) |
+    And I see no other errors
+
+  Scenario: String-keyed datasets are not reported when the only dependency is void
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $foo): void {
+          $this->assertSame('foo', $foo);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Int-keyed datasets are not reported when a dependency passes a value
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed datasets are not reported when a void dependency precedes a value dependency
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testVoid(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testValue(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testVoid')]
+        #[Depends('testValue')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed datasets are not reported when the dependency is in another class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\DependsExternal;
+
+      final class OtherTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[DependsExternal(OtherTestCase::class, 'testOne')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed datasets are not reported when the test has a size group
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        /**
+         * @dataProvider provide
+         * @depends testOne
+         * @group small
+         */
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
