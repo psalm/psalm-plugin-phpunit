@@ -14,8 +14,6 @@ Layout:
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
   analyse `tools/behat/src/Context.php`). `Context` writes each scenario to
   `tools/behat/run/<random>/` and runs the **root** `vendor/bin/psalm` there.
-- `codeception.yml`, `tests/acceptance.suite.yml`, `tests/AcceptanceTester.php` and
-  `tests/Helper/` are not run by CI.
 
 Domain skills (load them before touching the area):
 - `plugin-repro`: scratch-project repros, base vs branch, comparing Psalm versions
@@ -179,7 +177,7 @@ workaround explicitly in the report.
 ## Code style
 
 - phpcs (`phpcs.xml.dist`): PSR12, short arrays, 120-character absolute line limit, applied
-  to `src/`, `tests/Helper` and `tests/AcceptanceTester.php`. Run `vendor/bin/phpcs`
+  to `src/`. Run `vendor/bin/phpcs`
   (`vendor/bin/phpcbf` fixes).
 - Match the surrounding code: comment density, naming, idiom.
 - Comments are concise and only explain what isn't obvious from the code:

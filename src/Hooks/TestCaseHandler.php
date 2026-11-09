@@ -45,7 +45,6 @@ use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
-use Psalm\Type\Union;
 use RuntimeException;
 
 use function array_column;
@@ -490,20 +489,7 @@ final class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
-                        /** @psalm-suppress RedundantCondition */
-                        if (method_exists($param_type, 'setPossiblyUndefined')) {
-                            /** @var Union */
-                            $param_type = $param_type->setPossiblyUndefined(true);
-                        } else {
-                            // for older Psalm versions
-                            /**
-                             * @psalm-suppress InvalidClone
-                             * @var Union
-                             */
-                            $param_type = clone $param_type;
-                            /** @psalm-suppress InaccessibleProperty */
-                            $param_type->possibly_undefined = true;
-                        }
+                        $param_type = $param_type->setPossiblyUndefined(true);
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
                         // ok
