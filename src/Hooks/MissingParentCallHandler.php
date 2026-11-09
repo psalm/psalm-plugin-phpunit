@@ -160,8 +160,14 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
              */
             private function resolvesToParentMethod(Name $name): bool
             {
-                if ($name->toLowerString() === 'parent') {
+                $lowerName = $name->toLowerString();
+                if ($lowerName === 'parent') {
                     return true;
+                }
+
+                // self::setUp() and static::setUp() recurse into the override itself
+                if ($lowerName === 'self' || $lowerName === 'static') {
+                    return false;
                 }
 
                 $class = ltrim((string) $name->getAttribute('resolvedName', ''), '\\');

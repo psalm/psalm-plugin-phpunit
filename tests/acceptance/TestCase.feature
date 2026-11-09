@@ -3733,6 +3733,44 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: A call to self or static instead of the parent does not count
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      final class SelfTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function setUp(): void {
+          self::setUp();
+        }
+      }
+
+      final class StaticTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function tearDown(): void {
+          static::tearDown();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                            |
+      | MissingParentCall | Missing call to parent::setUp()    |
+      | MissingParentCall | Missing call to parent::tearDown() |
+    And I see no other errors
+
   Scenario: A call on an unknown class is left to UndefinedClass
     Given I have the following code
       """
