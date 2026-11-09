@@ -738,15 +738,15 @@ final class TestCaseHandler implements
         Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array {
-        $attribute_providers = self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class);
-        if ($attribute_providers !== null) {
-            return $attribute_providers;
-        }
-
-        return array_map(
-            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
-            self::getDocblockSpecials($method)['dataProvider'] ?? [],
-        );
+        return self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class)
+            ?? array_map(
+                static fn(array $entry): array => self::parseProviderReference(
+                    $entry[0],
+                    $entry[1],
+                    $reference_aliases,
+                ),
+                self::getDocblockSpecials($method)['dataProvider'] ?? [],
+            );
     }
 
     /**

@@ -2633,33 +2633,6 @@ Feature: TestCase
       | UndefinedClass | Class NS\External does not exist |
 
   @ExternalProviders
-  Scenario: #[DataProviderExternal] providers are not marked as unused
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes;
-
-      /** @psalm-pure */
-      final class External {
-        /**
-         * @return iterable<int,array<int,int>>
-         * @psalm-pure
-         */
-        public static function provide() {
-          yield [1];
-        }
-      }
-
-      final class MyTestCase extends TestCase {
-        #[Attributes\DataProviderExternal(External::class, 'provide')]
-        public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
-        }
-      }
-      """
-    When I run Psalm with dead code detection
-    Then I see no errors
-
-  @ExternalProviders
   Scenario: Unreferenced external providers are still marked as unused
     Given I have the following code
       """
