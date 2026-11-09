@@ -36,8 +36,9 @@ final class DatasetBinding
     }
 
     /**
-     * Only entries that are certainly present are reported as unknown or duplicate. Int-keyed entries are bound
-     * up to the first possibly undefined one, because the entries after it may shift into its position.
+     * Only entries that are certainly present are reported as unknown or duplicate. An int-keyed entry is bound to
+     * a parameter only if every position it can land in, given the entries that may be absent before it, belongs to
+     * that parameter.
      *
      * @param list<FunctionLikeParameter> $params
      * @param Codebase $codebase decides whether the values of an unsealed dataset can fill missing parameters
@@ -77,18 +78,39 @@ final class DatasetBinding
         $unknown   = [];
         $duplicate = [];
 
-        foreach ($positional as $position => $type) {
-            // array_merge() renumbers int keys: if this entry is absent, the following ones take its place
-            if ($type->possibly_undefined) {
-                break;
+        // The parameter an offset maps to: every offset from the variadic one on lands in the variadic parameter.
+        $slot = static fn (int $offset): int => $variadic_offset !== null && $offset >= $variadic_offset
+            ? $variadic_offset
+            : $offset;
+
+        // The offset of the possibly undefined entry that decides alone whether its parameter is provided
+        $optional_offset = null;
+        $definite_before = 0;
+
+        foreach ($positional as $index => $type) {
+            // array_merge() renumbers int keys: an entry lands at the position after the entries certainly present
+            // before it at the earliest, and at its own index at the latest. Bind it only if that range is within
+            // one parameter (the first possibly undefined entry always is).
+            $lowest          = $definite_before;
+            $definite_before += $type->possibly_undefined ? 0 : 1;
+            if ($slot($lowest) !== $slot($index)) {
+                continue;
             }
 
-            if ($variadic_offset !== null && $position >= $variadic_offset) {
-                $arguments[] = new BoundArgument($position, null, $type, $variadic_type, true);
-            } elseif (isset($params[$position])) {
-                $param       = $params[$position];
+            if ($variadic_offset !== null && $index >= $variadic_offset) {
+                $arguments[] = new BoundArgument($index, null, $type, $variadic_type, true);
+            } elseif (isset($params[$index])) {
+                $param = $params[$index];
+                if ($type->possibly_undefined) {
+                    // a later entry takes its place if it is absent, and the named entry supplies it either way
+                    if ($index < $definite_positional || isset($named[$param->name])) {
+                        $type = $type->setPossiblyUndefined(false);
+                    } else {
+                        $optional_offset = $index;
+                    }
+                }
                 $arguments[] = new BoundArgument(
-                    $position,
+                    $index,
                     null,
                     $type,
                     $param->type ?? Type::getMixed(),
@@ -129,7 +151,8 @@ final class DatasetBinding
             }
             if (
                 !$param->is_optional
-                && $offset >= count($positional)
+                && $offset >= $definite_positional
+                && $offset !== $optional_offset
                 && !isset($named[$param->name])
                 && !self::mayBeSuppliedByFallback($codebase, $dataset, $param)
             ) {
@@ -141,8 +164,8 @@ final class DatasetBinding
     }
 
     /**
-     * An unsealed dataset may carry further string keys, which can supply the parameter if their key can be a
-     * string and their value can be passed to it.
+     * An unsealed dataset may carry further string keys, which can supply the parameter if one of them can be named
+     * after it and its value can be passed to it.
      */
     private static function mayBeSuppliedByFallback(
         Codebase $codebase,
@@ -155,7 +178,7 @@ final class DatasetBinding
 
         [$key_type, $value_type] = $dataset->fallback_params;
 
-        return $codebase->canTypeBeContainedByType($key_type, Type::getString())
+        return $codebase->canTypeBeContainedByType(Type::getString($param->name), $key_type)
             && $codebase->canTypeBeContainedByType($value_type, $param->type ?? Type::getMixed());
     }
 }

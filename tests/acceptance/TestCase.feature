@@ -1470,6 +1470,68 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  Scenario: The first possibly undefined positional entry is checked against its own parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, tag: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['tag' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $tag): void {
+          $this->assertNotSame($a, $tag);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{0?: int, tag: int}>) |
+    And I see no other errors
+
+  Scenario: Optional positional entries that can only land in a variadic parameter are checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, 1?: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function optional(): iterable {
+          return [[1, 'x' => 'foo']];
+        }
+
+        /**
+         * @return iterable<int, array{0: int, 1?: string, 2: bool, x: string}>
+         * @psalm-pure
+         */
+        public static function shifting(): iterable {
+          return [[1, 'a', true, 'x' => 'foo']];
+        }
+
+        #[DataProvider('optional')]
+        #[DataProvider('shifting')]
+        public function testSomething(int $a, string ...$rest): void {
+          $this->assertNotEmpty($a . implode($rest));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::optional():(iterable<int, array{0: int, 1?: bool, x: string}>) |
+      | InvalidArgument | Argument 3 of NS\MyTestCase::testSomething expects string, bool provided by NS\MyTestCase::shifting():(iterable<int, array{0: int, 1?: string, 2: bool, x: string}>) |
+    And I see no other errors
+
   Scenario: Unsealed datasets whose values cannot fill a missing parameter are reported
     Given I have the following code
       """
@@ -1495,6 +1557,32 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message |
       | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<string, int>}>) |
+    And I see no other errors
+
+  Scenario: Unsealed datasets whose extra keys cannot name a missing parameter are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<'other', int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1, 'other' => 2]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{a: int, ...<'other', int>}>) |
     And I see no other errors
 
   Scenario: Dependency values still count when a possibly undefined string key is the only key
