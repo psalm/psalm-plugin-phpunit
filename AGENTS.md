@@ -1,6 +1,8 @@
 # psalm-plugin-phpunit: working conventions
 
-`master` is the development branch and the base of feature PRs.
+`master` is the development branch of 1.x and the base of feature PRs. `0.22.x` maintains
+0.22, the last release line for Psalm 6 and PHP 8.1: bug fixes only, as PRs with
+`--base 0.22.x` (its own AGENTS.md describes its CI).
 Remotes: `origin` = psalm/psalm-plugin-phpunit. PR branches go to your own fork's remote
 (find it with `git remote -v` and `gh api user --jq .login`; add it if missing). Never push
 PR branches to `origin`.
@@ -75,9 +77,9 @@ Locally:
 
 ### Psalm versions
 
-The CI low jobs (`--prefer-lowest`) resolve the lowest `vimeo/psalm` that `composer.json`
-allows, the high and stable jobs the newest. They can report different issues (from
-7.0.0-rc28 the purity suggestions are opt-in via `suggestPurityAnnotations`).
+`composer.json` allows Psalm `^7.2`: 7.0 and 7.1 require `psalm/plugin-phpunit: ^0.21` and
+never install 1.x. The CI low jobs (`--prefer-lowest`) resolve Psalm 7.2.0, the high and
+stable jobs the newest. They can report different issues.
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
   events), run the relevant scenarios on both (skill `plugin-repro`).
@@ -97,15 +99,14 @@ allows, the high and stable jobs the newest. They can report different issues (f
 
 ## Merging and releasing (maintainers with merge rights)
 
-- Review the diff yourself, wait for green CI, merge, and **tag a release** (fixture, CI
-  and dependency-only changes too). Tags have no `v` prefix (`0.21.1`, `0.21.0`, `0.20.4`).
-  Create the release with `gh release create <tag> --generate-notes --repo
-  psalm/psalm-plugin-phpunit`; a one-line summary above the generated notes is welcome for
-  bigger releases (as in 0.21.0).
-- Psalm 7.0.0 and master list `psalm/plugin-phpunit: ^0.21` in `require`: this plugin is
-  bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out of the
-  dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168), and add
-  a line there for every new dev-only path.
+- Review the diff yourself, wait for green CI, then merge.
+- Tags have no `v` prefix (`0.21.1`, `0.21.0`, `0.20.4`). Create a release with
+  `gh release create <tag> --generate-notes --repo psalm/psalm-plugin-phpunit`; a one-line
+  summary above the generated notes is welcome for bigger releases (as in 0.21.0).
+- Psalm 7.2 and later list `psalm/plugin-phpunit: ^0.21 || ^0.22 || ^1.0` in `require`: this
+  plugin is bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out
+  of the dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168),
+  and add a line there for every new dev-only path.
 - Never use `--admin` to bypass red required checks unless asked for that specific PR.
 
 ## Agents and subagents
