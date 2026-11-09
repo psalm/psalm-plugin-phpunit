@@ -173,6 +173,9 @@ workaround explicitly in the report.
 - Fixtures must pass on the lowest and the newest Psalm: annotate them for purity (#166):
   data providers `@psalm-pure`, mocked interfaces `@psalm-mutable` with `@psalm-impure`
   methods. Never suppress the `Missing*Annotation` issues instead.
+- Scenarios that only pass on Psalm 7 (`@psalm-mutable`, `@psalm-capabilities`, `[pure]` in messages)
+  carry the tag `@psalm7`. On Psalm 6 run `vendor/bin/behat --tags '~@psalm7'`, or
+  `BEHAT_SKIP_TAGS=@psalm7 tools/behat/behat-parallel.sh`.
 - Put each docblock tag on its own line, in fixtures and in `src/`. `/** @psalm-pure @param
   ... */` silently drops every tag after the first.
 - Never start a docblock line in `src/` with an example `@psalm-...` tag; Psalm parses it as
