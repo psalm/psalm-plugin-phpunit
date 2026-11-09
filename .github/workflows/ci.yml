@@ -121,7 +121,6 @@ jobs:
     tests:
         name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
         runs-on: ubuntu-latest
-        continue-on-error: ${{matrix.php == '8.0'}}
         strategy:
             matrix:
                 # Pull requests test the lowest and highest PHP; pushes, the schedule and manual runs test all.
