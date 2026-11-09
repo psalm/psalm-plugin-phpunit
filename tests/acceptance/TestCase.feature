@@ -3281,20 +3281,12 @@ Feature: TestCase
       /** @covers*/
       final class MyTestCase extends TestCase
       {
-        /** @depends*/
-        public function testFirst(): void {
-          $this->expectNotToPerformAssertions();
-        }
-
         /**
+         * @depends
          * @group
+         * @dataProvider(provide)
          */
-        public function testSecond(): void {
-          $this->expectNotToPerformAssertions();
-        }
-
-        /** @dataProvider(provide) */
-        public function testThird(): void {
+        public function testFirst(): void {
           $this->expectNotToPerformAssertions();
         }
       }
@@ -3303,9 +3295,9 @@ Feature: TestCase
     Then I see these errors
       | Type                     | Message                                                              | Line |
       | InvalidPhpUnitAnnotation | Annotation "@covers" has no value                                  | 5    |
-      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value                                 | 8    |
-      | InvalidPhpUnitAnnotation | Annotation "@group" has no value                                   | 14   |
-      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" must be followed by a space and a value | 20   |
+      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value                                 | 9    |
+      | InvalidPhpUnitAnnotation | Annotation "@group" has no value                                   | 10   |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" must be followed by a space and a value | 11   |
     And I see no other errors
 
   Scenario: Description lines below a valid provider annotation are not part of the provider name
@@ -3450,6 +3442,57 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: A testWith annotation with its datasets on the following lines is not reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @testWith
+         *   [1]
+         *   [2]
+         */
+        public function testMultiline(int $int): void {
+          $this->assertEquals(1, $int % 2);
+        }
+
+        /**
+         * @testWith [1]
+         *           [3]
+         */
+        public function testSameLine(int $int): void {
+          $this->assertEquals(1, $int % 2);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A testWith annotation without datasets is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @testWith
+         */
+        public function testEmpty(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+
+        /** @testWith[1] */
+        public function testGlued(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                                         | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@testWith" has no value                             | 8    |
+      | InvalidPhpUnitAnnotation | Annotation "@testWith" must be followed by a space and a value | 14   |
+    And I see no other errors
 
   Scenario: Malformed annotation in a trait method is suppressed on the test class using the trait
     Given I have the following config
