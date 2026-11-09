@@ -3277,12 +3277,12 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                    |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | Type            | Message                                                    | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 14   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 19   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 25   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 30   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 35   |
     And I see no other errors
 
   Scenario: Mocking an undefined method is reported on typed properties and for every literal name
@@ -3321,10 +3321,10 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message                                                    |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
-      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() |
+      | Type            | Message                                                    | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 26   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 27   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce() | 32   |
     And I see no other errors
 
   Scenario: Mocking an undefined method can be suppressed per call
@@ -3436,6 +3436,18 @@ Feature: TestCase
       }
 
       /** @psalm-mutable */
+      interface Auditor {
+        /** @psalm-impure */
+        public function expects(): Rule;
+      }
+
+      /** @psalm-mutable */
+      final class Rule {
+        /** @psalm-impure */
+        public function method(string $name): self { return $this; }
+      }
+
+      /** @psalm-mutable */
       final class Configurable {
         /** @psalm-impure */
         public function method(string $name): bool { return true; }
@@ -3460,6 +3472,7 @@ Feature: TestCase
           $this->createStub(MissingClass::class)->method('typo')->willReturn(true);
 
           $this->createStub(Configurable::class)->method('typo');
+          $this->createStub(Auditor::class)->expects()->method('typo');
 
           $this->assertSame(1, 1);
         }

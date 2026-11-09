@@ -18,6 +18,7 @@ use function count;
 use function implode;
 use function in_array;
 use function sprintf;
+use function str_starts_with;
 use function strtolower;
 
 /**
@@ -33,6 +34,8 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         'phpunit\\framework\\mockobject\\mockobject',
         'phpunit\\framework\\mockobject\\stub',
     ];
+
+    private const MOCK_OBJECT_NAMESPACE = 'phpunit\\framework\\mockobject\\';
 
     #[\Override]
     public static function afterExpressionAnalysis(AfterExpressionAnalysisEvent $event): ?bool
@@ -50,9 +53,13 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         $source = $event->getStatementsSource();
         $typeProvider = $source->getNodeTypeProvider();
 
-        // expects() returns an InvocationMocker that no longer knows the doubled class
+        // PHPUnit's expects() returns an InvocationMocker that no longer knows the doubled class
         $double = $call->var;
-        if ($double instanceof MethodCall && self::isNamed($double, 'expects')) {
+        if (
+            $double instanceof MethodCall
+            && self::isNamed($double, 'expects')
+            && self::isPhpUnitMockObjectType($typeProvider->getType($double))
+        ) {
             $double = $double->var;
         }
 
@@ -138,6 +145,23 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         }
 
         return $isDouble ? $mocked : [];
+    }
+
+    /**
+     * Tells PHPUnit's expectation builders apart from a domain class that has its own expects() and method().
+     *
+     * @psalm-pure
+     */
+    private static function isPhpUnitMockObjectType(?Union $type): bool
+    {
+        if ($type === null || !$type->isSingle()) {
+            return false;
+        }
+
+        $atomic = $type->getSingleAtomic();
+
+        return $atomic instanceof TNamedObject
+            && str_starts_with(strtolower($atomic->value), self::MOCK_OBJECT_NAMESPACE);
     }
 
     /**
