@@ -4178,3 +4178,109 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see no errors
+
+  Scenario: Unknown @psalm tag does not hide a missing @dataProvider
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                    |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @depends
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         * @depends testOne
+         */
+        public function testSecond(string $foo, string $bar, string $baz): void {
+          $this->assertSame($foo, $bar . $baz);
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                  |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<int, list{string}>) |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                                                                                                                       |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @test
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @test
+         */
+        public function somethingElse(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @before
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        private $i;
+
+        /**
+         * @psalm-foo
+         * @before
+         */
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+
+        public function testSomething(): void {
+          $this->i->method('work')->willReturn(1);
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors

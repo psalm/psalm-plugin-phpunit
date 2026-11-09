@@ -997,7 +997,7 @@ final class TestCaseHandler implements
     /** @return array{description:string, specials:array<string,array<int,string>>} */
     private static function getParsedComment(Doc $comment): array
     {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
+        $parsed_docblock = DocComment::parsePreservingLength($comment, true);
 
         $description = $parsed_docblock->description;
         $specials = $parsed_docblock->tags;
