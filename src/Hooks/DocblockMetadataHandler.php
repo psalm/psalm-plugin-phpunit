@@ -130,8 +130,9 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
      *
      * @param array<array-key, string> $own suppressions of the declaration itself
      * @return array<array-key, string>
+     * @internal
      */
-    private static function suppressions(
+    public static function suppressions(
         CodeLocation|null $location,
         array $own,
         ClassLikeStorage $class_storage,
