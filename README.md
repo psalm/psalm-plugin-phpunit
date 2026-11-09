@@ -24,7 +24,7 @@ Teaches [Psalm](https://psalm.dev) the conventions of [PHPUnit](https://phpunit.
 
 (see [`loadLibraryPlugins`](https://psalm.dev/docs/running_psalm/configuration/#loadlibraryplugins)).
 
-**Psalm 6** (supported, but not covered by CI):
+**Psalm 6 and older:**
 
 ```bash
 composer require --dev psalm/plugin-phpunit
