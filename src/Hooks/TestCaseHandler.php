@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use PhpParser\Comment\Doc;
 use PhpParser\Node\Attribute;
 use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
@@ -18,6 +17,7 @@ use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\Attributes\DependsExternal;
 use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
@@ -27,14 +27,16 @@ use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
-use Psalm\DocComment;
-use Psalm\Exception\DocblockParseException;
+use Psalm\CodeLocation;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
+use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
+use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
+use Psalm\PhpUnitPlugin\PhpUnitVersion;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -65,8 +67,6 @@ use function str_contains;
 use function str_ends_with;
 use function str_starts_with;
 use function strtolower;
-use function substr_count;
-use function trim;
 
 final class TestCaseHandler implements
     AfterClassLikeVisitInterface,
@@ -205,17 +205,12 @@ final class TestCaseHandler implements
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            $specials = self::getSpecials($method, $aliases);
-            if (!isset($specials['dataProvider'])) {
-                continue;
-            }
-            foreach ($specials['dataProvider'] as [, $provider]) {
-                if (false !== strpos($provider, '::')) {
-                    [$class_name] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
-                    $codebase->queueClassLikeForScanning($fq_class_name);
-                    $file_storage->referenced_classlikes[strtolower($fq_class_name)] = $fq_class_name;
+            foreach (self::getDataProviders($method, $aliases, $aliases, $class_storage) as $provider) {
+                if ($provider['class'] === null) {
+                    continue;
                 }
+                $codebase->queueClassLikeForScanning($provider['class']);
+                $file_storage->referenced_classlikes[strtolower($provider['class'])] = $provider['class'];
             }
         }
     }
@@ -244,6 +239,12 @@ final class TestCaseHandler implements
             return null;
         }
 
+        self::reportMalformedTags(
+            $class_node,
+            new CodeLocation($statements_source, $class_node),
+            $class_storage->suppressed_issues + $statements_source->getSuppressedIssues(),
+        );
+
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
@@ -270,7 +271,15 @@ final class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method, $method_aliases);
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
+                && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
+
+            $suppressed_issues = $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues;
+            // Suppression keys are source offsets: those of the analysed class mean nothing in a trait's file
+            if ($method_storage->location->file_path === $statements_source->getFilePath()) {
+                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
+            }
+
+            self::reportMalformedTags($stmt_method, $method_storage->location, $suppressed_issues);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -282,7 +291,8 @@ final class TestCaseHandler implements
                 calling_method_id: 'PHPUnit\Framework\TestSuite::run',
             );
 
-            if (!isset($specials['dataProvider'])) {
+            $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
+            if ($providers === []) {
                 continue;
             }
 
@@ -292,28 +302,27 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            foreach ($specials['dataProvider'] as [$line, $provider]) {
-                $provider_docblock_location = $method_storage->location->setCommentLine($line);
+            foreach ($providers as $provider) {
+                $provider_docblock_location = $method_storage->location->setCommentLine($provider['line']);
 
-                if (false !== strpos($provider, '::')) {
-                    [$class_name, $method_id] = explode('::', $provider);
-                    $fq_class_name = Type::getFQCLNFromString($class_name, $statements_source->getAliases());
+                if ($provider['class'] !== null) {
+                    $fq_class_name = $provider['class'];
 
                     if (!$codebase->classOrInterfaceExists($fq_class_name, $provider_docblock_location)) {
-                        IssueBuffer::accepts(new Issue\UndefinedClass(
-                            'Class ' . $fq_class_name . ' does not exist',
-                            $provider_docblock_location,
-                            $fq_class_name
-                        ));
+                        // Psalm reports the missing class of an attribute argument itself
+                        if (!$provider['external']) {
+                            IssueBuffer::accepts(new Issue\UndefinedClass(
+                                'Class ' . $fq_class_name . ' does not exist',
+                                $provider_docblock_location,
+                                $fq_class_name
+                            ));
+                        }
                         continue;
                     }
-                    $apparent_provider_method_name = $fq_class_name . '::' . $method_id;
+                    $apparent_provider_method_name = $fq_class_name . '::' . $provider['method'];
                 } else {
-                    $apparent_provider_method_name = $class_storage->name . '::' . $provider;
+                    $apparent_provider_method_name = $class_storage->name . '::' . $provider['method'];
                 }
-
-                $apparent_provider_method_name = preg_replace('/\(\s*\)$/', '', $apparent_provider_method_name);
-                assert($apparent_provider_method_name !== null);
 
                 $provider_method_id = $codebase->getDeclaringMethodId($apparent_provider_method_name);
 
@@ -737,11 +746,21 @@ final class TestCaseHandler implements
         return isset(self::getSpecials($method, $aliases)['before']);
     }
 
+    /**
+     * PHPUnit 12 ignores docblock metadata altogether.
+     *
+     * @return array<string, list<array{int, string}>> Each entry is [file line, value]
+     */
+    private static function docblockSpecials(ClassMethod $method): array
+    {
+        return PhpUnitVersion::ignoresDocblockMetadata() ? [] : DocblockSpecials::of($method);
+    }
+
     /** @return array<string, list<array{int, string}>> Each entry is [file line, value] */
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
-            self::getDocblockSpecials($method),
+            self::docblockSpecials($method),
             // Attributes take priority over docblocks
             self::getAttributeSpecials($method, $aliases),
         );
@@ -784,6 +803,103 @@ final class TestCaseHandler implements
             $onlyStringLiteralExpressions,
             $matchingAttributes,
         )));
+    }
+
+    /**
+     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
+     *
+     * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. PHPUnit takes
+     * "Class::method" strings literally, so $reference_aliases (of the analysed file) resolve those.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>
+     *     class is null for a provider of the test's own class
+     */
+    private static function getDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        Aliases $reference_aliases,
+        ClassLikeStorage $class
+    ): array {
+        return self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class)
+            ?? array_map(
+                static fn(array $entry): array => self::parseProviderReference(
+                    $entry[0],
+                    $entry[1],
+                    $reference_aliases,
+                ),
+                self::docblockSpecials($method)['dataProvider'] ?? [],
+            );
+    }
+
+    /**
+     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither.
+     *
+     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
+     */
+    private static function getAttributeDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        Aliases $reference_aliases,
+        ClassLikeStorage $class
+    ): array|null {
+        $references = self::attributeValue($method, $aliases, DataProvider::class);
+        $has_attributes = $references !== null;
+        $providers = array_map(
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
+            $references ?? [],
+        );
+
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if ($attribute_class !== DataProviderExternal::class) {
+                    continue;
+                }
+
+                $has_attributes = true;
+                $args           = [];
+                foreach ($attribute->args as $position => $arg) {
+                    $args[$arg->name?->toString() ?? $position] = $arg->value;
+                }
+
+                $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
+                $method_name = $args['methodName'] ?? $args[1] ?? null;
+                if ($class_name === null || !$method_name instanceof String_) {
+                    continue;
+                }
+
+                $providers[] = [
+                    'line'     => $attribute->getStartLine(),
+                    'class'    => $class_name,
+                    'method'   => $method_name->value,
+                    'external' => true,
+                ];
+            }
+        }
+
+        return $has_attributes ? $providers : null;
+    }
+
+    /**
+     * "Class::method" or "method" (optionally with trailing parentheses), as written in #[DataProvider] or
+     * a dataProvider docblock tag.
+     *
+     * @psalm-mutation-free
+     *
+     * @return array{line: int, class: string|null, method: string, external: bool}
+     */
+    private static function parseProviderReference(int $line, string $reference, Aliases $aliases): array
+    {
+        $parts  = explode('::', $reference, 2);
+        $method = preg_replace('/\(\s*\)$/', '', $parts[1] ?? $parts[0]);
+        assert($method !== null);
+
+        return [
+            'line'     => $line,
+            'class'    => isset($parts[1]) ? Type::getFQCLNFromString($parts[0], $aliases) : null,
+            'method'   => $method,
+            'external' => false,
+        ];
     }
 
     /**
@@ -879,7 +995,7 @@ final class TestCaseHandler implements
             return $targets;
         }
 
-        foreach (self::getDocblockSpecials($method)['depends'] ?? [] as [, $value]) {
+        foreach (self::docblockSpecials($method)['depends'] ?? [] as [, $value]) {
             $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
@@ -921,57 +1037,25 @@ final class TestCaseHandler implements
         return array_filter([
             'before'       => self::attributeValue($method, $aliases, Before::class),
             'test'         => self::attributeValue($method, $aliases, Test::class),
-            'dataProvider' => self::attributeValue($method, $aliases, DataProvider::class),
         ], static fn(array|null $special): bool => $special !== null);
     }
 
-    /** @return array<string, list<array{int, string}>> */
-    private static function getDocblockSpecials(ClassMethod $method): array
-    {
-        $docblock = $method->getDocComment();
-        if (!$docblock) {
-            return [];
+    /** @param array<array-key, string> $suppressed_issues */
+    private static function reportMalformedTags(
+        ClassLike|ClassMethod $node,
+        CodeLocation $location,
+        array $suppressed_issues,
+    ): void {
+        // Nothing is read from a docblock on PHPUnit 12, malformed or not
+        if (PhpUnitVersion::ignoresDocblockMetadata()) {
+            return;
         }
 
-        try {
-            $parsed_comment = self::getParsedComment($docblock);
-        } catch (DocblockParseException $e) {
-            return [];
+        foreach (DocblockSpecials::malformed($node) as ['tag' => $tag, 'line' => $line, 'problem' => $problem]) {
+            IssueBuffer::accepts(new InvalidPhpUnitAnnotation(
+                'Annotation "@' . $tag . '" ' . $problem,
+                $location->setCommentLine($line),
+            ), $suppressed_issues);
         }
-
-        if (!isset($parsed_comment['specials'])) {
-            return [];
-        }
-
-        // Psalm keys tags by absolute file offset, which is useless for issue locations.
-        $start_pos = $docblock->getStartFilePos();
-        $to_line   = static fn(int $offset): int => $docblock->getStartLine()
-            + substr_count($docblock->getText(), "\n", 0, $offset - $start_pos);
-
-        return array_map(
-            static function (array $tags) use ($to_line): array {
-                $entries = [];
-                foreach ($tags as $offset => $data) {
-                    $entries[] = [$to_line($offset), trim($data)];
-                }
-
-                return $entries;
-            },
-            $parsed_comment['specials']
-        );
-    }
-
-    /** @return array{description:string, specials:array<string,array<int,string>>} */
-    private static function getParsedComment(Doc $comment): array
-    {
-        $parsed_docblock = DocComment::parsePreservingLength($comment);
-
-        $description = $parsed_docblock->description;
-        $specials = $parsed_docblock->tags;
-
-        return [
-            'description' => $description,
-            'specials' => $specials,
-        ];
     }
 }
