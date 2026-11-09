@@ -15,7 +15,7 @@ Layout:
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`.
 - `src/Hooks/DocblockMetadataHandler.php`, `src/Issue/IgnoredDocblockMetadata.php` and
-  `src/PhpUnitVersion.php`: on PHPUnit 12 and newer (major of `PHPUnit\Runner\Version::id()`) docblock
+  `src/PhpUnitVersion.php`: on PHPUnit 12 and newer (`PHPUnit\Runner\Version::majorVersionNumber()`) docblock
   metadata is ignored by PHPUnit, so the plugin reports it and stops honouring it in `TestCaseHandler`.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
