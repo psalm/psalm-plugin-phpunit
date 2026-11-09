@@ -17,6 +17,10 @@ use Psalm\PhpUnitPlugin\Issue\MissingParentCall;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
+use function array_search;
+use function in_array;
+use function is_int;
+use function is_string;
 use function ltrim;
 use function sprintf;
 use function strtolower;
@@ -27,6 +31,8 @@ use function strtolower;
  */
 final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
 {
+    private const ISSUE_NAME = 'MissingParentCall';
+
     private const TEST_CASE = 'phpunit\\framework\\testcase';
 
     /** @var array<string, string> lowercase method name => method name */
@@ -91,20 +97,47 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 continue;
             }
 
+            // Keys are source offsets, which array_merge() would renumber
+            $issueFileSuppressions = $methodStorage->suppressed_issues + $declaringStorage->suppressed_issues;
+            $classSuppressions = $storage->suppressed_issues + $source->getSuppressedIssues();
+            if ($methodStorage->location->file_path === $source->getFilePath()) {
+                $suppressions = $issueFileSuppressions + $classSuppressions;
+            } else {
+                // The class's offsets belong to another file than the issue: IssueBuffer would record their use
+                // under the trait's file, so they apply without offsets and their use is recorded here.
+                $suppressions = $issueFileSuppressions + self::withoutOffsets($classSuppressions);
+                $offset = array_search(self::ISSUE_NAME, $classSuppressions, true);
+                if (is_int($offset) && !in_array(self::ISSUE_NAME, $issueFileSuppressions, true)) {
+                    IssueBuffer::addUsedSuppressions([$source->getFilePath() => [$offset => true]]);
+                }
+            }
+
             IssueBuffer::accepts(
                 new MissingParentCall(
                     sprintf('Missing call to parent::%s()', $methodName),
                     $methodStorage->location,
                 ),
-                // Keys are source offsets, which array_merge() would renumber
-                $methodStorage->suppressed_issues
-                    + $declaringStorage->suppressed_issues
-                    + $storage->suppressed_issues
-                    + $source->getSuppressedIssues(),
+                $suppressions,
             );
         }
 
         return null;
+    }
+
+    /**
+     * @param array<array-key, string> $suppressions
+     * @return array<string, string>
+     *
+     * @psalm-pure
+     */
+    private static function withoutOffsets(array $suppressions): array
+    {
+        $named = [];
+        foreach ($suppressions as $key => $issue) {
+            $named[is_string($key) ? $key : $issue] = $issue;
+        }
+
+        return $named;
     }
 
     /**
@@ -164,6 +197,11 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 $class = ltrim((string) $name->getAttribute('resolvedName', ''), '\\');
                 if ($class === '') {
                     return false;
+                }
+
+                // Psalm reports the unknown class itself, no need to add a second issue on top
+                if (!$this->codebase->classOrInterfaceExists($class)) {
+                    return true;
                 }
 
                 $declaringId = $this->codebase->getDeclaringMethodId($class . '::' . $this->methodNameLc);

@@ -3903,3 +3903,95 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: A call on an unknown class is left to UndefinedClass
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function setUp(): void {
+          parent::setUp();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function setUp(): void {
+          UnknownTestCase::setUp();
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type           | Message                                              |
+      | UndefinedClass | Class, interface or enum named NS\UnknownTestCase does not exist |
+    And I see no other errors
+
+  Scenario: A class suppression applies to a trait from another file and counts as used
+    Given I have the following config
+      """
+      <?xml version="1.0"?>
+      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
+        <projectFiles>
+          <directory name="."/>
+          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+        </projectFiles>
+        <plugins>
+          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+        </plugins>
+        <issueHandlers>
+          <MissingClassConstType errorLevel="suppress" />
+          <DeprecatedMethod errorLevel="suppress" />
+        </issueHandlers>
+      </psalm>
+      """
+    And I have the following code in "MyTrait.php"
+      """
+      <?php
+      namespace NS;
+
+      /**
+       * @psalm-immutable
+       */
+      trait MyTrait {
+        /**
+         * @psalm-capabilities read-props
+         */
+        #[\Override]
+        protected function tearDown(): void {
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function tearDown(): void {
+          parent::tearDown();
+        }
+      }
+
+      /**
+       * @psalm-suppress MissingParentCall
+       */
+      final class MyTestCase extends BaseTestCase {
+        use MyTrait;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
