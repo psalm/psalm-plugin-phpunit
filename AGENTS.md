@@ -98,11 +98,10 @@ stable jobs the newest. They can report different issues.
 
 ## Merging and releasing (maintainers with merge rights)
 
-- Review the diff yourself, wait for green CI, merge, and **tag a release** (fixture, CI
-  and dependency-only changes too). Tags have no `v` prefix (`0.21.1`, `0.21.0`, `0.20.4`).
-  Create the release with `gh release create <tag> --generate-notes --repo
-  psalm/psalm-plugin-phpunit`; a one-line summary above the generated notes is welcome for
-  bigger releases (as in 0.21.0).
+- Review the diff yourself, wait for green CI, then merge.
+- Tags have no `v` prefix (`0.21.1`, `0.21.0`, `0.20.4`). Create a release with
+  `gh release create <tag> --generate-notes --repo psalm/psalm-plugin-phpunit`; a one-line
+  summary above the generated notes is welcome for bigger releases (as in 0.21.0).
 - Psalm 7.2 and later list `psalm/plugin-phpunit: ^0.21 || ^0.22 || ^1.0` in `require`: this
   plugin is bundled, so a release of it reaches `psalm.phar` users. Keep dev-only files out
   of the dist archive with `export-ignore` in `.gitattributes` (`tools/` was added in #168),
