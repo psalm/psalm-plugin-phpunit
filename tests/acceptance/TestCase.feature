@@ -1742,7 +1742,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: Datasets without a positional entry after a named one are not reported
+  Scenario: Datasets that the plugin cannot read in order are not reported
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
@@ -1845,6 +1845,8 @@ Feature: TestCase
         }
 
         #[DataProvider('positionalFirst')]
+        #[DataProvider('allPositional')]
+        #[DataProvider('allNamed')]
         #[DataProvider('unknownKey')]
         #[DataProvider('unpacked')]
         #[DataProvider('built')]
@@ -1860,20 +1862,65 @@ Feature: TestCase
         public function testNumericKeys(int $a, int $b): void {
           $this->assertNotSame($a, $b);
         }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
 
-        #[DataProvider('allPositional')]
-        public function testPositional(int $a, string $b): void {
-          $this->assertNotEmpty($a . $b);
+  Scenario: Overwriting a positional dataset key after a named one is not reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, b: string}>
+         * @psalm-pure
+         * @psalm-suppress DuplicateArrayKey
+         */
+        public static function provide(): iterable {
+          return [
+            [0 => 1, 'b' => 'x', 0 => 2],
+            [1, 'b' => 'x', '0' => 2],
+            [1, 'b' => 'x', 0 => 2],
+          ];
         }
 
-        #[DataProvider('allNamed')]
-        public function testNamed(int $a, string $b): void {
+        #[DataProvider('provide')]
+        public function testSomething(int $a, string $b): void {
           $this->assertNotEmpty($a . $b);
         }
       }
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: A new positional dataset key after an overwritten one is still reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0: int, 1: int, b: string}>
+         * @psalm-pure
+         * @psalm-suppress DuplicateArrayKey
+         */
+        public static function provide(): iterable {
+          return [[0 => 1, 'b' => 'x', 0 => 2, 3]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $c, string $b): void {
+          $this->assertNotSame($a, $c);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by NS\MyTestCase::provide() |
+    And I see no other errors
 
   Scenario: Dependency values still count when a possibly undefined string key is the only key
     Given I have the following code

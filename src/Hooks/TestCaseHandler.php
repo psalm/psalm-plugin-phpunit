@@ -769,6 +769,8 @@ final class TestCaseHandler implements
         foreach ($visitor->datasets as $dataset) {
             $named    = false;
             $violated = false;
+            $seen     = [];
+            $next     = 0;
             foreach ($dataset->items as $item) {
                 $key = $item->key;
                 if ($item->unpack || ($key !== null && !$key instanceof String_ && !$key instanceof Int_)) {
@@ -778,9 +780,18 @@ final class TestCaseHandler implements
                 // PHP casts keys like '1' to int
                 if ($key instanceof String_ && (string) (int) $key->value !== $key->value) {
                     $named = true;
-                } elseif ($named) {
+                    continue;
+                }
+
+                $position = $key === null ? $next : (int) $key->value;
+                $next     = max($next, $position + 1);
+
+                // An array keeps the place of a key's first insertion, so overwriting a positional key is harmless
+                if ($named && !isset($seen[$position])) {
                     $violated = true;
                 }
+
+                $seen[$position] = true;
             }
 
             if ($violated) {
