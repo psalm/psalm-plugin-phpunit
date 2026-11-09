@@ -6695,27 +6695,19 @@ final class MyTestCase extends TestCase
   Scenario: Unknown @psalm tag does not hide @before
     Given I have the following code
       """
-      /** @psalm-mutable */
-      interface I {
-        /** @psalm-impure */
-        public function work(): int;
-      }
-
       final class MyTestCase extends TestCase {
-        /** @var I&\PHPUnit\Framework\MockObject\Stub */
-        private $i;
+        private int $value;
 
         /**
          * @psalm-foo
          * @before
          */
         public function myInit(): void {
-          $this->i = $this->createStub(I::class);
+          $this->value = 1;
         }
 
         public function testSomething(): void {
-          $this->i->method('work')->willReturn(1);
-          $this->assertSame(1, $this->i->work());
+          $this->assertSame(1, $this->value);
         }
       }
       """
