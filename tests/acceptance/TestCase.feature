@@ -3239,41 +3239,6 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  Scenario: PHPUnit 12 reports ignored @test and @dataProvider docblock tags
-    Given PHPUnit identifies as version "12.5.43"
-    And I have the following code
-      """
-      final class MyTestCase extends TestCase {
-        /**
-         * @test
-         */
-        public function itWorks(): void {
-          $this->assertTrue(true);
-        }
-
-        /**
-         * @dataProvider provide
-         */
-        public function testProvided(int $number): void {
-          $this->assertSame(1, $number);
-        }
-
-        /**
-         * @return list<array{int}>
-         * @psalm-pure
-         */
-        public static function provide(): array {
-          return [[1]];
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type                    | Message                                                                                                   | Line |
-      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead                                            | 7    |
-      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @dataProvider docblock tag, use #[DataProvider] or #[DataProviderExternal] instead | 14   |
-    And I see no other errors
-
   Scenario: PHPUnit 13 reports ignored docblock tags
     Given PHPUnit identifies as version "13.0-dev"
     And I have the following code
@@ -3713,11 +3678,11 @@ Feature: TestCase
       """
     When I run Psalm with dead code detection
     Then I see these errors
-      | Type                    | Message                                                                                                   |
-      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead                                            |
-      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @dataProvider docblock tag, use #[DataProvider] or #[DataProviderExternal] instead |
-      | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::itWorks                                                    |
-      | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::provide                                                    |
+      | Type                    | Message                                                                                                   | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead                                            | 7    |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @dataProvider docblock tag, use #[DataProvider] or #[DataProviderExternal] instead | 14   |
+      | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::itWorks                                                    | 9    |
+      | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::provide                                                    | 24   |
     And I see no other errors
 
   Scenario: PHPUnit 12 does not resolve an ignored @dataProvider
