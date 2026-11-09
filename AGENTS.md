@@ -73,9 +73,11 @@ Locally:
 
 ### Psalm versions
 
-The CI low jobs (`--prefer-lowest`) resolve the lowest `vimeo/psalm` that `composer.json`
-allows, the high and stable jobs the newest. They can report different issues (from
-7.0.0-rc28 the purity suggestions are opt-in via `suggestPurityAnnotations`).
+The CI low jobs (`--prefer-lowest`) resolve the lowest Psalm 7 that supports the PHP version, the
+high and stable jobs the newest. The low and stable jobs pin Psalm 7 (`--with vimeo/psalm:^7`,
+`^7.0.0-rc3` for low): `composer.json` also allows Psalm 6, which CI never runs, and which
+`--prefer-stable` would pick on PHP 8.1. They can report different issues (from 7.0.0-rc28 the
+purity suggestions are opt-in via `suggestPurityAnnotations`).
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
   events), run the relevant scenarios on both (skill `plugin-repro`).
