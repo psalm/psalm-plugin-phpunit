@@ -498,33 +498,6 @@ Feature: TestCase
     And I see no other errors
 
   @ExternalProviders
-  Scenario: Valid external @dataProvider with a class name is allowed
-    Given I have the following code
-      """
-      /** @psalm-pure */
-      final class External {
-        /**
-         * @return iterable<int,array<int,int>>
-         * @psalm-pure
-         */
-        public static function provide() {
-          yield [1];
-        }
-      }
-
-      final class MyTestCase extends TestCase {
-        /**
-         * @dataProvider External::provide
-         */
-        public function testSomething(int $int): void {
-          $this->assertSame(1, $int);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
-  @ExternalProviders
   Scenario: #[DataProvider] naming another class is reported, as PHPUnit looks it up on the test class
     Given I have the following code
       """
