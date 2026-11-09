@@ -15,6 +15,8 @@ Layout:
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`, and `assertSame()` over `assertEquals()`
   for two arguments of one scalar type.
+- `src/Hooks/MockMethodHandler.php`: the `AfterExpressionAnalysis` hook that reports
+  `->method('typo')` on mocks and stubs as `UndefinedMethod`.
 - `src/Hooks/IntersectionMockReturnTypeProvider.php`: the `MethodReturnTypeProviderInterface` hook that types
   `createMockForIntersectionOfInterfaces()` and `createStubForIntersectionOfInterfaces()`.
 - `src/Hooks/DocblockMetadataHandler.php`, `src/Issue/IgnoredDocblockMetadata.php` and
