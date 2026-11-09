@@ -6818,3 +6818,142 @@ final class MyTestCase extends TestCase
       | PossiblyNullReference | Cannot call method method on possibly null value     | 25   |
       | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 25   |
     And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide a missing @dataProvider
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                    |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @depends
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         * @depends testOne
+         */
+        public function testSecond(string $foo, string $bar, string $baz): void {
+          $this->assertSame($foo, $bar . $baz);
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                  |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<int, list{string}>) |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                                                                                                                       |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @test
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @test
+         */
+        public function somethingElse(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @before
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        private int $value;
+
+        /**
+         * @psalm-foo
+         * @before
+         */
+        public function myInit(): void {
+          $this->value = 1;
+        }
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide an ignored docblock tag
+    Given PHPUnit identifies as version "13.0-dev"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @group slow
+         */
+        public function testSlow(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                          | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 8    |
+      | InvalidDocblock         | Unrecognised annotation @psalm-foo                               | 10   |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide a malformed annotation
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
+      | InvalidDocblock          | Unrecognised annotation @psalm-foo      | 10   |
+    And I see no other errors
