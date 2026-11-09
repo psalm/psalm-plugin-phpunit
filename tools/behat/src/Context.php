@@ -12,8 +12,8 @@ use Behat\Hook\BeforeScenario;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
-use Psl\Filesystem;
 use Psl\File;
+use Psl\Filesystem;
 use Psl\Json;
 use Psl\SecureRandom;
 use Psl\Shell;
@@ -30,6 +30,8 @@ final class Context implements BehatContext
 {
     /** @var non-empty-string|null */
     private string|null $scenarioDirectory = null;
+    private string|null $config = null;
+    private string|null $phpunitVersion = null;
     private string $codePreamble = '';
     private string|null $processOutput = null;
     /** @var int<0, 255> */
@@ -53,6 +55,11 @@ final class Context implements BehatContext
     public function cleanUpScenario(): void
     {
         Filesystem\delete_directory($this->scenarioDirectory(), true);
+
+        $shim = $this->versionShimFile();
+        if (Filesystem\is_file($shim)) {
+            Filesystem\delete_file($shim);
+        }
     }
 
     /** @return non-empty-string */
@@ -82,6 +89,8 @@ final class Context implements BehatContext
     /** @param list<non-empty-string> $additionalFlags */
     private function runPsalm(array $additionalFlags): void
     {
+        $this->writeConfig();
+
         try {
             $this->processOutput = Shell\execute(
                 __DIR__ . '/../../../vendor/bin/psalm',
@@ -126,7 +135,71 @@ final class Context implements BehatContext
     #[Given('I have the following config')]
     public function iHaveTheFollowingConfig(PyStringNode $config): void
     {
-        $this->writeFile('psalm.xml', sprintf($config->getRaw(), ''));
+        $this->config = sprintf($config->getRaw(), '');
+    }
+
+    /** Psalm loads the config's autoloader before analysis, and the plugin reads the version from PHPUnit\Runner\Version. */
+    #[Given('PHPUnit identifies as version :version')]
+    public function phpunitIdentifiesAsVersion(string $version): void
+    {
+        $this->phpunitVersion = $version;
+    }
+
+    /**
+     * The shim lives beside the scenario directory, so it is not part of the analysed project.
+     *
+     * @return non-empty-string
+     */
+    private function versionShimFile(): string
+    {
+        return $this->scenarioDirectory() . '-phpunit-version.php';
+    }
+
+    /**
+     * With a PHPUnit version given, the config's autoloader is replaced by a shim that declares
+     * PHPUnit\Runner\Version and then requires the scenario's own autoloader, if any.
+     */
+    private function writeConfig(): void
+    {
+        $xml = $this->config;
+        if ($xml === null) {
+            return;
+        }
+
+        $version = $this->phpunitVersion;
+        if ($version !== null) {
+            $own = null;
+            $withoutAutoloader = \preg_replace_callback(
+                '/(<psalm\b[^>]*?)\s+autoloader="([^"]*)"/',
+                static function (array $matches) use (&$own): string {
+                    $own = $matches[2];
+
+                    return $matches[1];
+                },
+                $xml,
+                1,
+            );
+            invariant($withoutAutoloader !== null, 'Cannot read the config');
+
+            $shim = $this->versionShimFile();
+            File\write($shim, sprintf(
+                "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
+                . "        public static function id(): string\n        {\n            return %s;\n        }\n\n"
+                . "        public static function majorVersionNumber(): int\n        {\n            return %d;\n        }\n    }\n}\n"
+                . "namespace {\n%s}\n",
+                \var_export($version, true),
+                (int) $version,
+                $own === null ? '' : sprintf(
+                    "    require_once %s;\n",
+                    \var_export(\str_starts_with($own, '/') ? $own : $this->scenarioDirectory() . '/' . $own, true),
+                ),
+            ));
+
+            $xml = \preg_replace('/<psalm\b/', sprintf('<psalm autoloader="%s"', $shim), $withoutAutoloader, 1);
+            invariant($xml !== null, 'Cannot read the config');
+        }
+
+        $this->writeFile('psalm.xml', $xml);
     }
 
     #[Given('I have the following code preamble')]
