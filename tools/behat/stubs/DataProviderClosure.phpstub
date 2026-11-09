@@ -1,0 +1,14 @@
+<?php
+
+namespace PHPUnit\Framework\Attributes;
+
+use Attribute;
+use Closure;
+
+#[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
+final class DataProviderClosure
+{
+    public function __construct(Closure $closure, bool $validateArgumentCount = true)
+    {
+    }
+}

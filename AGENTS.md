@@ -171,6 +171,8 @@ workaround explicitly in the report.
     config's `autoloader` (the file is deleted after the scenario). `TestCase.feature` pins `11.5.0` in
     its Background, so docblock scenarios do not depend on the installed PHPUnit; scenarios for 12 and
     newer override it;
+  - `Given PHPUnit declares the DataProviderClosure attribute` adds `tools/behat/stubs/DataProviderClosure.phpstub`
+    to the config, as the real attribute only exists since PHPUnit 13.1 (use it with version `13.1.0`);
   - `When I run Psalm with dead code detection` adds `--find-dead-code`;
     `When I run Psalm on "<file>"` and `Then I see exit code N` also exist.
 - Ways a scenario silently asserts nothing:

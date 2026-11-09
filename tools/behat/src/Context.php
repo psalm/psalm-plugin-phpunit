@@ -32,6 +32,7 @@ final class Context implements BehatContext
     private string|null $scenarioDirectory = null;
     private string|null $config = null;
     private string|null $phpunitVersion = null;
+    private bool $declaresDataProviderClosure = false;
     private string $codePreamble = '';
     private string|null $processOutput = null;
     /** @var int<0, 255> */
@@ -146,6 +147,16 @@ final class Context implements BehatContext
     }
 
     /**
+     * PHPUnit declares the attribute since 13.1, and the CI matrix also runs older releases: a stub makes the
+     * scenario independent of the installed PHPUnit.
+     */
+    #[Given('PHPUnit declares the DataProviderClosure attribute')]
+    public function phpunitDeclaresTheDataProviderClosureAttribute(): void
+    {
+        $this->declaresDataProviderClosure = true;
+    }
+
+    /**
      * The shim lives beside the scenario directory, so it is not part of the analysed project.
      *
      * @return non-empty-string
@@ -197,6 +208,17 @@ final class Context implements BehatContext
 
             $xml = \preg_replace('/<psalm\b/', sprintf('<psalm autoloader="%s"', $shim), $withoutAutoloader, 1);
             invariant($xml !== null, 'Cannot read the config');
+        }
+
+        if ($this->declaresDataProviderClosure) {
+            $withStubs = \preg_replace(
+                '#</psalm>#',
+                sprintf("  <stubs><file name=\"%s\"/></stubs>\n</psalm>", __DIR__ . '/../stubs/DataProviderClosure.phpstub'),
+                $xml,
+                1,
+            );
+            invariant($withStubs !== null, 'Cannot read the config');
+            $xml = $withStubs;
         }
 
         $this->writeFile('psalm.xml', $xml);
