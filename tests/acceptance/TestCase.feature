@@ -1347,14 +1347,28 @@ Feature: TestCase
         public function testUnsealed(int $a, int $b): void {
           $this->assertNotSame($a, $b);
         }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Docblock data providers with string keys are matched to parameters by name
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{currency: string, cents: int}>
+         * @psalm-pure
+         */
+        public static function reordered(): iterable {
+          return [['currency' => 'EUR', 'cents' => 100]];
+        }
 
         /**
-         * @dataProvider prices
-         * @param mixed $cents
-         * @param mixed $currency
+         * @dataProvider reordered
          */
-        public function testDocblock($cents, $currency): void {
-          $this->assertNotSame($cents, $currency);
+        public function testDocblock(int $cents, string $currency): void {
+          $this->assertNotEmpty($currency . $cents);
         }
       }
       """
