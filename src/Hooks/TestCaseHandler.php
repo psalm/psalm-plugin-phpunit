@@ -273,7 +273,7 @@ final class TestCaseHandler implements
 
             $codebase->methodExists(
                 (string) $declaring_method_id,
-                'PHPUnit\Framework\TestSuite::run'
+                calling_method_id: 'PHPUnit\Framework\TestSuite::run',
             );
 
             $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
@@ -323,8 +323,8 @@ final class TestCaseHandler implements
                 // methodExists also can mark methods as used (weird, but handy)
                 $provider_method_exists = $codebase->methodExists(
                     $provider_method_id,
-                    (string) $declaring_method_id,
-                    $provider_docblock_location,
+                    calling_method_id: (string) $declaring_method_id,
+                    code_location: $provider_docblock_location,
                 );
 
                 if (!$provider_method_exists) {
