@@ -18,6 +18,7 @@ use function is_string;
  * How PHPUnit unpacks a dataset with string keys into the test call: int keys are positional, string keys name
  * a parameter (or, without a matching parameter, land in the variadic one).
  *
+ * @api
  * @psalm-immutable
  */
 final class DatasetBinding
