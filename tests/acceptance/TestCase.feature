@@ -497,6 +497,62 @@ Feature: TestCase
       | InvalidDataProvider | Data provider method NS\External::provide must be public |
     And I see no other errors
 
+  @ExternalProviders
+  Scenario: #[DataProvider] naming another class is reported, as PHPUnit looks it up on the test class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-pure */
+      final class External {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        #[Attributes\DataProvider('External::provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                         |
+      | UndefinedMethod | Provider method NS\MyTestCase::External::provide is not defined |
+    And I see no other errors
+
+  Scenario: #[DataProvider] naming another class is reported even if the test class has a method named like the class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function External() {
+          yield [1];
+        }
+
+        #[Attributes\DataProvider('External::provide')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                         |
+      | UndefinedMethod | Provider method NS\MyTestCase::External::provide is not defined |
+    And I see no other errors
+
   Scenario: Data provider made public by a trait adaptation is allowed
     Given I have the following code
       """
@@ -4184,7 +4240,6 @@ Feature: TestCase
           $this->assertEquals(0.5, $float);
           $this->assertEquals($float, $float);
           $this->assertEquals($flag, !$flag);
-          $this->assertNotEquals(true, $flag);
         }
       }
       """
@@ -4202,7 +4257,30 @@ Feature: TestCase
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 20   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 21   |
       | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         | 22   |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   | 23   |
+    And I see no other errors
+
+  Scenario: assertEquals with a boolean expectation suggests assertTrue and assertFalse
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testBool(): void {
+          $flag = random_int(0, 1) === 1;
+          $this->assertEquals(true, $flag);
+          $this->assertEquals(FALSE, $flag);
+          $this->assertNotEquals(true, $flag);
+          self::assertNotEquals(false, $flag);
+          $this->assertEquals(true, true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                     | Line |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 8    |
+      | UnspecificBooleanAssertion | Use assertFalse() instead of assertEquals(false, ...)       | 9    |
+      | UnspecificBooleanAssertion | Use assertNotTrue() instead of assertNotEquals(true, ...)   | 10   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotEquals(false, ...) | 11   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 12   |
     And I see no other errors
 
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
@@ -4222,6 +4300,8 @@ Feature: TestCase
           $this->assertEquals(1, $text);
           $this->assertEquals(1, $float);
           $this->assertEquals(true, $int);
+          $this->assertNotEquals(false, $text);
+          $this->assertEquals(true, $int ? true : null);
           $this->assertEquals(0, $maybeInt);
           $this->assertEquals($maybeInt, $int);
           $this->assertEquals(null, $int);
@@ -6617,6 +6697,321 @@ final class MyTestCase extends TestCase
       | Type                 | Message                              |
       | MissingParentCall    | Missing call to parent::tearDown()   |
       | UnusedPsalmSuppress  | This suppression is never used       |
+    And I see no other errors
+
+  Scenario: assertPreConditions and assertPostConditions without a call to the parent are reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPostConditions(): void {
+        }
+      }
+
+      final class DirectTestCase extends TestCase {
+        /** @psalm-capabilities read-props */
+        #[\Override]
+        protected function assertPreConditions(): void {
+        }
+      }
+
+      final class CallingTestCase extends BaseTestCase {
+        #[\Override]
+        protected function assertPreConditions(): void {
+          parent::assertPreConditions();
+        }
+
+        #[\Override]
+        protected function assertPostConditions(): void {
+          parent::assertPostConditions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                         |
+      | MissingParentCall | Missing call to parent::assertPreConditions()  |
+      | MissingParentCall | Missing call to parent::assertPostConditions() |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of mocks is reported for each type lacking it
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function send(): bool;
+
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testMissingOnOneType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testMissingOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('sendInvoce')->willReturn(true);
+        }
+
+        public function testDefinedOnEveryType(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->method('send')->willReturn(true);
+        }
+
+        public function testExpects(bool $flag): void {
+          $mock = $flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class);
+          $mock->expects($this->once())->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testInlineUnion(bool $flag): void {
+          ($flag ? $this->createMock(Mailer::class) : $this->createMock(Notifier::class))->method('sendInvoice');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 23   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::sendInvoce()    | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoce()  | 28   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 38   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 42   |
+    And I see no other errors
+
+  Scenario: Mocking an undefined method on a union of stubs and mocks is reported
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      interface Notifier {
+        /** @psalm-impure */
+        public function send(): bool;
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testStubAndMock(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createMock(Notifier::class);
+          $double->method('sendInvoice')->willReturn(true);
+        }
+
+        public function testStubs(bool $flag): void {
+          $double = $flag ? $this->createStub(Mailer::class) : $this->createStub(Notifier::class);
+          $double->method('send')->willReturn(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                        | Line |
+      | UndefinedMethod | Trying to mock an undefined method NS\Notifier::sendInvoice() | 20   |
+      | UndefinedMethod | Trying to mock an undefined method NS\Mailer::send()          | 25   |
+    And I see no other errors
+
+  Scenario: Union members Psalm cannot check do not hide the checked ones
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface Mailer {
+        /** @psalm-impure */
+        public function sendInvoice(): bool;
+      }
+
+      /** @psalm-mutable */
+      final class Configurable {
+        /** @psalm-impure */
+        public function method(string $name): bool { return true; }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function testOwnMethod(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : new Configurable();
+          $double->method('typo');
+        }
+
+        public function testNotADouble(bool $flag): void {
+          $double = $flag ? $this->createMock(Mailer::class) : null;
+          $double->method('typo');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                  | Message                                              | Line |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 20   |
+      | PossiblyNullReference | Cannot call method method on possibly null value     | 25   |
+      | UndefinedMethod       | Trying to mock an undefined method NS\Mailer::typo() | 25   |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide a missing @dataProvider
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                    |
+      | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @depends
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @psalm-foo
+         * @dataProvider provide
+         * @depends testOne
+         */
+        public function testSecond(string $foo, string $bar, string $baz): void {
+          $this->assertSame($foo, $bar . $baz);
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo']];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                                                  |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable<int, list{string}>) |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo                                                                                                                       |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @test
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @test
+         */
+        public function somethingElse(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide @before
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        private int $value;
+
+        /**
+         * @psalm-foo
+         * @before
+         */
+        public function myInit(): void {
+          $this->value = 1;
+        }
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                            |
+      | InvalidDocblock | Unrecognised annotation @psalm-foo |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide an ignored docblock tag
+    Given PHPUnit identifies as version "13.0-dev"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @group slow
+         */
+        public function testSlow(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                          | Line |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 8    |
+      | InvalidDocblock         | Unrecognised annotation @psalm-foo                               | 10   |
+    And I see no other errors
+
+  Scenario: Unknown @psalm tag does not hide a malformed annotation
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-foo
+         * @dataProvider
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
+      | InvalidDocblock          | Unrecognised annotation @psalm-foo      | 10   |
     And I see no other errors
 
   Scenario: Malformed annotation in the class docblock of a used trait is reported

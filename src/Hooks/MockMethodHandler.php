@@ -12,6 +12,7 @@ use Psalm\Issue\UndefinedMethod;
 use Psalm\IssueBuffer;
 use Psalm\Plugin\EventHandler\AfterExpressionAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterExpressionAnalysisEvent;
+use Psalm\Type\Atomic;
 use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Union;
 use Traversable;
@@ -71,62 +72,70 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
             $double = $double->var;
         }
 
-        $mockedClasses = self::mockedClasses($typeProvider->getType($double));
+        $doubleType = $typeProvider->getType($double);
         $argType = $typeProvider->getType($args[0]->value);
-        if ($mockedClasses === [] || $argType === null) {
+        if ($doubleType === null || $argType === null || !$argType->allStringLiterals()) {
             return null;
         }
 
         $codebase = $event->getCodebase();
-        foreach ($mockedClasses as $mockedClass) {
-            // a doubled class with its own method() is not configured through PHPUnit's method()
-            if (
-                !$codebase->classOrInterfaceExists($mockedClass)
-                || $codebase->methodExists($mockedClass . '::method')
-            ) {
-                return null;
-            }
-        }
-
-        if (!$argType->allStringLiterals()) {
-            return null;
-        }
-
-        // PHPUnit adds Iterator's methods to a double of Traversable and of an interface that extends only it
-        $lookupClasses = $mockedClasses;
-        foreach ($mockedClasses as $mockedClass) {
-            if (self::getsIteratorMethods($codebase, $mockedClass)) {
-                $lookupClasses[] = Iterator::class;
-            }
-        }
-
-        foreach ($argType->getLiteralStrings() as $literal) {
-            $methodName = $literal->value;
-
-            // PHPUnit configures property hooks as '$name::get' and '$name::set', which Psalm cannot look up
-            if (str_starts_with($methodName, '$')) {
+        // any member of a union can be the runtime object, so each one has to define the method
+        foreach ($doubleType->getAtomicTypes() as $doubleAtomic) {
+            $mockedClasses = self::mockedClasses($doubleAtomic);
+            if ($mockedClasses === []) {
                 continue;
             }
 
-            foreach ($lookupClasses as $lookupClass) {
-                // No code location or source on purpose: mocking a method by name is not a call, so it must
-                // not make the method "used" for dead code detection.
+            foreach ($mockedClasses as $mockedClass) {
+                // a doubled class with its own method() is not configured through PHPUnit's method()
                 if (
-                    $codebase->methodExists($lookupClass . '::' . $methodName, with_pseudo: true)
-                    || $codebase->methodExists($lookupClass . '::__call')
+                    !$codebase->classOrInterfaceExists($mockedClass)
+                    || $codebase->methodExists($mockedClass . '::method')
                 ) {
                     continue 2;
                 }
             }
 
-            IssueBuffer::accepts(
-                new UndefinedMethod(
-                    sprintf('Trying to mock an undefined method %s::%s()', implode('&', $mockedClasses), $methodName),
-                    new CodeLocation($source, $args[0]->value),
-                    $mockedClasses[0] . '::' . $methodName,
-                ),
-                $source->getSuppressedIssues(),
-            );
+            // PHPUnit adds Iterator's methods to a double of Traversable and of an interface that extends only it
+            $lookupClasses = $mockedClasses;
+            foreach ($mockedClasses as $mockedClass) {
+                if (self::getsIteratorMethods($codebase, $mockedClass)) {
+                    $lookupClasses[] = Iterator::class;
+                }
+            }
+
+            foreach ($argType->getLiteralStrings() as $literal) {
+                $methodName = $literal->value;
+
+                // PHPUnit configures property hooks as '$name::get' and '$name::set', which Psalm cannot look up
+                if (str_starts_with($methodName, '$')) {
+                    continue;
+                }
+
+                foreach ($lookupClasses as $lookupClass) {
+                    // No code location or source on purpose: mocking a method by name is not a call, so it must
+                    // not make the method "used" for dead code detection.
+                    if (
+                        $codebase->methodExists($lookupClass . '::' . $methodName, with_pseudo: true)
+                        || $codebase->methodExists($lookupClass . '::__call')
+                    ) {
+                        continue 2;
+                    }
+                }
+
+                IssueBuffer::accepts(
+                    new UndefinedMethod(
+                        sprintf(
+                            'Trying to mock an undefined method %s::%s()',
+                            implode('&', $mockedClasses),
+                            $methodName,
+                        ),
+                        new CodeLocation($source, $args[0]->value),
+                        $mockedClasses[0] . '::' . $methodName,
+                    ),
+                    $source->getSuppressedIssues(),
+                );
+            }
         }
 
         return null;
@@ -134,16 +143,11 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
 
     /**
      * @return list<string> the doubled classes of a "Foo&MockObject" / "Stub&Foo" type, or [] if it is not
-     *                      a test double (or a union or template whose doubled classes are not known)
+     *                      a test double (or a template whose doubled classes are not known)
      * @psalm-pure
      */
-    private static function mockedClasses(?Union $type): array
+    private static function mockedClasses(Atomic $atomic): array
     {
-        if ($type === null || !$type->isSingle()) {
-            return [];
-        }
-
-        $atomic = $type->getSingleAtomic();
         if (!$atomic instanceof TNamedObject) {
             return [];
         }
