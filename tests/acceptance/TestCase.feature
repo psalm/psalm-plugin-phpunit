@@ -2633,33 +2633,6 @@ Feature: TestCase
       | UndefinedClass | Class NS\External does not exist |
 
   @ExternalProviders
-  Scenario: #[DataProviderExternal] providers are allowed
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes;
-
-      /** @psalm-pure */
-      final class External {
-        /**
-         * @return iterable<int,array<int,int>>
-         * @psalm-pure
-         */
-        public static function provide() {
-          yield [1];
-        }
-      }
-
-      final class MyTestCase extends TestCase {
-        #[Attributes\DataProviderExternal(External::class, 'provide')]
-        public function testSomething(int $int): void {
-          $this->assertEquals(1, $int);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
-  @ExternalProviders
   Scenario: #[DataProviderExternal] providers are not marked as unused
     Given I have the following code
       """
@@ -3047,6 +3020,50 @@ Feature: TestCase
       | Type            | Message                                                                                                                                      |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testInTrait expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
     And I see no other errors
+
+  @ExternalProviders
+  Scenario: Docblock providers of a trait test are resolved relative to the test case, not the trait
+    Given I have the following code in "trait.php"
+      """
+      <?php
+      namespace Shared;
+
+      trait MyTestTrait {
+        /**
+         * @dataProvider Fixtures::provide
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    And I have the following code in "fixtures.php"
+      """
+      <?php
+
+      /** @psalm-pure */
+      final class Fixtures {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        public static function provide() {
+          yield [1];
+        }
+      }
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+
+      use PHPUnit\Framework\TestCase;
+
+      final class MyTestCase extends TestCase {
+        use Shared\MyTestTrait;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
 
   @ExternalProviders
   Scenario: Docblock data provider is unused when the test has a #[DataProviderExternal] attribute

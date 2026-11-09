@@ -204,7 +204,7 @@ final class TestCaseHandler implements
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
-            foreach (self::getDataProviders($method, $aliases, $class_storage) as $provider) {
+            foreach (self::getDataProviders($method, $aliases, $aliases, $class_storage) as $provider) {
                 if ($provider['class'] === null) {
                     continue;
                 }
@@ -264,7 +264,7 @@ final class TestCaseHandler implements
             $specials = self::getSpecials($stmt_method, $method_aliases);
             // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
+                && self::getAttributeDataProviders($stmt_method, $method_aliases, $aliases, $class_storage) === null;
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -276,7 +276,7 @@ final class TestCaseHandler implements
                 'PHPUnit\Framework\TestSuite::run'
             );
 
-            $providers = self::getDataProviders($stmt_method, $method_aliases, $class_storage);
+            $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
             if ($providers === []) {
                 continue;
             }
@@ -726,18 +726,25 @@ final class TestCaseHandler implements
     /**
      * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
      *
+     * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. PHPUnit takes
+     * "Class::method" strings literally, so $reference_aliases (of the analysed file) resolve those.
+     *
      * @return list<array{line: int, class: string|null, method: string, external: bool}>
      *     class is null for a provider of the test's own class
      */
-    private static function getDataProviders(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
-    {
-        $attribute_providers = self::getAttributeDataProviders($method, $aliases, $class);
+    private static function getDataProviders(
+        ClassMethod $method,
+        Aliases $aliases,
+        Aliases $reference_aliases,
+        ClassLikeStorage $class
+    ): array {
+        $attribute_providers = self::getAttributeDataProviders($method, $aliases, $reference_aliases, $class);
         if ($attribute_providers !== null) {
             return $attribute_providers;
         }
 
         return array_map(
-            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $aliases),
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
             self::getDocblockSpecials($method)['dataProvider'] ?? [],
         );
     }
@@ -750,12 +757,13 @@ final class TestCaseHandler implements
     private static function getAttributeDataProviders(
         ClassMethod $method,
         Aliases $aliases,
+        Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array|null {
         $references = self::attributeValue($method, $aliases, DataProvider::class);
         $has_attributes = $references !== null;
         $providers = array_map(
-            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $aliases),
+            static fn(array $entry): array => self::parseProviderReference($entry[0], $entry[1], $reference_aliases),
             $references ?? [],
         );
 
