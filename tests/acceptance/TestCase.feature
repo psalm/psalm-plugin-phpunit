@@ -3237,3 +3237,216 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Annotation without a value is reported instead of a provider error
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @dataProvider*/
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 7    |
+    And I see no other errors
+
+  Scenario: Annotation alone on its line is reported on that line, not merged with the description below
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @dataProvider
+         * Some description of the test
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 8    |
+    And I see no other errors
+
+  Scenario: Other value annotations and class docblocks are checked too
+    Given I have the following code
+      """
+      /** @covers*/
+      final class MyTestCase extends TestCase
+      {
+        /** @depends*/
+        public function testFirst(): void {
+          $this->expectNotToPerformAssertions();
+        }
+
+        /**
+         * @group
+         */
+        public function testSecond(): void {
+          $this->expectNotToPerformAssertions();
+        }
+
+        /** @dataProvider(provide) */
+        public function testThird(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                                              | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@covers" has no value                                  | 5    |
+      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value                                 | 8    |
+      | InvalidPhpUnitAnnotation | Annotation "@group" has no value                                   | 14   |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" must be followed by a space and a value | 20   |
+    And I see no other errors
+
+  Scenario: Description lines below a valid provider annotation are not part of the provider name
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @dataProvider provide
+         * more words about it
+         */
+        public function testSomething(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+
+        /**
+         * @psalm-pure
+         * @return list<array{int}>
+         */
+        public static function provide(): array {
+          return [[1]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Annotations on methods that are not tests are checked
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @psalm-pure
+         * @dataProvider
+         */
+        public function helper(): int {
+          return 1;
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                                 | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 9    |
+    And I see no other errors
+
+  Scenario: Malformed annotations can be suppressed on the method and on the class
+    Given I have the following code
+      """
+      /**
+       * @psalm-suppress InvalidPhpUnitAnnotation
+       * @covers
+       */
+      final class SuppressedClassTest extends TestCase
+      {
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+
+      final class SuppressedMethodTest extends TestCase
+      {
+        /**
+         * @psalm-suppress InvalidPhpUnitAnnotation
+         * @depends
+         */
+        public function testSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Malformed annotation in a trait method is reported on the trait's line
+    Given I have the following code
+      """
+      trait HelperTrait
+      {
+        /** @dataProvider*/
+        public function testFromTrait(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                               | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@dataProvider" has no value | 7    |
+    And I see no other errors
+
+  Scenario: Malformed annotation next to a PHPUnit attribute is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @depends*/
+        #[\PHPUnit\Framework\Attributes\Test]
+        public function checkSomething(): void {
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                             | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@depends" has no value  | 7    |
+    And I see no other errors
+
+  Scenario: Well formed value annotations are not reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        /** @dataProvider provide*/
+        public function testWithProvider(int $int): void {
+          $this->assertEquals(1, $int);
+        }
+
+        /**
+         * @depends	testWithProvider
+         * @group	slow
+         */
+        public function testAfter(): void {
+          $this->expectNotToPerformAssertions();
+        }
+
+        /**
+         * @psalm-pure
+         * @return list<array{int}>
+         */
+        public static function provide(): array {
+          return [[1]];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
