@@ -88,6 +88,7 @@ final class Context implements BehatContext
                 \array_merge(
                     [
                         '--no-progress',
+                        '--no-cache',
                         '--output-format=json',
                     ],
                     $additionalFlags,

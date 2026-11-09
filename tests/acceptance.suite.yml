@@ -1,7 +1,0 @@
-actor: AcceptanceTester
-modules:
-    enabled:
-        - Cli
-        - Filesystem
-        - \Weirdan\Codeception\Psalm\Module
-        - \Psalm\PhpUnitPlugin\Tests\Helper\Acceptance

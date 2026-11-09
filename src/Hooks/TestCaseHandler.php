@@ -29,9 +29,11 @@ use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
+use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -43,7 +45,6 @@ use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
-use Psalm\Type\Union;
 use RuntimeException;
 
 use function array_column;
@@ -90,6 +91,23 @@ final class TestCaseHandler implements
     ];
 
     /**
+     * PHPUnit's own exceptions are handled by the test runner, nobody documents or catches them in tests.
+     * Psalm matches a thrown class only against listed parent classes, so classes that merely implement one of
+     * the interfaces are listed on their own.
+     */
+    private const IGNORED_EXCEPTIONS = [
+        'PHPUnit\\Exception',
+        'PHPUnit\\Framework\\Exception',
+        'PHPUnit\\Framework\\MockObject\\Exception',
+        'PHPUnit\\Framework\\MockObject\\ReflectionException',
+        'PHPUnit\\Framework\\MockObject\\RuntimeException',
+        'PHPUnit\\Event\\NoPreviousThrowableException',
+        'PHPUnit\\Util\\Exception',
+        'PHPUnit\\Util\\InvalidJsonException',
+        'PHPUnit\\Util\\Xml\\XmlException',
+    ];
+
+    /**
      * Statements after expectException*() may exist only to throw, so their results are unused and PHPUnit catches
      * the exception.
      */
@@ -121,6 +139,11 @@ final class TestCaseHandler implements
     public static function afterCodebasePopulated(AfterCodebasePopulatedEvent $event)
     {
         $codebase = $event->getCodebase();
+
+        foreach (self::IGNORED_EXCEPTIONS as $exception) {
+            $codebase->config->ignored_exceptions_and_descendants[$exception] = true;
+            $codebase->config->ignored_exceptions_and_descendants_in_global_scope[$exception] = true;
+        }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
@@ -243,6 +266,9 @@ final class TestCaseHandler implements
             // Use the declaring class's aliases so trait-declared attributes resolve via the trait's imports.
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
+            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
+            $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
+                && !isset(self::getAttributeSpecials($stmt_method, $method_aliases)['dataProvider']);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -312,6 +338,39 @@ final class TestCaseHandler implements
                         $apparent_provider_method_name
                     ));
                     continue;
+                }
+
+                $provider_method_storage = $codebase->methods->getStorage(MethodIdentifier::wrap($provider_method_id));
+
+                // Abstract providers are checked on the concrete classes implementing them
+                if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
+                    $provider_visibility = $provider_method_storage->visibility;
+                    $appearing_provider_id = $codebase->methods->getAppearingMethodId(
+                        MethodIdentifier::wrap($apparent_provider_method_name)
+                    );
+                    if (null !== $appearing_provider_id) {
+                        $provider_visibility = $codebase->classlike_storage_provider
+                            ->get($appearing_provider_id->fq_class_name)
+                            ->trait_visibility_map[$appearing_provider_id->method_name]
+                            ?? $provider_visibility;
+                    }
+                    $suppressed_issues = $method_storage->suppressed_issues
+                        + $declaring_class_storage->suppressed_issues
+                        + $statements_source->getSuppressedIssues();
+
+                    if (ClassLikeAnalyzer::VISIBILITY_PUBLIC !== $provider_visibility) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be public',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
+
+                    if (!$provider_method_storage->is_static) {
+                        IssueBuffer::accepts(new InvalidDataProvider(
+                            'Data provider method ' . $apparent_provider_method_name . ' must be static',
+                            $provider_docblock_location
+                        ), $suppressed_issues);
+                    }
                 }
 
                 $provider_return_type = $codebase->getMethodReturnType($provider_method_id, $_);
@@ -430,20 +489,7 @@ final class TestCaseHandler implements
                     $provider_docblock_location
                 ): void {
                     if ($is_optional) {
-                        /** @psalm-suppress RedundantCondition */
-                        if (method_exists($param_type, 'setPossiblyUndefined')) {
-                            /** @var Union */
-                            $param_type = $param_type->setPossiblyUndefined(true);
-                        } else {
-                            // for older Psalm versions
-                            /**
-                             * @psalm-suppress InvalidClone
-                             * @var Union
-                             */
-                            $param_type = clone $param_type;
-                            /** @psalm-suppress InaccessibleProperty */
-                            $param_type->possibly_undefined = true;
-                        }
+                        $param_type = $param_type->setPossiblyUndefined(true);
                     }
                     if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
                         // ok
@@ -718,19 +764,34 @@ final class TestCaseHandler implements
     }
 
     /**
+     * PHPUnit's ParserChain ignores docblock annotations on a method that has any PHPUnit attribute.
+     */
+    private static function hasPhpUnitAttribute(ClassMethod $method, Aliases $aliases): bool
+    {
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if (str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Mirrors PHPUnit's ParserChain: docblock annotations are only read when the method has no PHPUnit attribute.
      *
      * @return list<string|null> "Class::method" per method dependency, null when the target is not a literal
      */
     private static function getDependencyTargets(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
     {
-        $has_phpunit_attribute = false;
+        $has_phpunit_attribute = self::hasPhpUnitAttribute($method, $aliases);
         $targets               = [];
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
-                $attribute_class       = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                $has_phpunit_attribute = $has_phpunit_attribute
-                    || str_starts_with($attribute_class, 'PHPUnit\\Framework\\Attributes\\');
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
                 if (!isset(self::DEPENDS_ATTRIBUTES[$attribute_class])) {
                     continue;
                 }
