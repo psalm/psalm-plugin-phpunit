@@ -1340,9 +1340,9 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message |
-      | InvalidNamedArgument | Cannot use positional argument after named argument: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) |
-      | InvalidNamedArgument | Cannot use positional argument after named argument: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) |
+      | Type                 | Message | Line |
+      | InvalidNamedArgument | Cannot use positional argument after named argument: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) | 22 |
+      | InvalidNamedArgument | Cannot use positional argument after named argument: PHPUnit appends the return value of a depended-upon test to dataset NS\MyTestCase::provide():(iterable<int, array{foo: string}>) | 29 |
     And I see no other errors
 
   Scenario: String-keyed datasets are allowed when dependencies pass no value
@@ -1471,6 +1471,128 @@ Feature: TestCase
     Then I see these errors
       | Type            | Message |
       | InvalidArgument | Argument 1 ($a) of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<int, array{a?: int}>) |
+    And I see no other errors
+
+  Scenario: Possibly undefined positional entries do not fill parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{0?: int, a: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['a' => 1]];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $a = 0): void {
+          $this->assertNotEmpty($a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed datasets are not reported when the dependency target is unresolved
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public const SOURCE = 'testOne';
+
+        public function testOne(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends(self::SOURCE)]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: String-keyed datasets are not reported when a void dependency precedes a value dependency
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testVoid(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testValue(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{foo: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [['foo' => 'foo']];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testVoid')]
+        #[Depends('testValue')]
+        public function testSecond(string $foo, string $bar): void {
+          $this->assertSame($foo, $bar);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Dependency values still count when a possibly undefined string key is the only key
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): string {
+          $this->assertTrue(true);
+          return 'bar';
+        }
+
+        /**
+         * @return iterable<int, array{x?: int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          return [[]];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(int $a, string $b): void {
+          $this->assertNotEmpty($a . $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSecond - parameter $b is not provided by NS\MyTestCase::provide():(iterable<int, array{x?: int}>) | 22 |
     And I see no other errors
 
   Scenario: @depends values are not required from the @dataProvider

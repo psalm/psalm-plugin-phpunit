@@ -34,6 +34,7 @@ use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
+use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
@@ -288,6 +289,12 @@ final class TestCaseHandler implements
             }
 
             $dependency_values = self::countDependencyValues(
+                $codebase,
+                $stmt_method,
+                $method_aliases,
+                $class_storage,
+            );
+            $appends_dependency_value = self::firstDependencyReturnsValue(
                 $codebase,
                 $stmt_method,
                 $method_aliases,
@@ -557,6 +564,7 @@ final class TestCaseHandler implements
                         $provider_return_type_string,
                         $provider_docblock_location,
                         $dependency_values,
+                        $appends_dependency_value,
                         $checkParam,
                     );
                 } else { // TKeyedArray
@@ -632,12 +640,12 @@ final class TestCaseHandler implements
     }
 
     /**
-     * PHPUnit unpacks the dataset into the test call: int keys are positional, string keys name a parameter
-     * (or, without a matching parameter, land in the variadic one), and the return values of depended-upon tests
-     * are appended as positional arguments.
+     * The return values of depended-upon tests are appended to the dataset as positional arguments. After a
+     * string key PHP rejects them, which is only certain when the first dependency provably returns a value:
+     * PHPUnit 11 stops collecting at the first void dependency, and later versions continue.
      *
      * @param list<FunctionLikeParameter> $params
-     * @param \Closure(Type\Union, Type\Union, bool, int, string=): void $checkParam
+     * @param \Closure(Type\Union, Type\Union, bool, int, string|null=): void $checkParam
      */
     private static function checkNamedDataset(
         Type\Atomic\TKeyedArray $dataset_type,
@@ -647,107 +655,59 @@ final class TestCaseHandler implements
         string $provider_return_type_string,
         CodeLocation $provider_docblock_location,
         int $dependency_values,
+        bool $appends_dependency_value,
         \Closure $checkParam
     ): void {
         $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
+        $binding     = DatasetBinding::bind($dataset_type, $params);
 
-        $positional = [];
-        $named      = [];
-        foreach ($dataset_type->properties as $key => $type) {
-            if (is_string($key)) {
-                $named[$key] = $type;
-            } else {
-                $positional[] = $type;
-            }
+        foreach ($binding->arguments as $argument) {
+            $checkParam(
+                $argument->type,
+                $argument->param_type,
+                $argument->is_optional,
+                $argument->position,
+                $argument->name,
+            );
         }
 
-        $params_by_name = [];
-        $variadic_offset = null;
-        $variadic_type   = Type::getMixed();
-        foreach ($params as $offset => $param) {
-            if ($param->is_variadic) {
-                $variadic_offset = $offset;
-                $variadic_type   = new Type\Union(array_values(self::getAtomics($param->type ?? Type::getMixed())));
-                break;
-            }
-            $params_by_name[$param->name] = $offset;
+        foreach ($binding->unknown as $name) {
+            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                'Parameter $' . $name . ' does not exist on ' . $method_name . ', provided by ' . $provided_by,
+                $provider_docblock_location,
+                $method_name
+            ));
         }
 
-        foreach ($positional as $offset => $type) {
-            if ($variadic_offset !== null && $offset >= $variadic_offset) {
-                $checkParam($type, $variadic_type, true, $offset);
-                continue;
-            }
-            if (!isset($params[$offset])) {
-                break;
-            }
-            $checkParam($type, $params[$offset]->type ?? Type::getMixed(), $params[$offset]->is_optional, $offset);
+        foreach ($binding->duplicate as $name) {
+            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                'Parameter $' . $name . ' has already been used in ' . $method_name
+                . ', provided by ' . $provided_by,
+                $provider_docblock_location,
+                $method_name
+            ));
         }
 
-        foreach ($named as $name => $type) {
-            $offset = $params_by_name[$name] ?? null;
-
-            if ($offset === null && $variadic_offset !== null) {
-                $checkParam($type, $variadic_type, true, $variadic_offset, $name);
-            } elseif ($offset === null) {
-                if (!$type->possibly_undefined) {
-                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                        'Parameter $' . $name . ' does not exist on ' . $method_name . ', provided by ' . $provided_by,
-                        $provider_docblock_location,
-                        $method_name
-                    ));
-                }
-            } elseif ($offset < count($positional)) {
-                if (!$type->possibly_undefined) {
-                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                        'Parameter $' . $name . ' has already been used in ' . $method_name
-                        . ', provided by ' . $provided_by,
-                        $provider_docblock_location,
-                        $method_name
-                    ));
-                }
-            } else {
-                $param = $params[$offset];
-                $checkParam($type, $param->type ?? Type::getMixed(), $param->is_optional, $offset, $name);
-            }
-        }
-
-        if ($dependency_values > 0) {
-            foreach ($named as $type) {
-                if (!$type->possibly_undefined) {
-                    IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                        'Cannot use positional argument after named argument: PHPUnit appends the return value of a'
-                        . ' depended-upon test to dataset ' . $provided_by,
-                        $provider_docblock_location,
-                        $method_name
-                    ));
-                    break;
-                }
-            }
+        if ($appends_dependency_value && $binding->has_definite_named_key) {
+            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                'Cannot use positional argument after named argument: PHPUnit appends the return value of a'
+                . ' depended-upon test to dataset ' . $provided_by,
+                $provider_docblock_location,
+                $method_name
+            ));
 
             return;
         }
 
-        // an unsealed shape may carry further keys, which could name the missing parameter
-        if (!$dataset_type->isSealed()) {
-            return;
-        }
-
-        foreach ($params as $offset => $param) {
-            if ($param->is_variadic) {
-                break;
-            }
-            if ($param->is_optional || $offset < count($positional) || isset($named[$param->name])) {
-                continue;
-            }
-
+        // the return values of depended-upon tests fill the first parameters the dataset leaves open
+        $missing = array_slice($binding->missing, $dependency_values);
+        if ($missing !== []) {
             IssueBuffer::accepts(new Issue\TooFewArguments(
-                'Too few arguments for ' . $method_name . ' - parameter $' . $param->name
+                'Too few arguments for ' . $method_name . ' - parameter $' . $missing[0]
                 . ' is not provided by ' . $provided_by,
                 $provider_docblock_location,
                 $method_name
             ));
-            break;
         }
     }
 
@@ -895,14 +855,7 @@ final class TestCaseHandler implements
                 }
                 $seen[strtolower($target)] = true;
 
-                $target_class = explode('::', $target)[0];
-                $target_id    = $codebase->classOrInterfaceExists($target_class)
-                    ? $codebase->getDeclaringMethodId($target)
-                    : null;
-                $return_type  = $target_id === null
-                    ? null
-                    : $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
-                if ($return_type !== null && ($return_type->isVoid() || $return_type->isNever())) {
+                if (self::dependencyReturnsValue($codebase, $target) === false) {
                     continue;
                 }
             }
@@ -910,6 +863,39 @@ final class TestCaseHandler implements
         }
 
         return $count;
+    }
+
+    /**
+     * PHPUnit 11 stops collecting dependency values at the first void dependency and later versions go on, so
+     * a value is only certain when the first dependency (class dependencies are skipped) provably returns one.
+     */
+    private static function firstDependencyReturnsValue(
+        Codebase $codebase,
+        ClassMethod $method,
+        Aliases $aliases,
+        ClassLikeStorage $class
+    ): bool {
+        $first = self::getDependencyTargets($method, $aliases, $class)[0] ?? null;
+
+        return $first !== null && self::dependencyReturnsValue($codebase, $first) === true;
+    }
+
+    /**
+     * @return bool|null null when the target method cannot be resolved
+     */
+    private static function dependencyReturnsValue(Codebase $codebase, string $target): ?bool
+    {
+        $target_class = explode('::', $target)[0];
+        $target_id    = $codebase->classOrInterfaceExists($target_class)
+            ? $codebase->getDeclaringMethodId($target)
+            : null;
+        if ($target_id === null) {
+            return null;
+        }
+
+        $return_type = $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
+
+        return $return_type === null || !($return_type->isVoid() || $return_type->isNever());
     }
 
     /**
