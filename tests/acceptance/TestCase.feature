@@ -29,6 +29,7 @@ Feature: TestCase
 
       """
 
+  @psalm7
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -60,6 +61,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Stateful test case with @before produces no MissingConstructor
     Given I have the following code
       """
@@ -90,6 +92,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
     Given I have the following code
       """
@@ -126,6 +129,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """
@@ -223,6 +227,7 @@ Feature: TestCase
       | UndefinedMethod | Provider method NS\MyTestCase::second is not defined | 8    |
     And I see no other errors
 
+  @psalm7
   Scenario: Invalid iterable data provider is reported
     Given I have the following code
       """
@@ -645,6 +650,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Invalid data provider of a trait test can be suppressed on the trait method
     Given I have the following config
       """
@@ -832,6 +838,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Invalid generator data provider is reported
     Given I have the following code
       """
@@ -974,6 +981,7 @@ Feature: TestCase
       | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different iterable<mixed, mixed> provided |
     And I see no other errors
 
+  @psalm7
   Scenario: Underspecified generator data provider is reported
     Given I have the following code
       """
@@ -1031,6 +1039,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Valid object data provider is allowed
     Given I have the following code
       """
@@ -1060,6 +1069,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Invalid dataset shape is reported
     Given I have the following code
       """
@@ -1089,6 +1099,7 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Invalid dataset array is reported
     Given I have the following code
       """
@@ -1118,6 +1129,7 @@ Feature: TestCase
       | PossiblyInvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, int\|string provided by NS\MyTestCase::provide():(iterable[pure]<string, array<int, int\|string>>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Shape dataset with missing params is reported
     Given I have the following code
       """
@@ -1814,6 +1826,7 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined int provided by NS\MyTestCase::provide():(iterable<string, array{0?: int}>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -1847,6 +1860,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Descendant of a test that has setUp produces no MissingConstructor
     Given I have the following code
       """
@@ -1882,6 +1896,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Descendant of a test that has @before produces no MissingConstructor
     Given I have the following code
       """
@@ -1915,6 +1930,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
     Given I have the following code
       """
@@ -1950,6 +1966,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Test methods in traits are not marked as unused
     Given I have the following code
       """
@@ -1968,6 +1985,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Test methods marked with #[Test] in a trait are not marked as unused when the consuming class does not import the Test attribute
     Given I have the following code in "MyTestTrait.php"
       """
@@ -1993,6 +2011,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Test methods marked with a partially-imported #[Attributes\Test] in a trait are not marked as unused when the consuming class does not import the namespace
     Given I have the following code in "MyTestTrait.php"
       """
@@ -2018,6 +2037,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Test methods marked with an aliased #[Test] attribute in a trait are not marked as unused when the consuming class does not import the alias
     Given I have the following code in "MyTestTrait.php"
       """
@@ -2043,6 +2063,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Test methods marked with a fully-qualified #[Test] attribute are not marked as unused
     Given I have the following code in "BaseTestCase.php"
       """
@@ -2064,6 +2085,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Inherited test methods are not marked as unused
     Given I have the following code
       """
@@ -2080,6 +2102,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Data providers in traits are not marked as unused
     Given I have the following code
       """
@@ -2106,6 +2129,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Data providers in test case when test methods are in trait are not marked as unused
     Given I have the following code
       """
@@ -2132,6 +2156,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Renamed imported test methods are validated
     Given I have the following code
       """
@@ -2156,6 +2181,7 @@ Feature: TestCase
       | UndefinedMethod | Provider method NS\MyTestCase::provide is not defined |
     And I see no other errors
 
+  @psalm7
   Scenario: Test methods and providers in trait used by a test case are validated
     Given I have the following code
       """
@@ -2186,6 +2212,7 @@ Feature: TestCase
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Providers may omit variadic part for variadic tests
     Given I have the following code
       """
@@ -2211,6 +2238,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Providers may omit non-variadic params with default for variadic tests
     Given I have the following code
       """
@@ -2236,6 +2264,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Providers may not omit non-variadic params with no default for variadic tests
     Given I have the following code
       """
@@ -2264,6 +2293,7 @@ Feature: TestCase
       | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Providers generating incompatible datasets for variadic tests are reported
     Given I have the following code
       """
@@ -2291,6 +2321,7 @@ Feature: TestCase
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects float, string provided by NS\MyTestCase::provide():(iterable[pure]<string, array{0: float, 1?: string}>) |
     And I see no other errors
 
+  @psalm7
   Scenario: Untyped providers returns are not checked against test method signatures
     Given I have the following code
       """
@@ -2363,6 +2394,7 @@ Feature: TestCase
       | Type            | Message                    |
       | InvalidDocblock | Unrecognised annotation @psalm-force-push-master |
 
+  @psalm7
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code
       """
@@ -2389,6 +2421,7 @@ Feature: TestCase
     Then I see exit code 0
     And I see no errors
 
+  @psalm7
   Scenario: Providers referenced in shorthand docblocks are not marked as unused
     Given I have the following code
       """
@@ -2411,7 +2444,7 @@ Feature: TestCase
     Then I see no errors
 
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: External providers are allowed
     Given I have the following code
       """
@@ -2437,7 +2470,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
@@ -2463,7 +2496,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
@@ -2489,7 +2522,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
@@ -2515,7 +2548,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
@@ -2543,7 +2576,7 @@ Feature: TestCase
       | Type            | Message                                                                                                                                  |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: External providers are available even when Psalm is asked to analyze single test case
     Given I have the following code in "test.php"
       """
@@ -2615,7 +2648,7 @@ Feature: TestCase
     When I run Psalm on "test.php"
     Then I see no errors
 
-  @ExternalProviders
+  @ExternalProviders @psalm7
   Scenario: Missing external provider classes are reported
     Given I have the following code
       """
@@ -2632,7 +2665,7 @@ Feature: TestCase
       | Type           | Message                          |
       | UndefinedClass | Class NS\External does not exist |
 
-  @List
+  @List @psalm7
   Scenario: Providers returning list are ok
     Given I have the following code
       """
@@ -2656,7 +2689,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
-  @List
+  @List @psalm7
   Scenario: Providers returning mismatching list are reported
     Given I have the following code
       """
@@ -2682,6 +2715,7 @@ Feature: TestCase
       | Type            | Message                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
 
+  @psalm7
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
       """
@@ -2705,6 +2739,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: Providers returning null are flagged
     Given I have the following code
       """
@@ -2760,6 +2795,7 @@ Feature: TestCase
     When I run Psalm with dead code detection
     Then I see no errors
 
+  @psalm7
   Scenario: Unused calls before expectException and in other tests are still reported
     Given I have the following code
       """
@@ -2802,6 +2838,7 @@ Feature: TestCase
       | UnusedMethodCall   | The call to NS\Other::get is not used   |
     And I see no other errors
 
+  @psalm7
   Scenario: MissingThrowsDocblock is not reported after expectException
     Given I have the following config
       """
@@ -2872,6 +2909,7 @@ Feature: TestCase
       | MissingThrowsDocblock | RuntimeException is thrown but not caught - please either catch or add a @throws annotation           |
     And I see no other errors
 
+  @psalm7
   Scenario: MissingThrowsDocblock is not reported after expectException in a branch
     Given I have the following config
       """
@@ -2923,6 +2961,7 @@ Feature: TestCase
     When I run Psalm
     Then I see no errors
 
+  @psalm7
   Scenario: MissingThrowsDocblock is not reported for exceptions of PHPUnit's own API
     Given I have the following config
       """
