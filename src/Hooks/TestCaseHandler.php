@@ -26,7 +26,6 @@ use PHPUnit\Framework\Attributes\DependsUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
-use Psalm\CodeLocation;
 use Psalm\Codebase;
 use Psalm\DocComment;
 use Psalm\Exception\DocblockParseException;
@@ -45,7 +44,6 @@ use Psalm\Plugin\EventHandler\Event\AfterClassLikeVisitEvent;
 use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
-use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
 use RuntimeException;
@@ -550,17 +548,47 @@ final class TestCaseHandler implements
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
-                    self::checkNamedDataset(
-                        $codebase,
-                        $dataset_type,
-                        $method_storage->params,
-                        $method_name,
-                        $provider_method_id,
-                        $provider_return_type_string,
-                        $provider_docblock_location,
-                        $dependency_values,
-                        $checkParam,
-                    );
+                    $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
+                    $binding     = DatasetBinding::bind($dataset_type, $method_storage->params, $codebase);
+
+                    foreach ($binding->arguments as $argument) {
+                        $checkParam(
+                            $argument->type,
+                            $argument->param_type,
+                            $argument->is_optional,
+                            $argument->position,
+                            $argument->name,
+                        );
+                    }
+
+                    foreach ($binding->unknown as $name) {
+                        IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                            'Parameter $' . $name . ' does not exist on ' . $method_name
+                            . ', provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+                    }
+
+                    foreach ($binding->duplicate as $name) {
+                        IssueBuffer::accepts(new Issue\InvalidNamedArgument(
+                            'Parameter $' . $name . ' has already been used in ' . $method_name
+                            . ', provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+                    }
+
+                    // the return values of depended-upon tests fill the first parameters the dataset leaves open
+                    $missing = array_slice($binding->missing, $dependency_values);
+                    if ($missing !== []) {
+                        IssueBuffer::accepts(new Issue\TooFewArguments(
+                            'Too few arguments for ' . $method_name . ' - parameter $' . $missing[0]
+                            . ' is not provided by ' . $provided_by,
+                            $provider_docblock_location,
+                            $method_name
+                        ));
+                    }
                 } else { // TKeyedArray
                     // iterate over all params checking if corresponding value type is acceptable
                     // let's hope properties are sorted in array order
@@ -631,66 +659,6 @@ final class TestCaseHandler implements
         }
 
         return false;
-    }
-
-    /**
-     * The return values of depended-upon tests are appended after the dataset values and fill the parameters it
-     * leaves open.
-     *
-     * @param list<FunctionLikeParameter> $params
-     * @param \Closure(Type\Union, Type\Union, bool, int, string|null=): void $checkParam
-     */
-    private static function checkNamedDataset(
-        Codebase $codebase,
-        Type\Atomic\TKeyedArray $dataset_type,
-        array $params,
-        string $method_name,
-        string $provider_method_id,
-        string $provider_return_type_string,
-        CodeLocation $provider_docblock_location,
-        int $dependency_values,
-        \Closure $checkParam
-    ): void {
-        $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
-        $binding     = DatasetBinding::bind($dataset_type, $params, $codebase);
-
-        foreach ($binding->arguments as $argument) {
-            $checkParam(
-                $argument->type,
-                $argument->param_type,
-                $argument->is_optional,
-                $argument->position,
-                $argument->name,
-            );
-        }
-
-        foreach ($binding->unknown as $name) {
-            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                'Parameter $' . $name . ' does not exist on ' . $method_name . ', provided by ' . $provided_by,
-                $provider_docblock_location,
-                $method_name
-            ));
-        }
-
-        foreach ($binding->duplicate as $name) {
-            IssueBuffer::accepts(new Issue\InvalidNamedArgument(
-                'Parameter $' . $name . ' has already been used in ' . $method_name
-                . ', provided by ' . $provided_by,
-                $provider_docblock_location,
-                $method_name
-            ));
-        }
-
-        // the return values of depended-upon tests fill the first parameters the dataset leaves open
-        $missing = array_slice($binding->missing, $dependency_values);
-        if ($missing !== []) {
-            IssueBuffer::accepts(new Issue\TooFewArguments(
-                'Too few arguments for ' . $method_name . ' - parameter $' . $missing[0]
-                . ' is not provided by ' . $provided_by,
-                $provider_docblock_location,
-                $method_name
-            ));
-        }
     }
 
     /**
@@ -837,7 +805,14 @@ final class TestCaseHandler implements
                 }
                 $seen[strtolower($target)] = true;
 
-                if (self::dependencyReturnsValue($codebase, $target) === false) {
+                $target_class = explode('::', $target)[0];
+                $target_id    = $codebase->classOrInterfaceExists($target_class)
+                    ? $codebase->getDeclaringMethodId($target)
+                    : null;
+                $return_type  = $target_id === null
+                    ? null
+                    : $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
+                if ($return_type !== null && ($return_type->isVoid() || $return_type->isNever())) {
                     continue;
                 }
             }
@@ -845,24 +820,6 @@ final class TestCaseHandler implements
         }
 
         return $count;
-    }
-
-    /**
-     * @return bool|null null when the target method cannot be resolved
-     */
-    private static function dependencyReturnsValue(Codebase $codebase, string $target): ?bool
-    {
-        $target_class = explode('::', $target)[0];
-        $target_id    = $codebase->classOrInterfaceExists($target_class)
-            ? $codebase->getDeclaringMethodId($target)
-            : null;
-        if ($target_id === null) {
-            return null;
-        }
-
-        $return_type = $codebase->methods->getStorage(MethodIdentifier::wrap($target_id))->signature_return_type;
-
-        return $return_type === null || !($return_type->isVoid() || $return_type->isNever());
     }
 
     /**
