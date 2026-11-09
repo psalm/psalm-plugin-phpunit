@@ -3177,19 +3177,19 @@ Feature: TestCase
       """
     When I run Psalm
     Then I see these errors
-      | Type                      | Message                                                                             |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type int    |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type string |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        |
-      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         |
-      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   |
+      | Type                      | Message                                                                             | Line |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 12   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type int    | 13   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 14   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 15   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type int          | 16   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       | 17   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type string | 18   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type string       | 19   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 20   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type float        | 21   |
+      | UnspecificEqualsAssertion | Use assertSame() instead of assertEquals(), both arguments are of type bool         | 22   |
+      | UnspecificEqualsAssertion | Use assertNotSame() instead of assertNotEquals(), both arguments are of type bool   | 23   |
     And I see no other errors
 
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
