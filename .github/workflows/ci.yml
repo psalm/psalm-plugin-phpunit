@@ -2,7 +2,7 @@ name: CI
 on: 
     push:
       branches:
-        - master
+        - 0.22.x
     pull_request:
     schedule:
         - cron: '0 4 * * 6' # Every Saturday on 4am
@@ -24,7 +24,7 @@ jobs:
             - name: Set up PHP
               uses: shivammathur/setup-php@v2
               with:
-                  php-version: '8.1'
+                  php-version: '8.4'
                   tools: composer:v2
                   coverage: none
               env:
@@ -49,7 +49,7 @@ jobs:
             - name: Install composer dependencies
               run: composer update --prefer-dist
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Run Psalm
               run: vendor/bin/psalm --output-format=github --shepherd
@@ -89,7 +89,7 @@ jobs:
             - name: Install composer dependencies
               run: composer update --prefer-dist
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Run PHPCodeSniffer
               run: vendor/bin/phpcs --report=checkstyle -q --parallel=1 | cs2pr
@@ -119,7 +119,7 @@ jobs:
               run: cd tools/behat && vendor/bin/psalm
 
     tests:
-        name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
+        name: Test on ${{matrix.php}} - Psalm ${{matrix.psalm}} - ${{matrix.deps}} deps
         runs-on: ubuntu-latest
         continue-on-error: ${{matrix.php == '8.0'}}
         strategy:
@@ -127,7 +127,11 @@ jobs:
                 # Pull requests test the lowest and highest PHP; pushes, the schedule and manual runs test all.
                 php: ${{ fromJSON(github.event_name == 'pull_request' && '["8.1", "8.4"]' || '["8.1", "8.2", "8.3", "8.4"]') }}
                 deps: ['high', 'low', 'stable']
+                # Psalm 7.2, the first Psalm 7 that accepts this plugin's 0.22.x, needs PHP 8.2.
+                psalm: ['6', '7']
                 exclude:
+                  - php: 8.1
+                    psalm: '7'
                   - php: 8.4
                     deps: low
             fail-fast: false
@@ -161,40 +165,40 @@ jobs:
                     ${{ runner.os }}-composer-
 
             - name: Install composer dependencies (high deps)
-              run: composer update --prefer-dist --no-interaction
+              run: composer update --prefer-dist --no-interaction --with vimeo/psalm:^${{matrix.psalm}}
               if: ${{matrix.deps == 'high'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Install composer tool dependencies (high deps)
               run: cd tools/behat && composer update --prefer-dist --no-interaction
               if: ${{matrix.deps == 'high'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Install composer dependencies (low deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest --with vimeo/psalm:^7.0.0-rc3
+              run: composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest --with vimeo/psalm:^${{matrix.psalm}}
               if: ${{matrix.deps == 'low'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Install composer tool dependencies (low deps)
               run: cd tools/behat && composer update --prefer-dist --no-interaction --prefer-stable --prefer-lowest
               if: ${{matrix.deps == 'low'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Install composer dependencies (stable deps)
-              run: composer update --prefer-dist --no-interaction --prefer-stable --with vimeo/psalm:^7
+              run: composer update --prefer-dist --no-interaction --prefer-stable --with vimeo/psalm:^${{matrix.psalm}}
               if: ${{matrix.deps == 'stable'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Install composer tool dependencies (stable deps)
               run: cd tools/behat && composer update --prefer-dist --no-interaction --prefer-stable
               if: ${{matrix.deps == 'stable'}}
               env:
-                  COMPOSER_ROOT_VERSION: dev-master
+                  COMPOSER_ROOT_VERSION: 0.22.x-dev
 
             - name: Show Psalm version
               run: vendor/bin/psalm --version
@@ -204,3 +208,5 @@ jobs:
 
             - name: Run tests
               run: tools/behat/behat-parallel.sh
+              env:
+                  BEHAT_SKIP_TAGS: ${{ matrix.psalm == '6' && '@psalm7' || '' }}
