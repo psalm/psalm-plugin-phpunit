@@ -382,8 +382,8 @@ Feature: Datasets
     When I run Psalm
     Then I see these errors
       | Type                    | Message | Line |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testAlias expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 23 |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testShape expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 31 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testAlias expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 23 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testShape expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 31 |
     And I see no other errors
 
   Scenario: An imported type alias in a test parameter accepts a matching dataset
@@ -462,8 +462,8 @@ Feature: Datasets
     When I run Psalm
     Then I see these errors
       | Type                    | Message | Line |
-      | InvalidArgument | Argument 1 ($options) of NS\MyTestCase::testNamed expects array{host: string}, array<string, string> provided by NS\MyTestCase::named():(list<array{options: array<string, string>}>) | 31 |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testLengthless expects array{host: string}, array<string, string> provided by NS\MyTestCase::lengthless():(list<array<int, array<string, string>>>) | 39 |
+      | ArgumentTypeCoercion | Argument 1 ($options) of NS\MyTestCase::testNamed expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::named():(list<array{options: array<string, string>}>) | 31 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testLengthless expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::lengthless():(list<array<int, array<string, string>>>) | 39 |
     And I see no other errors
 
   Scenario: A test parameter typed with an imported type alias is narrowed to the dataset type
@@ -527,8 +527,8 @@ Feature: Datasets
     When I run Psalm
     Then I see these errors
       | Type            | Message |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+      | ArgumentTypeCoercion | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
     And I see no other errors
 
   Scenario: self in a trait test and its provider means the class using the trait
