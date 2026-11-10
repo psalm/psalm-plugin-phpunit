@@ -817,8 +817,6 @@ final class TestCaseHandler implements
 
     /**
      * `self` is the class the method appears in (the class importing a trait's method), `static` the analysed one.
-     *
-     * @param class-string $static_class
      */
     private static function expandForMethod(
         Codebase $codebase,
