@@ -21,6 +21,7 @@ use Psalm\Type\Atomic\TNamedObject;
 use UnexpectedValueException;
 
 use function count;
+use function in_array;
 use function sprintf;
 use function str_starts_with;
 use function strlen;
@@ -71,21 +72,21 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         }
 
         [$expected, $actual] = [$args[0]->value, $args[1]->value];
-        $literal = self::literalName($expected);
-        $literalLast = $literal === null;
-        if ($literalLast) {
-            $literal = self::literalName($actual);
+        // assertSame($flag, true), assertSame(count($items), 3): the literal goes first, the count() call last
+        $swapped = self::literalName($expected) === null
+            && (self::literalName($actual) !== null || self::isCountCall($expected, $event));
+        if ($swapped) {
+            [$expected, $actual] = [$actual, $expected];
         }
-        $value = $literalLast ? $expected : $actual;
-        $countFirst = false;
+        $literal = self::literalName($expected);
 
-        // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool value
+        // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool actual
         if (
             $literal !== null
             && (isset(self::SAME_METHODS[$method])
                 || ($literal !== 'null'
                     && isset(self::EQUALS_METHODS[$method])
-                    && self::scalarFamily($value, $event) === 'bool'))
+                    && self::scalarFamily($actual, $event) === 'bool'))
         ) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
@@ -94,20 +95,16 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
                 $not,
                 ucfirst($literal),
                 $name,
-                $literalLast ? '..., ' . $literal : $literal . ', ...',
+                $swapped ? '..., ' . $literal : $literal . ', ...',
             );
-        } elseif (
-            isset(self::COUNT_METHODS[$method])
-            && (self::isIntegerCountComparison($expected, $actual, $event)
-                || ($countFirst = self::isIntegerCountComparison($actual, $expected, $event)))
-        ) {
+        } elseif (isset(self::COUNT_METHODS[$method]) && self::isIntegerCountComparison($expected, $actual, $event)) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = UnspecificCountAssertion::class;
             $message = sprintf(
                 'Use assert%sCount() instead of %s(%s)',
                 $not,
                 $name,
-                $countFirst ? 'count(...), ...' : '..., count(...)',
+                $swapped ? 'count(...), ...' : '..., count(...)',
             );
         } elseif (
             isset(self::EQUALS_METHODS[$method])
@@ -142,36 +139,27 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     }
 
     /**
-     * The lowercase name of a `null`, `true` or `false` constant, `null` for any other expression.
-     *
      * @return 'null'|'true'|'false'|null
      * @psalm-mutation-free
      */
     private static function literalName(Expr $expr): ?string
     {
-        if (!$expr instanceof ConstFetch) {
-            return null;
-        }
+        $name = $expr instanceof ConstFetch ? strtolower($expr->name->toString()) : null;
 
-        $name = strtolower($expr->name->toString());
-
-        return match ($name) {
-            'null', 'true', 'false' => $name,
-            default => null,
-        };
+        return in_array($name, ['null', 'true', 'false'], true) ? $name : null;
     }
 
     /**
      * assertCount() takes an int, while assertSame('2', count(...)) compares strictly and never passes.
      */
     private static function isIntegerCountComparison(
-        Expr $int,
-        Expr $count,
+        Expr $expected,
+        Expr $actual,
         AfterMethodCallAnalysisEvent $event,
     ): bool {
-        $intType = $event->getStatementsSource()->getNodeTypeProvider()->getType($int);
+        $expectedType = $event->getStatementsSource()->getNodeTypeProvider()->getType($expected);
 
-        return $intType !== null && $intType->isInt() && self::isCountCall($count, $event);
+        return $expectedType !== null && $expectedType->isInt() && self::isCountCall($actual, $event);
     }
 
     /**
