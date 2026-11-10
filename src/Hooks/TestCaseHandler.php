@@ -38,7 +38,11 @@ use Psalm\Aliases;
 use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
+use Psalm\Internal\Analyzer\Statements\Expression\Call\ClassTemplateParamCollector;
 use Psalm\Internal\MethodIdentifier;
+use Psalm\Internal\Type\TemplateInferredTypeReplacer;
+use Psalm\Internal\Type\TemplateResult;
+use Psalm\Internal\Type\TypeExpander;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
@@ -1028,7 +1032,7 @@ final class TestCaseHandler implements
                 $key_types[]   = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
-                [$key_types[], $value_types[]] = $codebase->getKeyValueParamsForTraversableObject($type);
+                [$key_types[], $value_types[]] = self::getKeyValueTypes($codebase, $type);
             } else {
                 throw new RuntimeException('unexpected type');
             }
@@ -1048,6 +1052,155 @@ final class TestCaseHandler implements
             array_reduce($key_types, $combine),
             array_reduce($value_types, $combine),
         ]);
+    }
+
+    /**
+     * The key and value types `foreach` infers for an iterable, from its declared type.
+     *
+     * @param list<lowercase-string> $aggregates the IteratorAggregate classes being resolved
+     * @return array{Type\Union, Type\Union}
+     */
+    private static function getKeyValueTypes(Codebase $codebase, Type\Atomic $type, array $aggregates = []): array
+    {
+        $key_type   = null;
+        $value_type = null;
+
+        if ($type instanceof Type\Atomic\TNamedObject) {
+            $class = strtolower($type->value);
+
+            if (self::isClassLike($codebase, $class, 'IteratorAggregate') && !in_array($class, $aggregates, true)) {
+                $iterators = self::getMethodReturnType($codebase, $type, 'getIterator');
+                foreach ($iterators === null ? [] : $iterators->getAtomicTypes() as $iterator) {
+                    if ($iterator instanceof Type\Atomic\TKeyedArray) {
+                        $iterator = $iterator->getGenericArrayType();
+                    }
+
+                    if ($iterator instanceof Type\Atomic\TArray) {
+                        [$key_part, $value_part] = $iterator->type_params;
+                    } elseif (self::isTraversableClass($codebase, $iterator)) {
+                        $recurse = $codebase->classExists($iterator->value)
+                            && !self::declaresTraversableTemplates($codebase, $iterator);
+                        [$key_part, $value_part] = $recurse
+                            ? self::getKeyValueTypes($codebase, $iterator, [...$aggregates, $class])
+                            : $codebase->getKeyValueParamsForTraversableObject($iterator);
+                    } elseif ($iterator instanceof Type\Atomic\TIterable) {
+                        [$key_part, $value_part] = $codebase->getKeyValueParamsForTraversableObject($iterator);
+                    } else {
+                        break;
+                    }
+
+                    $key_type   = Type::combineUnionTypes($key_type, $key_part);
+                    $value_type = Type::combineUnionTypes($value_type, $value_part);
+                }
+            } elseif ($class !== 'generator' && self::isClassLike($codebase, $class, 'Iterator')) {
+                [$template_key, $template_value] = $codebase->getKeyValueParamsForTraversableObject($type);
+                $key_type   = self::getIteratorPartType($codebase, $type, 'key', $template_key);
+                $value_type = self::getIteratorPartType($codebase, $type, 'current', $template_value);
+            }
+        }
+
+        if ($key_type === null && $value_type === null) {
+            return $codebase->getKeyValueParamsForTraversableObject($type);
+        }
+
+        return [$key_type ?? Type::getMixed(), $value_type ?? Type::getMixed()];
+    }
+
+    /** Whether a class gives TKey and TValue of Traversable types of its own, rather than leaving them mixed. */
+    private static function declaresTraversableTemplates(Codebase $codebase, Type\Atomic\TNamedObject $type): bool
+    {
+        $storage  = $codebase->classlike_storage_provider->get($type->value);
+        $extended = $storage->template_extended_params['Traversable'] ?? null;
+
+        return $extended !== null && !($extended['TKey']->isMixed() && $extended['TValue']->isMixed());
+    }
+
+    /** @psalm-assert-if-true Type\Atomic\TNamedObject $type */
+    private static function isTraversableClass(Codebase $codebase, Type\Atomic $type): bool
+    {
+        return $type instanceof Type\Atomic\TNamedObject
+            && (strtolower($type->value) === 'traversable' || $codebase->classImplements($type->value, 'Traversable'));
+    }
+
+    /** @psalm-mutation-free */
+    private static function isClassLike(Codebase $codebase, string $class, string $parent): bool
+    {
+        return $class === strtolower($parent)
+            || $codebase->classImplements($class, $parent)
+            || $codebase->interfaceExtends($class, $parent);
+    }
+
+    /** The type Iterator::key() or current() returns, minus the null that marks the end of the iteration. */
+    private static function getIteratorPartType(
+        Codebase $codebase,
+        Type\Atomic\TNamedObject $type,
+        string $method,
+        Type\Union $template_type
+    ): ?Type\Union {
+        $part = self::getMethodReturnType($codebase, $type, $method);
+        if ($part === null || $part->isMixed()) {
+            return null;
+        }
+
+        if ($template_type->isMixed() || $template_type->isNullable()) {
+            return $part;
+        }
+
+        $builder = $part->getBuilder();
+        $builder->removeType('null');
+
+        return $builder->freeze();
+    }
+
+    private static function getMethodReturnType(
+        Codebase $codebase,
+        Type\Atomic\TNamedObject $type,
+        string $method
+    ): ?Type\Union {
+        $method_id    = new MethodIdentifier($type->value, strtolower($method));
+        $declaring_id = $codebase->methods->getDeclaringMethodId($method_id);
+        $self_class   = null;
+        $return_type  = $codebase->getMethodReturnType($method_id, $self_class);
+        if ($declaring_id === null || $return_type === null) {
+            return null;
+        }
+
+        $class_storage = $codebase->classlike_storage_provider->get($type->value);
+        $template_params = ClassTemplateParamCollector::collect(
+            $codebase,
+            $codebase->methods->getClassLikeStorageForMethod($declaring_id),
+            $class_storage,
+            $declaring_id->method_name,
+            $type
+        );
+        if ($template_params !== null) {
+            $return_type = TemplateInferredTypeReplacer::replace(
+                $return_type,
+                new TemplateResult([], $template_params),
+                $codebase
+            );
+        }
+
+        $parent_class = $class_storage->parent_class;
+        $return_type  = TypeExpander::expandUnion($codebase, $return_type, $self_class, $type, $parent_class);
+
+        // Without a source analyzer, Codebase hands out the type the parent documents even where the method
+        // declares one of its own. A call weighs the two, as Methods::getMethodReturnType() does with one
+        $own = $codebase->methods->getStorage($declaring_id)->return_type;
+        if ($own === null || $self_class === $declaring_id->fq_class_name) {
+            return $return_type;
+        }
+
+        $own    = TypeExpander::expandUnion($codebase, $own, $declaring_id->fq_class_name, $type, $parent_class);
+        $narrow = $codebase->isTypeContainedByType($own, $return_type);
+        $wide   = $codebase->isTypeContainedByType($return_type, $own);
+        if ($narrow !== $wide) {
+            return $narrow ? $own : $return_type;
+        }
+
+        [$first, $second] = $narrow ? [$own, $return_type] : [$return_type, $own];
+
+        return Type::intersectUnionTypes($first, $second, $codebase) ?? $own;
     }
 
 

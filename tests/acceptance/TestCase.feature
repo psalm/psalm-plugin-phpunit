@@ -10028,3 +10028,500 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: A data provider object whose @implements differs from its getIterator() is not narrowed to @implements
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array<array{mixed}>>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /**
+         * @return \Traversable<int, array<mixed>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1], ['a'], [null]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          if (is_string($value)) {
+            $this->assertNotEmpty($value);
+          }
+          count($value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                              | Message |
+      | LessSpecificImplementedReturnType | The inherited return type 'Traversable[impure]<int, array<array-key, list{mixed}>>' for IteratorAggregate::getIterator is more specific than the implemented return type for NS\\Datasets::getiterator 'Traversable<int, array<array-key, mixed>>' |
+      | MixedArgument                     | Argument 1 of count cannot be mixed, expecting Countable\|array<array-key, mixed> |
+    And I see no other errors
+
+  Scenario: A data provider object with a precise getIterator() narrows to the type it yields
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array<mixed>>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /**
+         * @return \Traversable<int, array{int}>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A data provider object without a getIterator() docblock narrows to its @implements types
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array{int}>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /** @psalm-pure */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A generic data provider object narrows to the type arguments it is returned with
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @template T of array<mixed>
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array<mixed>>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /**
+         * @param list<T> $datasets
+         * @psalm-pure
+         */
+        public function __construct(private array $datasets) {}
+
+        /**
+         * @return \Traversable<int, T>
+         * @psalm-mutation-free
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator($this->datasets);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return Datasets<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): Datasets {
+          return new Datasets([[1]]);
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A data provider Iterator narrows to the type its current() returns
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-mutable
+       * @implements \Iterator<int, array<mixed>>
+       */
+      final class Datasets implements \Iterator {
+        /**
+         * @return array{int}
+         * @psalm-pure
+         */
+        #[\Override]
+        public function current(): array {
+          return [1];
+        }
+
+        /** @psalm-pure */
+        #[\Override]
+        public function key(): int {
+          return 0;
+        }
+
+        /** @psalm-impure */
+        #[\Override]
+        public function next(): void {}
+
+        /** @psalm-impure */
+        #[\Override]
+        public function rewind(): void {}
+
+        /** @psalm-pure */
+        #[\Override]
+        public function valid(): bool {
+          return false;
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A data provider object is validated by what getIterator() yields
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array{string}>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /**
+         * @return \Traversable<int, array{int}>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $value): void {
+          $this->assertSame(1, $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                          | Message |
+      | ImplementedReturnTypeMismatch | The inherited return type 'Traversable[impure]<int, list{string}>' for IteratorAggregate::getIterator is different to the implemented return type for NS\\Datasets::getiterator 'Traversable<int, list{int}>' |
+    And I see no other errors
+
+  Scenario: A data provider object that wraps another one is read through its getIterator()
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<mixed, mixed>
+       */
+      final class Inner implements \IteratorAggregate {
+        /**
+         * @return \Traversable<int, array{int}>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<mixed, mixed>
+       */
+      final class Outer implements \IteratorAggregate {
+        /** @psalm-pure */
+        #[\Override]
+        public function getIterator(): Inner {
+          return new Inner();
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Outer {
+          return new Outer();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A data provider object whose getIterator() returns itself is read without looping
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<mixed, mixed>
+       */
+      final class Datasets implements \IteratorAggregate {
+        /** @psalm-mutation-free */
+        #[\Override]
+        public function getIterator(): self {
+          return $this;
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          /** @psalm-check-type-exact $value = mixed */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different NS\\Datasets provided |
+    And I see no other errors
+
+  Scenario: A data provider object with a native getIterator() return type is read like foreach reads it
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array{int}>
+       */
+      final class Generated implements \IteratorAggregate {
+        /** @psalm-pure */
+        #[\Override]
+        public function getIterator(): \Generator {
+          yield [1];
+        }
+      }
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array{int}>
+       */
+      final class Wrapped implements \IteratorAggregate {
+        /** @psalm-pure */
+        #[\Override]
+        public function getIterator(): \ArrayIterator {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function generated(): Generated {
+          return new Generated();
+        }
+
+        /** @psalm-pure */
+        public static function wrapped(): Wrapped {
+          return new Wrapped();
+        }
+
+        #[DataProvider('generated')]
+        public function testGenerated(mixed $value): void {
+          /** @psalm-check-type-exact $value = mixed */
+          $this->assertTrue(true);
+        }
+
+        #[DataProvider('wrapped')]
+        public function testWrapped(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | MixedReturnStatement | Providers must return iterable<array-key, array<array-key, mixed>>, possibly different NS\\Generated provided |
+    And I see no other errors
+
+  Scenario: A data provider typed as an iterator interface narrows to its type arguments
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return \IteratorAggregate<int, array{int}>
+         * @psalm-pure
+         */
+        public static function aggregate(): \IteratorAggregate {
+          return new \ArrayObject([[1]]);
+        }
+
+        /**
+         * @return \Iterator<int, array{string}>
+         * @psalm-pure
+         */
+        public static function iterator(): \Iterator {
+          return new \ArrayIterator([['a']]);
+        }
+
+        #[DataProvider('aggregate')]
+        public function testAggregate(mixed $value): void {
+          /** @psalm-check-type-exact $value = int */
+          $this->assertTrue(true);
+        }
+
+        #[DataProvider('iterator')]
+        public function testIterator(mixed $value): void {
+          /** @psalm-check-type-exact $value = string */
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A data provider object that wraps an iterator interface is read like foreach reads it
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-immutable
+       * @extends \IteratorAggregate<int, array{array{mixed}}>
+       */
+      interface Inner extends \IteratorAggregate {
+        /**
+         * @return \Traversable<int, array<mixed>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable;
+      }
+
+      /** @psalm-immutable */
+      final class InnerImplementation implements Inner {
+        /**
+         * @return \Traversable<int, array<mixed>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function getIterator(): \Traversable {
+          return new \ArrayIterator([[1], ['a']]);
+        }
+      }
+
+      /**
+       * @psalm-immutable
+       * @implements \IteratorAggregate<int, array<mixed>>
+       */
+      final class Outer implements \IteratorAggregate {
+        /** @psalm-pure */
+        #[\Override]
+        public function getIterator(): Inner {
+          return new InnerImplementation();
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /** @psalm-pure */
+        public static function provide(): Outer {
+          return new Outer();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(mixed $value): void {
+          if (is_string($value)) {
+            $this->assertNotEmpty($value);
+          }
+          count($value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                              | Message |
+      | LessSpecificImplementedReturnType | The inherited return type 'Traversable[impure]<int, list{list{mixed}}>' for IteratorAggregate::getIterator is more specific than the implemented return type for NS\\Inner::getiterator 'Traversable<int, array<array-key, mixed>>' |
+      | LessSpecificImplementedReturnType | The inherited return type 'Traversable[impure]<int, list{list{mixed}}>' for IteratorAggregate::getIterator is more specific than the implemented return type for NS\\InnerImplementation::getiterator 'Traversable<int, array<array-key, mixed>>' |
+      | MixedArgument                     | Argument 1 of count cannot be mixed, expecting Countable\|array<array-key, mixed> |
+    And I see no other errors
