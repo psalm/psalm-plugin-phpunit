@@ -24,7 +24,10 @@ use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\AfterClass;
 use PHPUnit\Framework\Attributes\Before;
+use PHPUnit\Framework\Attributes\BeforeClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Depends;
@@ -33,6 +36,8 @@ use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsExternalUsingShallowClone;
 use PHPUnit\Framework\Attributes\DependsUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
+use PHPUnit\Framework\Attributes\PostCondition;
+use PHPUnit\Framework\Attributes\PreCondition;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
@@ -348,14 +353,16 @@ final class TestCaseHandler implements
             self::reportMalformedTags($stmt_method, $method_storage->location, $test_suppressions);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
-            if (!$is_test) {
-                continue; // skip non-test methods
+            if ($is_test || self::isHook($specials, $method_storage)) {
+                $codebase->methodExists(
+                    (string) $declaring_method_id,
+                    calling_method_id: 'PHPUnit\Framework\TestSuite::run',
+                );
             }
 
-            $codebase->methodExists(
-                (string) $declaring_method_id,
-                calling_method_id: 'PHPUnit\Framework\TestSuite::run',
-            );
+            if (!$is_test) {
+                continue;
+            }
 
             $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
             $closure_providers = self::getClosureProviders($stmt_method, $method_aliases);
@@ -1074,7 +1081,8 @@ final class TestCaseHandler implements
 
     private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
     {
-        return isset(self::getSpecials($method, $aliases)['before']);
+        return isset(self::docblockSpecials($method, $aliases)['before'])
+            || self::attributeValue($method, $aliases, Before::class) !== null;
     }
 
     /**
@@ -1484,12 +1492,29 @@ final class TestCaseHandler implements
 
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
+
+    /** @param array<string, list<array{int, string}>> $specials */
+    private static function isHook(array $specials, MethodStorage $storage): bool
+    {
+        // PHPUnit runs the class-level hooks only when they are static
+        return isset($specials['before'])
+            || isset($specials['after'])
+            || isset($specials['preCondition'])
+            || isset($specials['postCondition'])
+            || ($storage->is_static && (isset($specials['beforeClass']) || isset($specials['afterClass'])));
+    }
+
     /** @return array<string, list<array{int, string}>> */
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_filter([
-            'before'       => self::attributeValue($method, $aliases, Before::class),
-            'test'         => self::attributeValue($method, $aliases, Test::class),
+            'before'        => self::attributeValue($method, $aliases, Before::class),
+            'after'         => self::attributeValue($method, $aliases, After::class),
+            'preCondition'  => self::attributeValue($method, $aliases, PreCondition::class),
+            'postCondition' => self::attributeValue($method, $aliases, PostCondition::class),
+            'beforeClass'   => self::attributeValue($method, $aliases, BeforeClass::class),
+            'afterClass'    => self::attributeValue($method, $aliases, AfterClass::class),
+            'test'          => self::attributeValue($method, $aliases, Test::class),
         ], static fn(array|null $special): bool => $special !== null);
     }
 
