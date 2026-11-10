@@ -50,6 +50,7 @@ use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
 use Psalm\PhpUnitPlugin\PhpUnitVersion;
+use Psalm\PhpUnitPlugin\Suppressions;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -282,11 +283,11 @@ final class TestCaseHandler implements
             return null;
         }
 
+        $class_location = new CodeLocation($statements_source, $class_node);
         self::reportMalformedTags(
-            $event,
             $class_node,
-            new CodeLocation($statements_source, $class_node),
-            [],
+            $class_location,
+            Suppressions::of($class_location, [], $class_storage, $statements_source),
         );
 
         // PHPUnit merges the class docblocks of the traits used directly by the test case, not of nested ones
@@ -296,11 +297,16 @@ final class TestCaseHandler implements
                 continue;
             }
 
+            $trait_location = $trait_storage->stmt_location ?? $trait_storage->location;
             self::reportMalformedTags(
-                $event,
                 $codebase->classlikes->getTraitNode($trait_name),
-                $trait_storage->stmt_location ?? $trait_storage->location,
-                $trait_storage->suppressed_issues,
+                $trait_location,
+                Suppressions::of(
+                    $trait_location,
+                    $trait_storage->suppressed_issues,
+                    $class_storage,
+                    $statements_source,
+                ),
             );
         }
 
@@ -344,12 +350,14 @@ final class TestCaseHandler implements
             $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
                 && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
-            self::reportMalformedTags(
-                $event,
-                $stmt_method,
+            $test_suppressions = Suppressions::of(
                 $method_storage->location,
                 $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
+                $class_storage,
+                $statements_source,
             );
+
+            self::reportMalformedTags($stmt_method, $method_storage->location, $test_suppressions);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
             if (!$is_test) {
@@ -386,7 +394,8 @@ final class TestCaseHandler implements
              *     name: string,
              *     type: Type\Union,
              *     location: CodeLocation,
-             *     return_type_location: CodeLocation
+             *     return_type_location: CodeLocation,
+             *     return_type_suppressions: array<array-key, string>
              * }> $provided_types
              */
             $provided_types = [];
@@ -403,7 +412,7 @@ final class TestCaseHandler implements
                                 'Class ' . $fq_class_name . ' does not exist',
                                 $provider_docblock_location,
                                 $fq_class_name
-                            ));
+                            ), $test_suppressions);
                         }
                         continue;
                     }
@@ -422,7 +431,7 @@ final class TestCaseHandler implements
                         'Provider method ' . $apparent_provider_method_name . ' is not defined',
                         $provider_docblock_location,
                         $apparent_provider_method_name
-                    ));
+                    ), $test_suppressions);
                     continue;
                 }
 
@@ -438,25 +447,22 @@ final class TestCaseHandler implements
                         'Provider method ' . $apparent_provider_method_name . ' is not defined',
                         $provider_docblock_location,
                         $apparent_provider_method_name
-                    ));
+                    ), $test_suppressions);
                     continue;
                 }
 
                 $provider_id             = MethodIdentifier::wrap($provider_method_id);
                 $provider_method_storage = $codebase->methods->getStorage($provider_id);
+                $provider_class_storage  = $codebase->classlike_storage_provider->get($provider_id->fq_class_name);
 
                 // Abstract providers are checked on the concrete classes implementing them
                 if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
-                    $suppressed_issues = $method_storage->suppressed_issues
-                        + $declaring_class_storage->suppressed_issues
-                        + $statements_source->getSuppressedIssues();
-
                     self::reportInvalidProviderSignature(
                         $codebase,
                         $provider_method_storage,
                         $apparent_provider_method_name,
                         $provider_docblock_location,
-                        $suppressed_issues,
+                        $test_suppressions,
                     );
 
                     // Providers declared elsewhere are not read
@@ -468,7 +474,7 @@ final class TestCaseHandler implements
                             $statements_source,
                             $provider_node->stmts ?? [],
                             'a dataset provided by ' . $provider_method_id . '()',
-                            $suppressed_issues,
+                            $test_suppressions,
                         );
                     }
                 }
@@ -486,6 +492,12 @@ final class TestCaseHandler implements
                     'type'                 => $provider_return_type,
                     'location'             => $provider_docblock_location,
                     'return_type_location' => $provider_return_type_location,
+                    'return_type_suppressions' => Suppressions::of(
+                        $provider_return_type_location,
+                        $provider_method_storage->suppressed_issues + $provider_class_storage->suppressed_issues,
+                        $class_storage,
+                        $statements_source,
+                    ),
                 ];
             }
 
@@ -496,9 +508,7 @@ final class TestCaseHandler implements
                         $statements_source,
                         $closure['statements'],
                         'a dataset provided by #[DataProviderClosure]',
-                        $method_storage->suppressed_issues
-                            + $declaring_class_storage->suppressed_issues
-                            + $statements_source->getSuppressedIssues(),
+                        $test_suppressions,
                     );
                 }
 
@@ -513,6 +523,7 @@ final class TestCaseHandler implements
                     'type'                 => $closure_return_type,
                     'location'             => $closure_location,
                     'return_type_location' => $closure_location,
+                    'return_type_suppressions' => $test_suppressions,
                 ];
             }
 
@@ -521,6 +532,7 @@ final class TestCaseHandler implements
                 $provider_return_type          = $provided['type'];
                 $provider_docblock_location    = $provided['location'];
                 $provider_return_type_location = $provided['return_type_location'];
+                $return_type_suppressions      = $provided['return_type_suppressions'];
                 $provider_return_type_string   = $provider_return_type->getId();
 
                 $expected_provider_return_type = new Type\Atomic\TIterable([
@@ -541,7 +553,7 @@ final class TestCaseHandler implements
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
-                        ));
+                        ), $return_type_suppressions);
                         continue 2;
                     }
                     $non_null_provider_return_types[] = $type;
@@ -552,7 +564,7 @@ final class TestCaseHandler implements
                         'Providers must return ' . $expected_provider_return_type->getId()
                         . ', ' . $provider_return_type_string . ' provided',
                         $provider_return_type_location
-                    ));
+                    ), $return_type_suppressions);
                     continue;
                 }
 
@@ -581,13 +593,13 @@ final class TestCaseHandler implements
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
-                        ));
+                        ), $return_type_suppressions);
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
-                        ));
+                        ), $return_type_suppressions);
                     }
                     continue;
                 }
@@ -603,13 +615,13 @@ final class TestCaseHandler implements
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', possibly different ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
-                        ));
+                        ), $return_type_suppressions);
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidReturnType(
                             'Providers must return ' . $expected_provider_return_type->getId()
                             . ', ' . $provider_return_type_string . ' provided',
                             $provider_return_type_location
-                        ));
+                        ), $return_type_suppressions);
                     }
                     continue;
                 }
@@ -631,7 +643,8 @@ final class TestCaseHandler implements
                     $method_name,
                     $provider_name,
                     $provider_return_type_string,
-                    $provider_docblock_location
+                    $provider_docblock_location,
+                    $test_suppressions
                 ): void {
                     $argument = 'Argument ' . ($param_offset + 1)
                         . ($param_name === null ? '' : ' ($' . $param_name . ')');
@@ -647,7 +660,7 @@ final class TestCaseHandler implements
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
-                        ));
+                        ), $test_suppressions);
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             $argument . ' of ' . $method_name
@@ -655,7 +668,7 @@ final class TestCaseHandler implements
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
-                        ));
+                        ), $test_suppressions);
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
                             $argument . ' of ' . $method_name
@@ -663,7 +676,7 @@ final class TestCaseHandler implements
                             . $potential_argument_type->getId() . ' provided'
                             . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
-                        ));
+                        ), $test_suppressions);
                     }
                 };
 
@@ -709,7 +722,7 @@ final class TestCaseHandler implements
                             . ', provided by ' . $provided_by,
                             $provider_docblock_location,
                             $method_name
-                        ));
+                        ), $test_suppressions);
                     }
 
                     foreach ($binding->duplicate as $name) {
@@ -718,7 +731,7 @@ final class TestCaseHandler implements
                             . ', provided by ' . $provided_by,
                             $provider_docblock_location,
                             $method_name
-                        ));
+                        ), $test_suppressions);
                     }
 
                     if ($appends_dependency_value && self::hasStringKeys($dataset_type, required_only: true)) {
@@ -727,7 +740,7 @@ final class TestCaseHandler implements
                             . ': PHPUnit appends the return value of a depended-upon test to dataset ' . $provided_by,
                             $provider_docblock_location,
                             $method_name
-                        ));
+                        ), $test_suppressions);
 
                         continue;
                     }
@@ -740,7 +753,7 @@ final class TestCaseHandler implements
                             . ' is not provided by ' . $provided_by,
                             $provider_docblock_location,
                             $method_name
-                        ));
+                        ), $test_suppressions);
                     }
                 } else { // TKeyedArray
                     // iterate over all params checking if corresponding value type is acceptable
@@ -772,7 +785,7 @@ final class TestCaseHandler implements
                                 .  ':(' . $provider_return_type_string . ')',
                                 $provider_docblock_location,
                                 $method_name
-                            ));
+                            ), $test_suppressions);
                             break;
                         }
                         $potential_argument_type = $potential_argument_types[$param_offset];
@@ -847,20 +860,18 @@ final class TestCaseHandler implements
                 continue;
             }
 
-            // Keys are source offsets, which array_merge() would renumber
-            $suppressed_issues = $provider_storage->suppressed_issues
-                + $codebase->classlike_storage_provider->get($provider_id->fq_class_name)->suppressed_issues;
-            // The analysed class's offsets mean nothing in a trait's file
-            if ($provider_storage->location->file_path === $statements_source->getFilePath()) {
-                $suppressed_issues += $class_storage->suppressed_issues + $statements_source->getSuppressedIssues();
-            }
-
             self::reportInvalidProviderSignature(
                 $codebase,
                 $provider_storage,
                 $class_storage->name . '::' . $provider_name,
                 $provider_storage->location,
-                $suppressed_issues,
+                Suppressions::of(
+                    $provider_storage->location,
+                    $provider_storage->suppressed_issues
+                        + $codebase->classlike_storage_provider->get($provider_id->fq_class_name)->suppressed_issues,
+                    $class_storage,
+                    $statements_source,
+                ),
             );
         }
     }
@@ -1661,7 +1672,6 @@ final class TestCaseHandler implements
 
     /** @param array<array-key, string> $suppressed_issues */
     private static function reportMalformedTags(
-        AfterClassLikeAnalysisEvent $event,
         ClassLike|ClassMethod $node,
         CodeLocation $location,
         array $suppressed_issues,
@@ -1669,13 +1679,6 @@ final class TestCaseHandler implements
         // Nothing is read from a docblock on PHPUnit 12, malformed or not
         if (PhpUnitVersion::ignoresDocblockMetadata()) {
             return;
-        }
-
-        // Suppression keys are source offsets: those of the analysed class mean nothing in another file
-        $statements_source = $event->getStatementsSource();
-        if ($location->file_path === $statements_source->getFilePath()) {
-            $suppressed_issues += $event->getClasslikeStorage()->suppressed_issues
-                + $statements_source->getSuppressedIssues();
         }
 
         foreach (DocblockSpecials::malformed($node) as ['tag' => $tag, 'line' => $line, 'problem' => $problem]) {

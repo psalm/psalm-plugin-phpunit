@@ -1,0 +1,234 @@
+Feature: MissingConstructor in stateful test cases
+
+  Background:
+    Given PHPUnit identifies as version "11.5.0"
+
+  Scenario: Stateful test case with setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        private $i;
+
+        /** @return void */
+        #[\Override]
+        public function setUp(): void {
+          $this->i = $this->createStub(I::class);
+        }
+
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Stateful test case with @before produces no MissingConstructor
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        private $i;
+
+        /** @before */
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Stateful test case without @before or setUp produces MissingConstructor
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        private $i;
+
+        /** @return void */
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type               | Message                                                                                                        |
+      | MissingConstructor | NS\MyTestCase has an uninitialized property NS\MyTestCase::$i, but no constructor |
+    And I see no other errors
+
+  Scenario: Stateful grandchild test case with setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      class BaseTestCase extends TestCase {}
+
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      final class MyTestCase extends BaseTestCase
+      {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        private $i;
+
+        /** @return void */
+        #[\Override]
+        public function setUp(): void {
+          $this->i = $this->createStub(I::class);
+        }
+
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      class BaseTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        protected $i;
+
+        /** @return void */
+        #[\Override]
+        public function setUp(): void {
+          $this->i = $this->createStub(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      final class MyTestCase extends Intermediate
+      {
+        /** @return void */
+        public function testSomething() {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has @before produces no MissingConstructor
+    Given I have the following code
+      """
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      class BaseTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        protected $i;
+
+        /** @before */
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      final class MyTestCase extends Intermediate
+      {
+        public function testSomething(): void {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes;
+
+      /** @psalm-mutable */
+      interface I {
+        /** @psalm-impure */
+        public function work(): int;
+      }
+
+      class BaseTestCase extends TestCase {
+        /** @var I&\PHPUnit\Framework\MockObject\Stub */
+        protected $i;
+
+        #[Attributes\Before]
+        public function myInit(): void {
+          $this->i = $this->createStub(I::class);
+        }
+      }
+
+      class Intermediate extends BaseTestCase {}
+
+      final class MyTestCase extends Intermediate
+      {
+        public function testSomething(): void {
+          $this->i->method('work')->willReturn(1);
+
+          $this->assertSame(1, $this->i->work());
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
