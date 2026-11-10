@@ -1173,3 +1173,21 @@ Feature: Data providers
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Docblock data provider next to a PHPUnit attribute that is not a provider is not resolved
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @dataProvider provideCents
+         */
+        #[Group('money')]
+        public function testCents(int $cents = 100): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

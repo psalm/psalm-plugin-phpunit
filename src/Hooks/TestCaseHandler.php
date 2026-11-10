@@ -229,20 +229,15 @@ final class TestCaseHandler implements
             }
 
             $method_storage = $class_storage->methods[strtolower($method->name->name)] ?? null;
-            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
-            $has_attribute = self::hasPhpUnitAttribute($method, $aliases);
             if (
                 $method_storage === null
                 || $providers === []
-                || ($has_attribute && self::getAttributeDataProviders($method, $aliases, $class_storage) === null)
                 || count($providers) < self::countProviderAttributes($method, $aliases)
             ) {
                 continue;
             }
 
-            $test_specials = $has_attribute
-                ? self::getAttributeSpecials($method, $aliases)
-                : self::docblockSpecials($method);
+            $test_specials = self::getSpecials($method, $aliases);
             $method_storage->custom_metadata[DataProviderNarrowingHandler::METADATA_KEY] = [
                 // the test's own class is resolved at analysis, where a trait method has the class that uses it
                 'providers' => array_map(
@@ -342,9 +337,6 @@ final class TestCaseHandler implements
             // Use the declaring class's aliases so trait-declared attributes resolve via the trait's imports.
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
-            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
-            $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
             $test_suppressions = Suppressions::of(
                 $method_storage->location,
@@ -377,7 +369,7 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            $appends_dependency_value = !$docblock_providers_ignored && self::appendsDependencyValue(
+            $appends_dependency_value = self::appendsDependencyValue(
                 $codebase,
                 $class_node,
                 $class_storage,
@@ -452,7 +444,7 @@ final class TestCaseHandler implements
                 $provider_class_storage  = $codebase->classlike_storage_provider->get($provider_id->fq_class_name);
 
                 // Abstract providers are checked on the concrete classes implementing them
-                if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
+                if (!$provider_method_storage->abstract) {
                     self::reportInvalidProviderSignature(
                         $codebase,
                         $provider_method_storage,
@@ -1086,21 +1078,23 @@ final class TestCaseHandler implements
     }
 
     /**
-     * PHPUnit 12 ignores docblock metadata altogether.
+     * The docblock metadata PHPUnit reads: none on PHPUnit 12, and, like PHPUnit's ParserChain, none on a method
+     * that has any PHPUnit attribute.
      *
      * @return array<string, list<array{int, string}>> Each entry is [file line, value]
      */
-    private static function docblockSpecials(ClassMethod $method): array
+    private static function docblockSpecials(ClassMethod $method, Aliases $aliases): array
     {
-        return PhpUnitVersion::ignoresDocblockMetadata() ? [] : DocblockSpecials::of($method);
+        return PhpUnitVersion::ignoresDocblockMetadata() || self::hasPhpUnitAttribute($method, $aliases)
+            ? []
+            : DocblockSpecials::of($method);
     }
 
     /** @return array<string, list<array{int, string}>> Each entry is [file line, value] */
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
-            self::docblockSpecials($method),
-            // Attributes take priority over docblocks
+            self::docblockSpecials($method, $aliases),
             self::getAttributeSpecials($method, $aliases),
         );
     }
@@ -1145,8 +1139,6 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
-     *
      * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. The "Class::method"
      * references of docblock tags are resolved with $reference_aliases (of the analysed file).
      *
@@ -1159,31 +1151,26 @@ final class TestCaseHandler implements
         Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array {
-        return self::getAttributeDataProviders($method, $aliases, $class)
-            ?? array_map(
+        return [
+            ...self::getAttributeDataProviders($method, $aliases, $class),
+            ...array_map(
                 static fn(array $entry): array => self::parseProviderReference(
                     $entry[0],
                     $entry[1],
                     $reference_aliases,
                 ),
-                self::docblockSpecials($method)['dataProvider'] ?? [],
-            );
+                self::docblockSpecials($method, $aliases)['dataProvider'] ?? [],
+            ),
+        ];
     }
 
-    /**
-     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither. A method with only a
-     * #[DataProviderClosure] has none of these providers, but is not left to its docblock either
-     * (see getClosureProviders()).
-     *
-     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
-     */
+    /** @return list<array{line: int, class: string|null, method: string, external: bool}> */
     private static function getAttributeDataProviders(
         ClassMethod $method,
         Aliases $aliases,
         ClassLikeStorage $class
-    ): array|null {
+    ): array {
         $references = self::attributeValue($method, $aliases, DataProvider::class);
-        $has_attributes = $references !== null;
         // PHPUnit takes a #[DataProvider] argument literally as a method name of the test class
         $providers = array_map(
             static fn(array $entry): array => [
@@ -1198,15 +1185,10 @@ final class TestCaseHandler implements
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                if ($attribute_class === self::DATA_PROVIDER_CLOSURE) {
-                    $has_attributes = true;
-                }
-
                 if ($attribute_class !== DataProviderExternal::class) {
                     continue;
                 }
 
-                $has_attributes = true;
                 $args           = self::attributeArguments($attribute);
 
                 $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
@@ -1224,7 +1206,7 @@ final class TestCaseHandler implements
             }
         }
 
-        return $has_attributes ? $providers : null;
+        return $providers;
     }
 
     /**
@@ -1421,14 +1403,11 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Mirrors PHPUnit's ParserChain: docblock annotations are only read when the method has no PHPUnit attribute.
-     *
      * @return list<string|null> "Class::method" per method dependency, null when the target is not a literal
      */
     private static function getDependencyTargets(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
     {
-        $has_phpunit_attribute = self::hasPhpUnitAttribute($method, $aliases);
-        $targets               = [];
+        $targets = [];
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
@@ -1453,11 +1432,7 @@ final class TestCaseHandler implements
             }
         }
 
-        if ($has_phpunit_attribute) {
-            return $targets;
-        }
-
-        foreach (self::docblockSpecials($method)['depends'] ?? [] as [, $value]) {
+        foreach (self::docblockSpecials($method, $aliases)['depends'] ?? [] as [, $value]) {
             $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
