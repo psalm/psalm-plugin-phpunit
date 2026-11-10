@@ -39,6 +39,8 @@ use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
+use Psalm\Internal\Type\Comparator\TypeComparisonResult;
+use Psalm\Internal\Type\Comparator\UnionTypeComparator;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
@@ -634,8 +636,26 @@ final class TestCaseHandler implements
                     if ($is_optional) {
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
-                    if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
+                    $comparison = new TypeComparisonResult();
+                    if (UnionTypeComparator::isContainedBy(
+                        $codebase,
+                        $potential_argument_type,
+                        $param_type,
+                        false,
+                        false,
+                        $comparison,
+                    )) {
                         // ok
+                    } elseif ($comparison->type_coerced && !$potential_argument_type->hasMixed()) {
+                        $message = $argument . ' of ' . $method_name
+                            . ' expects ' . $param_type->getId() . ', but parent type '
+                            . $potential_argument_type->getId() . ' provided'
+                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')';
+                        IssueBuffer::accepts(
+                            $comparison->type_coerced_from_mixed
+                                ? new Issue\MixedArgumentTypeCoercion($message, $provider_docblock_location)
+                                : new Issue\ArgumentTypeCoercion($message, $provider_docblock_location)
+                        );
                     } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
                             $argument . ' of ' . $method_name

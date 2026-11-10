@@ -10028,3 +10028,116 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: A provider value that is a parent type of the parameter type is an argument type coercion
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        /**
+         * @param non-empty-string $s
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertNotSame('', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects non-empty-string, but parent type string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
+    And I see no other errors
+
+  Scenario: A nullable provider value that is a parent type of the nullable parameter type is an argument type coercion
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{null|string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => [null];
+        }
+
+        /**
+         * @param ?non-empty-string $s
+         */
+        #[DataProvider('provide')]
+        public function testSomething(?string $s): void {
+          $this->assertNull($s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects non-empty-string\|null, but parent type null\|string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{null\|string}>) |
+    And I see no other errors
+
+  Scenario: A named dataset value that is a parent type of the parameter type is an argument type coercion
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{s: string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['s' => 'a'];
+        }
+
+        /**
+         * @param non-empty-string $s
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertNotSame('', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                 | Message |
+      | ArgumentTypeCoercion | Argument 1 ($s) of NS\MyTestCase::testSomething expects non-empty-string, but parent type string provided by NS\MyTestCase::provide():(iterable[pure]<string, array{s: string}>) |
+    And I see no other errors
+
+  Scenario: A provider value that does not fit the parameter type at all stays an invalid argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, list{int}>) |
+    And I see no other errors
