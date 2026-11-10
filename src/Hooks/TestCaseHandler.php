@@ -361,14 +361,12 @@ final class TestCaseHandler implements
             self::reportMalformedTags($stmt_method, $method_storage->location, $test_suppressions);
 
             $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
-            if (!$is_test && !self::isHook($stmt_method, $method_aliases, $method_storage)) {
-                continue; // skip methods PHPUnit never calls
+            if ($is_test || self::isHook($specials, $method_storage)) {
+                $codebase->methodExists(
+                    (string) $declaring_method_id,
+                    calling_method_id: 'PHPUnit\Framework\TestSuite::run',
+                );
             }
-
-            $codebase->methodExists(
-                (string) $declaring_method_id,
-                calling_method_id: 'PHPUnit\Framework\TestSuite::run',
-            );
 
             if (!$is_test) {
                 continue;
@@ -1091,7 +1089,8 @@ final class TestCaseHandler implements
 
     private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
     {
-        return isset(self::getSpecials($method, $aliases)['before']);
+        return isset(self::docblockSpecials($method)['before'])
+            || self::attributeValue($method, $aliases, Before::class) !== null;
     }
 
     /**
@@ -1519,13 +1518,9 @@ final class TestCaseHandler implements
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
 
-    /** PHPUnit ignores a docblock tag on a method that has any PHPUnit attribute. */
-    private static function isHook(ClassMethod $method, Aliases $aliases, MethodStorage $storage): bool
+    /** @param array<string, list<array{int, string}>> $specials */
+    private static function isHook(array $specials, MethodStorage $storage): bool
     {
-        $specials = self::hasPhpUnitAttribute($method, $aliases)
-            ? self::getAttributeSpecials($method, $aliases)
-            : self::docblockSpecials($method);
-
         // PHPUnit runs the class-level hooks only when they are static
         return isset($specials['before'])
             || isset($specials['after'])
