@@ -39,7 +39,7 @@ To show a new scenario fails on the base, either use a CLI repro or run **just t
 scenario** in a base worktree (skill `pr-description`, AGENTS.md "Validating changes"):
 
 ```
-cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line of Scenario:>
+cd tools/behat && vendor/bin/behat ../../tests/acceptance/<Area>.feature:<line of Scenario:>
 ```
 
 Never run the whole suite for this.
