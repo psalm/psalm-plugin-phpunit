@@ -328,3 +328,167 @@ Feature: Data provider return types
       | Type              | Message                                                                           |
       | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, null provided |
     And I see no other errors
+
+  Scenario: An iterable provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An iterable provider without a key type reports datasets that do not match the test
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<mixed, list{int}>) | 17 |
+    And I see no other errors
+
+  Scenario: A generator provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return \Generator<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): \Generator {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An IteratorAggregate provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @implements \IteratorAggregate<array{int}>
+       * @psalm-immutable
+       */
+      final class Datasets implements \IteratorAggregate {
+        #[\Override]
+        public function getIterator(): \Iterator {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return Datasets
+         * @psalm-pure
+         */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An iterable provider with an object key type is still reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<object, array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield new \stdClass => [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message | Line |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable[pure]<object, list{int}> provided | 10 |
+    And I see no other errors
+
+  Scenario: An iterable provider without a key type and with non-array values is still reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 1;
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message | Line |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable[pure]<mixed, int> provided | 10 |
+    And I see no other errors
