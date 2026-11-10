@@ -54,7 +54,7 @@ jobs:
             - name: Run Psalm
               run: vendor/bin/psalm --output-format=github --shepherd
 
-    phpcs:
+    php-cs-fixer:
         name: Code style
         runs-on: ubuntu-latest
         steps:
@@ -91,8 +91,8 @@ jobs:
               env:
                   COMPOSER_ROOT_VERSION: dev-master
 
-            - name: Run PHPCodeSniffer
-              run: vendor/bin/phpcs --report=checkstyle -q --parallel=1 | cs2pr
+            - name: Run PHP-CS-Fixer
+              run: vendor/bin/php-cs-fixer check --format=checkstyle | cs2pr
 
     test-static-analysis:
         name: Run static analysis on the tests themselves

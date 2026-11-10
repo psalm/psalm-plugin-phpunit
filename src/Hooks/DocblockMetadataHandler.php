@@ -15,9 +15,6 @@ use Psalm\PhpUnitPlugin\Suppressions;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
-use function sprintf;
-use function strtolower;
-
 /**
  * PHPUnit 12 and newer ignore metadata in doc-comments, so a tag there silently stops doing anything.
  */
@@ -62,10 +59,10 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
     #[\Override]
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
-        $class_node    = $event->getStmt();
+        $class_node = $event->getStmt();
         $class_storage = $event->getClasslikeStorage();
-        $codebase      = $event->getCodebase();
-        $source        = $event->getStatementsSource();
+        $codebase = $event->getCodebase();
+        $source = $event->getStatementsSource();
 
         $is_test_case = $codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase');
         if (!PhpUnitVersion::ignoresDocblockMetadata() || !$is_test_case) {
@@ -99,7 +96,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
             $declaring_class = $codebase->classlike_storage_provider->get($declaring_method_id->fq_class_name);
             $declaring_class_node = match (true) {
-                strtolower($declaring_class->name) === strtolower($class_storage->name) => $class_node,
+                \strtolower($declaring_class->name) === \strtolower($class_storage->name) => $class_node,
                 $declaring_class->is_trait => $codebase->classlikes->getTraitNode($declaring_class->name),
                 default => null,
             };
@@ -127,7 +124,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
     /** @param array<array-key, string> $suppressed_issues */
     private static function report(
         ClassLike|ClassMethod $node,
-        CodeLocation|null $location,
+        ?CodeLocation $location,
         array $suppressed_issues,
     ): void {
         if ($location === null) {
@@ -140,7 +137,7 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
             }
 
             foreach ($entries as [$line]) {
-                $message = sprintf(
+                $message = \sprintf(
                     'PHPUnit 12 ignores the @%s docblock tag, use %s instead',
                     $tag,
                     self::ATTRIBUTES[$tag],

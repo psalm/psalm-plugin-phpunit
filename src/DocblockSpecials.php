@@ -8,11 +8,6 @@ use PhpParser\Comment\Doc;
 use PhpParser\Node;
 use Psalm\DocComment;
 
-use function explode;
-use function ltrim;
-use function substr_count;
-use function trim;
-
 final class DocblockSpecials
 {
     /**
@@ -101,7 +96,7 @@ final class DocblockSpecials
                     $tag,
                     // Psalm keys tags by absolute file offset, which is useless for issue locations.
                     $docblock->getStartLine()
-                        + substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos()),
+                        + \substr_count($docblock->getText(), "\n", 0, $offset - $docblock->getStartFilePos()),
                     // PHPUnit reads a tag's value from its own line only, Psalm also folds the following lines into it.
                     self::firstLine($data),
                     self::problem($docblock, $tag, $offset, $data),
@@ -115,11 +110,11 @@ final class DocblockSpecials
     /** @psalm-pure */
     private static function firstLine(string $data): string
     {
-        return trim(explode("\n", $data, 2)[0]);
+        return \trim(\explode("\n", $data, 2)[0]);
     }
 
     /** @return string|null What is wrong with the tag, null when PHPUnit accepts it */
-    private static function problem(Doc $docblock, string $tag, int $offset, string $data): string|null
+    private static function problem(Doc $docblock, string $tag, int $offset, string $data): ?string
     {
         if (!isset(self::VALUE_TAGS[$tag])) {
             return null;
@@ -128,11 +123,11 @@ final class DocblockSpecials
         // PHPUnit's `@testWith\s+` spans line breaks, so the datasets may start on the line below the tag.
         // Psalm then starts the value at that line break.
         if ($tag === 'testWith') {
-            if (trim($data) === '') {
+            if (\trim($data) === '') {
                 return 'has no value';
             }
 
-            if (ltrim($data) !== $data) {
+            if (\ltrim($data) !== $data) {
                 return null;
             }
         } elseif (self::firstLine($data) === '') {

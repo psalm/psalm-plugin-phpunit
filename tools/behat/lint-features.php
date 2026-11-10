@@ -17,7 +17,7 @@ if ($paths === []) {
 }
 
 $problems = [];
-$titles   = [];
+$titles = [];
 
 foreach ($paths as $path) {
     $lines = file($path, FILE_IGNORE_NEW_LINES);
@@ -26,9 +26,9 @@ foreach ($paths as $path) {
         continue;
     }
 
-    $name     = basename($path);
+    $name = basename($path);
     $scenario = null;
-    $expects  = false;
+    $expects = false;
     $checkScenario = static function (?string $scenario, bool $expects) use (&$problems): void {
         if ($scenario !== null && $expects) {
             $problems[] = $scenario . ': "I see these errors" without "I see no other errors"'
@@ -42,7 +42,7 @@ foreach ($paths as $path) {
         if (preg_match('/^\s*Scenario(?: Outline)?:\s*(.+?)\s*$/', $line, $matches) === 1) {
             $checkScenario($scenario, $expects);
             $scenario = $at;
-            $expects  = false;
+            $expects = false;
 
             $title = $matches[1];
             if (isset($titles[$title])) {

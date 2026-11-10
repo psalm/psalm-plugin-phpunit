@@ -2,7 +2,6 @@
 
 namespace Psalm\PhpUnitPlugin;
 
-use SimpleXMLElement;
 use Psalm\Plugin\PluginEntryPointInterface;
 use Psalm\Plugin\RegistrationInterface;
 
@@ -10,7 +9,7 @@ use Psalm\Plugin\RegistrationInterface;
 final class Plugin implements PluginEntryPointInterface
 {
     #[\Override]
-    public function __invoke(RegistrationInterface $psalm, ?SimpleXMLElement $config = null): void
+    public function __invoke(RegistrationInterface $psalm, ?\SimpleXMLElement $config = null): void
     {
         $psalm->addStubFile(__DIR__ . '/../stubs/TestCase.phpstub');
 
@@ -40,5 +39,8 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\DataProviderClosureHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\DataProviderClosureHandler::class);
+
+        class_exists(Hooks\ProviderReturnTypeHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\ProviderReturnTypeHandler::class);
     }
 }

@@ -25,6 +25,5 @@ final class BoundArgument
         public readonly Union $type,
         public readonly Union $param_type,
         public readonly bool $is_optional,
-    ) {
-    }
+    ) {}
 }

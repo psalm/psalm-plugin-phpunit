@@ -12,7 +12,6 @@ use Psalm\Plugin\EventHandler\Event\AfterExpressionAnalysisEvent;
 use Psalm\Storage\MethodStorage;
 use Psalm\Type\Atomic\TClosure;
 use Psalm\Type\Union;
-use WeakMap;
 
 /**
  * Psalm analyses the closure of a #[DataProviderClosure(...)] argument but throws the node types away, so the
@@ -23,8 +22,8 @@ use WeakMap;
  */
 final class DataProviderClosureHandler implements AfterExpressionAnalysisInterface
 {
-    /** @var WeakMap<object, array<int, Union>>|null */
-    private static ?WeakMap $returnTypes = null;
+    /** @var \WeakMap<object, array<int, Union>>|null */
+    private static ?\WeakMap $returnTypes = null;
 
     public static function returnType(MethodStorage $storage, int $position): ?Union
     {
@@ -50,7 +49,7 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
         }
 
         $statements_source = $event->getStatementsSource();
-        $method_analyzer   = $statements_source->getSource();
+        $method_analyzer = $statements_source->getSource();
         if (!$method_analyzer instanceof MethodAnalyzer) {
             return null;
         }
@@ -72,8 +71,8 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
         }
 
         if (self::$returnTypes === null) {
-            /** @var WeakMap<object, array<int, Union>> $return_types */
-            $return_types       = new WeakMap();
+            /** @var \WeakMap<object, array<int, Union>> $return_types */
+            $return_types = new \WeakMap();
             self::$returnTypes = $return_types;
         }
 
@@ -81,7 +80,7 @@ final class DataProviderClosureHandler implements AfterExpressionAnalysisInterfa
         $types = self::$returnTypes[$storage] ?? [];
 
         $types[$closure->getStartFilePos()] = $return_type;
-        self::$returnTypes[$storage]        = $types;
+        self::$returnTypes[$storage] = $types;
 
         return null;
     }
