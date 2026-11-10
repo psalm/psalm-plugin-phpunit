@@ -24,7 +24,8 @@ Layout:
   metadata is ignored by PHPUnit, so the plugin reports it and stops honouring it in `TestCaseHandler`.
 - `src/Hooks/MissingParentCallHandler.php` and `src/Issue/MissingParentCall.php`: the
   `AfterClassLikeAnalysis` hook and plugin issue for `setUp()`-style overrides without a `parent::` call.
-- `stubs/TestCase.phpstub`: types `prophesize()`.
+- `stubs/TestCase.phpstub`: hides the constructor of `TestCase` (see the stub) and makes `assertNotEmpty()`
+  narrow its argument.
 - `tests/acceptance/*.feature`: the Behat scenarios, the only test suite that CI runs. One file per area
   (`DataProviders`, `NamedDatasets`, `Narrowing`, `MockMethod`, ...): add a scenario to the file of the area
   it tests. Every file except `Prophecy.feature` has the same Background, which pins the PHPUnit version.
@@ -171,7 +172,8 @@ workaround explicitly in the report.
     (`Given I have the following code preamble` replaces it);
   - config steps: `Given the error level is 2`, `Given Psalm checks for throws docblocks`,
     `Given the config uses the autoloader "autoload.php"`, `Given the config suppresses the issue "X"`,
-    `Given the config suppresses the plugin issue "X"`, `Given Psalm ignores the exception "X"`;
+    `Given the config suppresses the plugin issue "X"`, `Given Psalm ignores the exception "X"`,
+    `Given Psalm ignores the vendor package "phpspec/prophecy-phpunit"`;
   - `Then I see no errors`: the Psalm process exited 0;
   - `Then I see these errors` (table `| Type | Message |`): each row must match an issue's
     exact type **and** exact full message. Matched issues are removed;
