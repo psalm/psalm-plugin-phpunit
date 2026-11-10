@@ -15,6 +15,10 @@ Layout:
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`, and `assertSame()` over `assertEquals()`
   for two arguments of one scalar type.
+- `src/Hooks/ProviderReturnTypeHandler.php`: the `AfterFunctionLikeAnalysis` hook that keeps the type Psalm
+  infers for each dataset of a static provider with only a native return type (never the merged type of all
+  datasets). `TestCaseHandler` checks the datasets against it only for providers of the analysed class or its
+  traits (other storages may be analysed by another process).
 - `src/Hooks/MockMethodHandler.php`: the `AfterExpressionAnalysis` hook that reports
   `->method('typo')` on mocks and stubs as `UndefinedMethod`.
 - `src/Hooks/IntersectionMockReturnTypeProvider.php`: the `MethodReturnTypeProviderInterface` hook that types
