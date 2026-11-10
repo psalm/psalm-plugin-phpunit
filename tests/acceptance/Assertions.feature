@@ -631,3 +631,48 @@ Feature: Assertions
         }
       }
       """
+
+  Scenario: Psalter keeps assertions on a receiver that may not be a test case
+    Given I have the following code
+      """
+      final class Helper {
+        public function assertSame(mixed $expected, mixed $actual): void {
+          if ($expected !== $actual) {
+            throw new \RuntimeException('Not the same');
+          }
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function check(MyTestCase|Helper $receiver, ?int $value): void {
+          $receiver->assertSame(null, $value);
+        }
+
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $this->assertSame(null, $value);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion"
+    Then the code is
+      """
+      final class Helper {
+        public function assertSame(mixed $expected, mixed $actual): void {
+          if ($expected !== $actual) {
+            throw new \RuntimeException('Not the same');
+          }
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        public function check(MyTestCase|Helper $receiver, ?int $value): void {
+          $receiver->assertSame(null, $value);
+        }
+
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $this->assertNull($value);
+        }
+      }
+      """

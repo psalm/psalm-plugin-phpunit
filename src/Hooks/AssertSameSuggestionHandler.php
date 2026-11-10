@@ -9,6 +9,7 @@ use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use Psalm\CodeLocation;
@@ -134,6 +135,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             && $methodName instanceof Identifier
             && !$methodName instanceof VirtualNode
             && !$call instanceof VirtualNode
+            && self::onlyReachesAssert($call, $event)
         ) {
             $replacements[] = new FileManipulation(
                 $methodName->getStartFilePos(),
@@ -236,6 +238,35 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         }
 
         return false;
+    }
+
+    /**
+     * A union receiver such as TestCase|Helper may dispatch to Helper::assertSame(), which has no assertNull().
+     */
+    private static function onlyReachesAssert(MethodCall|StaticCall $call, AfterMethodCallAnalysisEvent $event): bool
+    {
+        if ($call instanceof StaticCall) {
+            return true;
+        }
+
+        $receiver = $event->getStatementsSource()->getNodeTypeProvider()->getType($call->var);
+        if ($receiver === null) {
+            return false;
+        }
+
+        $codebase = $event->getCodebase();
+        foreach ($receiver->getAtomicTypes() as $atomic) {
+            if (
+                !$atomic instanceof TNamedObject
+                || !$codebase->classOrInterfaceExists($atomic->value)
+                || (\strtolower($atomic->value) !== 'phpunit\\framework\\assert'
+                    && !$codebase->classExtendsOrImplements($atomic->value, 'PHPUnit\\Framework\\Assert'))
+            ) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function isCountCall(Expr $expr, AfterMethodCallAnalysisEvent $event): bool
