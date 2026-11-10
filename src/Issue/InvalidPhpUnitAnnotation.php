@@ -6,6 +6,4 @@ namespace Psalm\PhpUnitPlugin\Issue;
 
 use Psalm\Issue\PluginIssue;
 
-final class InvalidPhpUnitAnnotation extends PluginIssue
-{
-}
+final class InvalidPhpUnitAnnotation extends PluginIssue {}

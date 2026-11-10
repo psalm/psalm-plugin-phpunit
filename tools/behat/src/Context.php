@@ -14,6 +14,9 @@ use Behat\Step\Then;
 use Behat\Step\When;
 use Psl\File;
 use Psl\Filesystem;
+
+use function Psl\invariant;
+
 use Psl\Json;
 use Psl\SecureRandom;
 use Psl\Shell;
@@ -22,19 +25,16 @@ use Psl\Shell\Exception\FailedExecutionException;
 use Psl\Str;
 use Psl\Type;
 
-use function Psl\invariant;
-use function sprintf;
-
 /** @psalm-suppress UnusedClass psalm does not understand Behat context marker interfaces (yet) */
 final class Context implements BehatContext
 {
     /** @var non-empty-string|null */
-    private string|null $scenarioDirectory = null;
+    private ?string $scenarioDirectory = null;
     private const DEFAULT_PREAMBLE = "<?php\nnamespace NS;\nuse PHPUnit\\Framework\\TestCase;\n";
 
     private int $errorLevel = 1;
     private bool $checksForThrowsDocblock = false;
-    private string|null $autoloader = null;
+    private ?string $autoloader = null;
     /** @var list<string> */
     private array $suppressedIssues = [];
     /** @var list<string> */
@@ -43,10 +43,10 @@ final class Context implements BehatContext
     private array $ignoredExceptions = [];
     /** @var list<string> */
     private array $ignoredPackages = [];
-    private string|null $phpunitVersion = null;
+    private ?string $phpunitVersion = null;
     private bool $declaresDataProviderClosure = false;
     private string $codePreamble = self::DEFAULT_PREAMBLE;
-    private string|null $processOutput = null;
+    private ?string $processOutput = null;
     /** @var int<0, 255> */
     private int $exitCode = 0;
     private bool $processFailed = false;
@@ -119,25 +119,25 @@ final class Context implements BehatContext
                 error_output_behavior: ErrorOutputBehavior::Discard,
             );
         } catch (FailedExecutionException $failed) {
-            $output              = $failed->getOutput();
+            $output = $failed->getOutput();
             $this->processOutput = $output;
             $this->processFailed = true;
-            $this->exitCode      = Type\u8()->coerce($failed->getCode());
-            $this->errors        = \array_map(
+            $this->exitCode = Type\u8()->coerce($failed->getCode());
+            $this->errors = \array_map(
                 // Psalm >= 7.0.1 reports "seems to have no effect, its result is not used"
                 // for unused pure calls: older versions say "is not used". The suite runs on both.
                 static fn(array $error): array => [
-                    'type'    => $error['type'],
+                    'type' => $error['type'],
                     'message' => Type\non_empty_string()->coerce(
                         \str_replace(' seems to have no effect, its result is not used', ' is not used', $error['message']),
                     ),
-                    'line'    => $error['line_from'],
+                    'line' => $error['line_from'],
                 ],
                 Json\typed(
                     $output,
                     Type\vec(Type\shape([
-                        'type'      => Type\non_empty_string(),
-                        'message'   => Type\non_empty_string(),
+                        'type' => Type\non_empty_string(),
+                        'message' => Type\non_empty_string(),
                         'line_from' => Type\int(),
                     ])),
                 ),
@@ -224,37 +224,37 @@ final class Context implements BehatContext
     private function writeConfig(): void
     {
         $autoloader = $this->autoloader;
-        $version    = $this->phpunitVersion;
+        $version = $this->phpunitVersion;
         if ($version !== null) {
             $autoloader = $this->writeVersionShim($version);
         }
 
-        $attributes = sprintf('errorLevel="%d" findUnusedCode="false" findUnusedPsalmSuppress="true"', $this->errorLevel);
+        $attributes = \sprintf('errorLevel="%d" findUnusedCode="false" findUnusedPsalmSuppress="true"', $this->errorLevel);
         if ($this->checksForThrowsDocblock) {
             $attributes .= ' checkForThrowsDocblock="true"';
         }
         if ($autoloader !== null) {
-            $attributes .= sprintf(' autoloader="%s"', self::xml($autoloader));
+            $attributes .= \sprintf(' autoloader="%s"', self::xml($autoloader));
         }
 
         $issueHandlers = '';
         foreach (['MissingClassConstType', 'DeprecatedMethod', ...$this->suppressedIssues] as $issue) {
-            $issueHandlers .= sprintf("    <%s errorLevel=\"suppress\"/>\n", $issue);
+            $issueHandlers .= \sprintf("    <%s errorLevel=\"suppress\"/>\n", $issue);
         }
         foreach ($this->suppressedPluginIssues as $issue) {
-            $issueHandlers .= sprintf("    <PluginIssue name=\"%s\" errorLevel=\"suppress\"/>\n", self::xml($issue));
+            $issueHandlers .= \sprintf("    <PluginIssue name=\"%s\" errorLevel=\"suppress\"/>\n", self::xml($issue));
         }
 
         $extra = '';
         if ($this->ignoredExceptions !== []) {
             $extra .= "  <ignoreExceptions>\n";
             foreach ($this->ignoredExceptions as $class) {
-                $extra .= sprintf("    <classAndDescendants name=\"%s\"/>\n", self::xml($class));
+                $extra .= \sprintf("    <classAndDescendants name=\"%s\"/>\n", self::xml($class));
             }
             $extra .= "  </ignoreExceptions>\n";
         }
         if ($this->declaresDataProviderClosure) {
-            $extra .= sprintf(
+            $extra .= \sprintf(
                 "  <stubs><file name=\"%s\"/></stubs>\n",
                 self::xml(__DIR__ . '/../stubs/DataProviderClosure.phpstub'),
             );
@@ -262,7 +262,7 @@ final class Context implements BehatContext
 
         $ignoredFiles = '<directory name="../../vendor"/>';
         foreach ($this->ignoredPackages as $package) {
-            $ignoredFiles .= sprintf(' <directory name="%s"/>', self::xml(\dirname(__DIR__, 3) . '/vendor/' . $package));
+            $ignoredFiles .= \sprintf(' <directory name="%s"/>', self::xml(\dirname(__DIR__, 3) . '/vendor/' . $package));
         }
 
         $this->writeFile('psalm.xml', <<<XML
@@ -289,16 +289,16 @@ final class Context implements BehatContext
      */
     private function writeVersionShim(string $version): string
     {
-        $own  = $this->autoloader;
+        $own = $this->autoloader;
         $shim = $this->versionShimFile();
-        File\write($shim, sprintf(
+        File\write($shim, \sprintf(
             "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
             . "        public static function id(): string\n        {\n            return %s;\n        }\n\n"
             . "        public static function majorVersionNumber(): int\n        {\n            return %d;\n        }\n    }\n}\n"
             . "namespace {\n%s}\n",
             \var_export($version, true),
             (int) $version,
-            $own === null ? '' : sprintf(
+            $own === null ? '' : \sprintf(
                 "    require_once %s;\n",
                 \var_export(\str_starts_with($own, '/') ? $own : $this->scenarioDirectory() . '/' . $own, true),
             ),
@@ -347,20 +347,20 @@ final class Context implements BehatContext
         // The Line column is optional: a missing line matches any line.
         $expectedErrors = Type\vec(Type\converted(
             Type\shape([
-                'Type'    => Type\non_empty_string(),
+                'Type' => Type\non_empty_string(),
                 'Message' => Type\non_empty_string(),
-                'Line'    => Type\optional(Type\int()),
+                'Line' => Type\optional(Type\int()),
             ]),
             Type\shape([
-                'type'    => Type\non_empty_string(),
+                'type' => Type\non_empty_string(),
                 'message' => Type\non_empty_string(),
-                'line'    => Type\nullable(Type\int()),
+                'line' => Type\nullable(Type\int()),
             ]),
             static fn(array $coerced) => [
-                'type'    => $coerced['Type'],
+                'type' => $coerced['Type'],
                 'message' => $coerced['Message'],
-                'line'    => $coerced['Line'] ?? null,
-            ]
+                'line' => $coerced['Line'] ?? null,
+            ],
         ))->coerce($table->getColumnsHash());
 
         /**

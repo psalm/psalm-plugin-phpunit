@@ -2,6 +2,8 @@
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
+use function count;
+
 use PhpParser\Node\Arg;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\ConstFetch;
@@ -11,23 +13,13 @@ use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use Psalm\CodeLocation;
 use Psalm\IssueBuffer;
-use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
-use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificCountAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificEqualsAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
+use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
+use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Type\Atomic\TNamedObject;
-use UnexpectedValueException;
-
-use function count;
-use function in_array;
-use function sprintf;
-use function str_starts_with;
-use function strlen;
-use function strtolower;
-use function substr;
-use function ucfirst;
 
 /**
  * Suggests the dedicated assertion for assertSame(null|true|false, ...) and assertSame(n, count(...)) in either
@@ -55,19 +47,19 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     #[\Override]
     public static function afterMethodCallAnalysis(AfterMethodCallAnalysisEvent $event): void
     {
-        $declaringMethodId = strtolower($event->getDeclaringMethodId());
-        if (!str_starts_with($declaringMethodId, self::ASSERT_CLASS_PREFIX)) {
+        $declaringMethodId = \strtolower($event->getDeclaringMethodId());
+        if (!\str_starts_with($declaringMethodId, self::ASSERT_CLASS_PREFIX)) {
             return;
         }
 
-        $method = substr($declaringMethodId, strlen(self::ASSERT_CLASS_PREFIX));
+        $method = \substr($declaringMethodId, \strlen(self::ASSERT_CLASS_PREFIX));
         $call = $event->getExpr();
         if ($call->isFirstClassCallable()) {
             return;
         }
 
         $args = $call->getArgs();
-        if (count($args) < 2 || !self::isPositional($args[0]) || !self::isPositional($args[1])) {
+        if (\count($args) < 2 || !self::isPositional($args[0]) || !self::isPositional($args[1])) {
             return;
         }
 
@@ -90,17 +82,17 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         ) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
-            $message = sprintf(
+            $message = \sprintf(
                 'Use assert%s%s() instead of %s(%s)',
                 $not,
-                ucfirst($literal),
+                \ucfirst($literal),
                 $name,
                 $swapped ? '..., ' . $literal : $literal . ', ...',
             );
         } elseif (isset(self::COUNT_METHODS[$method]) && self::isIntegerCountComparison($expected, $actual, $event)) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $issueClass = UnspecificCountAssertion::class;
-            $message = sprintf(
+            $message = \sprintf(
                 'Use assert%sCount() instead of %s(%s)',
                 $not,
                 $name,
@@ -113,7 +105,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         ) {
             [$name, $not] = self::EQUALS_METHODS[$method];
             $issueClass = UnspecificEqualsAssertion::class;
-            $message = sprintf(
+            $message = \sprintf(
                 'Use assert%sSame() instead of %s(), both arguments are of type %s',
                 $not,
                 $name,
@@ -144,9 +136,9 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
      */
     private static function literalName(Expr $expr): ?string
     {
-        $name = $expr instanceof ConstFetch ? strtolower($expr->name->toString()) : null;
+        $name = $expr instanceof ConstFetch ? \strtolower($expr->name->toString()) : null;
 
-        return in_array($name, ['null', 'true', 'false'], true) ? $name : null;
+        return \in_array($name, ['null', 'true', 'false'], true) ? $name : null;
     }
 
     /**
@@ -188,15 +180,15 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     private static function isGlobalCount(Name $name, AfterMethodCallAnalysisEvent $event): bool
     {
         if ($name->hasAttribute('resolvedName')) {
-            return strtolower((string) $name->getAttribute('resolvedName')) === 'count';
+            return \strtolower((string) $name->getAttribute('resolvedName')) === 'count';
         }
 
-        if (!$name->isUnqualified() || strtolower($name->toString()) !== 'count') {
+        if (!$name->isUnqualified() || \strtolower($name->toString()) !== 'count') {
             return false;
         }
 
         $namespaced = (string) $name->getAttribute('namespacedName', 'count');
-        if (strtolower($namespaced) === 'count') {
+        if (\strtolower($namespaced) === 'count') {
             return true;
         }
 
@@ -205,7 +197,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
                 $event->getStatementsSource()->getFilePath(),
                 $namespaced . '()',
             );
-        } catch (UnexpectedValueException) {
+        } catch (\UnexpectedValueException) {
             return true;
         }
 
@@ -218,13 +210,13 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             return $expr->name instanceof Name
                 && self::isGlobalCount($expr->name, $event)
                 && !$expr->isFirstClassCallable()
-                && count($expr->getArgs()) === 1
+                && \count($expr->getArgs()) === 1
                 && !$expr->getArgs()[0]->unpack;
         }
 
         $isCountMethodCall = $expr instanceof MethodCall
             && $expr->name instanceof Identifier
-            && strtolower($expr->name->name) === 'count'
+            && \strtolower($expr->name->name) === 'count'
             && !$expr->isFirstClassCallable()
             && $expr->getArgs() === [];
         if (!$isCountMethodCall) {
@@ -242,7 +234,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
                 return false;
             }
 
-            $isCountable = strtolower($atomic->value) === 'countable'
+            $isCountable = \strtolower($atomic->value) === 'countable'
                 || $codebase->classImplements($atomic->value, 'Countable')
                 || ($codebase->interfaceExists($atomic->value)
                     && $codebase->interfaceExtends($atomic->value, 'Countable'));

@@ -11,11 +11,6 @@ use Psalm\Type;
 use Psalm\Type\Atomic\TKeyedArray;
 use Psalm\Type\Union;
 
-use function array_filter;
-use function array_values;
-use function count;
-use function is_string;
-
 /**
  * How PHPUnit unpacks a dataset with string keys into the test call: int keys are positional, string keys name
  * a parameter (or, without a matching parameter, land in the variadic one).
@@ -33,8 +28,7 @@ final class DatasetBinding
         public readonly array $unknown,
         public readonly array $duplicate,
         public readonly array $missing,
-    ) {
-    }
+    ) {}
 
     /**
      * Only entries that are certainly present are reported as unknown or duplicate. An int-keyed entry is bound to
@@ -49,12 +43,12 @@ final class DatasetBinding
         TKeyedArray $dataset,
         array $params,
         Codebase $codebase,
-        ?MethodStorage $method = null
+        ?MethodStorage $method = null,
     ): self {
         $positional = [];
-        $named      = [];
+        $named = [];
         foreach ($dataset->properties as $key => $type) {
-            if (is_string($key)) {
+            if (\is_string($key)) {
                 $named[$key] = $type;
             } else {
                 $positional[] = $type;
@@ -63,29 +57,29 @@ final class DatasetBinding
 
         // array_merge() renumbers int keys, so a possibly undefined entry may shift the following ones:
         // only the certainly present entries are guaranteed to fill the first parameters.
-        $definite_positional = count(array_filter(
+        $definite_positional = \count(\array_filter(
             $positional,
-            static fn (Union $type): bool => !$type->possibly_undefined,
+            static fn(Union $type): bool => !$type->possibly_undefined,
         ));
 
         $offsets_by_name = [];
         $variadic_offset = null;
-        $variadic_type   = Type::getMixed();
+        $variadic_type = Type::getMixed();
         foreach ($params as $offset => $param) {
             if ($param->is_variadic) {
                 $variadic_offset = $offset;
-                $variadic_type   = new Union(array_values(($param->type ?? Type::getMixed())->getAtomicTypes()));
+                $variadic_type = new Union(\array_values(($param->type ?? Type::getMixed())->getAtomicTypes()));
                 break;
             }
             $offsets_by_name[$param->name] = $offset;
         }
 
         $arguments = [];
-        $unknown   = [];
+        $unknown = [];
         $duplicate = [];
 
         // The parameter an offset maps to: every offset from the variadic one on lands in the variadic parameter.
-        $slot = static fn (int $offset): int => $variadic_offset !== null && $offset >= $variadic_offset
+        $slot = static fn(int $offset): int => $variadic_offset !== null && $offset >= $variadic_offset
             ? $variadic_offset
             : $offset;
 
@@ -97,7 +91,7 @@ final class DatasetBinding
             // array_merge() renumbers int keys: an entry lands at the position after the entries certainly present
             // before it at the earliest, and at its own index at the latest. Bind it only if that range is within
             // one parameter (the first possibly undefined entry always is).
-            $lowest          = $definite_before;
+            $lowest = $definite_before;
             $definite_before += $type->possibly_undefined ? 0 : 1;
             if ($slot($lowest) !== $slot($index)) {
                 continue;
@@ -139,7 +133,7 @@ final class DatasetBinding
                     $duplicate[] = $name;
                 }
             } else {
-                $param       = $params[$offset];
+                $param = $params[$offset];
                 $arguments[] = new BoundArgument(
                     $offset,
                     $name,
@@ -177,14 +171,14 @@ final class DatasetBinding
         Codebase $codebase,
         ?MethodStorage $method,
         TKeyedArray $dataset,
-        FunctionLikeParameter $param
+        FunctionLikeParameter $param,
     ): bool {
         if ($dataset->fallback_params === null) {
             return false;
         }
 
         [$key_type, $value_type] = $dataset->fallback_params;
-        $param_type              = $param->type ?? Type::getMixed();
+        $param_type = $param->type ?? Type::getMixed();
 
         return $codebase->canTypeBeContainedByType(Type::getString($param->name), $key_type)
             && $codebase->canTypeBeContainedByType(
