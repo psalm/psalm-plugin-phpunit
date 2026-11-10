@@ -948,3 +948,30 @@ Feature: Datasets
       | Type | Message |
       | MixedArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array<string, string>, but parent type array<string, mixed> provided by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>}>) |
     And I see no other errors
+
+  Scenario: An argument type coercion of the datasets can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['x'];
+        }
+
+        /**
+         * @psalm-suppress ArgumentTypeCoercion
+         * @param non-empty-string $s
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertNotEmpty($s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
