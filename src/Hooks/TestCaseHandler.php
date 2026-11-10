@@ -95,6 +95,8 @@ final class TestCaseHandler implements
         DependsExternalUsingShallowClone::class => true,
     ];
 
+    private const DATA_PROVIDER_CLOSURE = 'PHPUnit\\Framework\\Attributes\\DataProviderClosure';
+
     private const EXPECT_EXCEPTION_METHODS = [
         'phpunit\\framework\\testcase::expectexception' => true,
         'phpunit\\framework\\testcase::expectexceptioncode' => true,
@@ -356,7 +358,8 @@ final class TestCaseHandler implements
             );
 
             $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
-            if ($providers === []) {
+            $closure_providers = self::getClosureProviders($stmt_method, $method_aliases);
+            if ($providers === [] && $closure_providers === []) {
                 continue;
             }
 
@@ -373,6 +376,16 @@ final class TestCaseHandler implements
                 $stmt_method,
                 $method_aliases,
             );
+
+            /**
+             * @var list<array{
+             *     name: string,
+             *     type: Type\Union,
+             *     location: CodeLocation,
+             *     return_type_location: CodeLocation
+             * }> $provided_types
+             */
+            $provided_types = [];
             foreach ($providers as $provider) {
                 $provider_docblock_location = $method_storage->location->setCommentLine($provider['line']);
 
@@ -449,8 +462,7 @@ final class TestCaseHandler implements
                     if ($provider_node !== null) {
                         self::reportPositionalAfterNamed(
                             $statements_source,
-                            $provider_node,
-                            $provider_method_storage->has_yield,
+                            $provider_node->stmts ?? [],
                             'a dataset provided by ' . $provider_method_id . '()',
                             $suppressed_issues,
                         );
@@ -463,10 +475,49 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $provider_return_type_string = $provider_return_type->getId();
-
                 $provider_return_type_location = $codebase->getMethodReturnTypeLocation($provider_method_id);
                 assert(null !== $provider_return_type_location);
+                $provided_types[] = [
+                    'name'                 => $provider_method_id . '()',
+                    'type'                 => $provider_return_type,
+                    'location'             => $provider_docblock_location,
+                    'return_type_location' => $provider_return_type_location,
+                ];
+            }
+
+            foreach ($closure_providers as $closure) {
+                // A closure of a trait lives in another file than the one analysed
+                if (!$declaring_class_storage->is_trait) {
+                    self::reportPositionalAfterNamed(
+                        $statements_source,
+                        $closure['statements'],
+                        'a dataset provided by #[DataProviderClosure]',
+                        $method_storage->suppressed_issues
+                            + $declaring_class_storage->suppressed_issues
+                            + $statements_source->getSuppressedIssues(),
+                    );
+                }
+
+                $closure_return_type = DataProviderClosureHandler::returnType($method_storage, $closure['position']);
+                if ($closure_return_type === null) {
+                    continue;
+                }
+
+                $closure_location = $method_storage->location->setCommentLine($closure['line']);
+                $provided_types[] = [
+                    'name'                 => '#[DataProviderClosure]',
+                    'type'                 => $closure_return_type,
+                    'location'             => $closure_location,
+                    'return_type_location' => $closure_location,
+                ];
+            }
+
+            foreach ($provided_types as $provided) {
+                $provider_name                 = $provided['name'];
+                $provider_return_type          = $provided['type'];
+                $provider_docblock_location    = $provided['location'];
+                $provider_return_type_location = $provided['return_type_location'];
+                $provider_return_type_string   = $provider_return_type->getId();
 
                 $expected_provider_return_type = new Type\Atomic\TIterable([
                     Type::getArrayKey(),
@@ -559,6 +610,11 @@ final class TestCaseHandler implements
                     continue;
                 }
 
+                // An empty array has no datasets to check
+                if ($provider_return_type->type_params[1]->isNever()) {
+                    continue;
+                }
+
                 $checkParam =
                 static function (
                     Type\Union $potential_argument_type,
@@ -569,7 +625,7 @@ final class TestCaseHandler implements
                 ) use (
                     $codebase,
                     $method_name,
-                    $provider_method_id,
+                    $provider_name,
                     $provider_return_type_string,
                     $provider_docblock_location
                 ): void {
@@ -585,7 +641,7 @@ final class TestCaseHandler implements
                             $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
+                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
@@ -593,7 +649,7 @@ final class TestCaseHandler implements
                             $argument . ' of ' . $method_name
                             . ' is not optional, but possibly undefined '
                             . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
+                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
                     } else {
@@ -601,7 +657,7 @@ final class TestCaseHandler implements
                             $argument . ' of ' . $method_name
                             . ' expects ' . $param_type->getId() . ', '
                             . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_method_id . '():(' . $provider_return_type_string . ')',
+                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
                             $provider_docblock_location
                         ));
                     }
@@ -630,7 +686,7 @@ final class TestCaseHandler implements
                         $checkParam($potential_argument_type, $param->type, $param->is_optional, $param_offset);
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
-                    $provided_by = $provider_method_id . '():(' . $provider_return_type_string . ')';
+                    $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
                     $binding     = DatasetBinding::bind($dataset_type, $method_storage->params, $codebase);
 
                     foreach ($binding->arguments as $argument) {
@@ -708,7 +764,7 @@ final class TestCaseHandler implements
                                 'Too few arguments for ' . $method_name
                                 . ' - expecting at least ' . ($param_offset + 1 - $dependency_values)
                                 . ', but saw ' . $dataset_type->getMinCount()
-                                . ' provided by ' . $provider_method_id . '()'
+                                . ' provided by ' . $provider_name
                                 .  ':(' . $provider_return_type_string . ')',
                                 $provider_docblock_location,
                                 $method_name
@@ -843,22 +899,23 @@ final class TestCaseHandler implements
      * PHPUnit passes string dataset keys as named arguments, and PHP rejects a positional argument after them.
      * Only literal datasets are read: Psalm's array shapes do not keep the key order.
      *
+     * @param array<array-key, Node\Stmt> $statements the body of a provider method or closure
      * @param array<array-key, string> $suppressed_issues
      */
     private static function reportPositionalAfterNamed(
         StatementsSource $source,
-        ClassMethod $provider,
-        bool $generator,
+        array $statements,
         string $provided_by,
         array $suppressed_issues
     ): void {
-        $visitor = new class ($generator) extends NodeVisitorAbstract {
-            /** @var list<Array_> */
-            public array $datasets = [];
+        $visitor = new class extends NodeVisitorAbstract {
+            public bool $generator = false;
 
-            public function __construct(private readonly bool $generator)
-            {
-            }
+            /** @var list<Array_> */
+            public array $returned = [];
+
+            /** @var list<Array_> */
+            public array $yielded = [];
 
             #[\Override]
             public function enterNode(Node $node)
@@ -867,26 +924,32 @@ final class TestCaseHandler implements
                     return NodeVisitor::DONT_TRAVERSE_CHILDREN;
                 }
 
-                // PHPUnit ignores the return value of a generator
-                $sets = ($node instanceof Return_ && !$this->generator) || $node instanceof YieldFrom
-                    ? $node->expr
-                    : null;
+                $sets = $node instanceof Return_ || $node instanceof YieldFrom ? $node->expr : null;
                 foreach ($sets instanceof Array_ ? $sets->items : [] as $item) {
                     if (!$item->unpack && $item->value instanceof Array_) {
-                        $this->datasets[] = $item->value;
+                        if ($node instanceof Return_) {
+                            $this->returned[] = $item->value;
+                        } else {
+                            $this->yielded[] = $item->value;
+                        }
                     }
                 }
 
+                if ($node instanceof YieldFrom || $node instanceof Yield_) {
+                    $this->generator = true;
+                }
+
                 if ($node instanceof Yield_ && $node->value instanceof Array_) {
-                    $this->datasets[] = $node->value;
+                    $this->yielded[] = $node->value;
                 }
 
                 return null;
             }
         };
-        (new NodeTraverser($visitor))->traverse($provider->stmts ?? []);
+        (new NodeTraverser($visitor))->traverse($statements);
 
-        foreach ($visitor->datasets as $dataset) {
+        // PHPUnit ignores the return value of a generator
+        foreach ($visitor->generator ? $visitor->yielded : $visitor->returned as $dataset) {
             $named    = false;
             $violated = false;
             $seen     = [];
@@ -1097,7 +1160,9 @@ final class TestCaseHandler implements
     }
 
     /**
-     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither.
+     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither. A method with only a
+     * #[DataProviderClosure] has none of these providers, but is not left to its docblock either
+     * (see getClosureProviders()).
      *
      * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
      */
@@ -1122,6 +1187,10 @@ final class TestCaseHandler implements
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if ($attribute_class === self::DATA_PROVIDER_CLOSURE) {
+                    $has_attributes = true;
+                }
+
                 if ($attribute_class !== DataProviderExternal::class) {
                     continue;
                 }
@@ -1145,6 +1214,39 @@ final class TestCaseHandler implements
         }
 
         return $has_attributes ? $providers : null;
+    }
+
+    /**
+     * The closure of each #[DataProviderClosure] whose argument is a literal closure, by the start offset that
+     * DataProviderClosureHandler keys its return type by.
+     *
+     * @return list<array{line: int, position: int, statements: array<array-key, Node\Stmt>}>
+     */
+    private static function getClosureProviders(ClassMethod $method, Aliases $aliases): array
+    {
+        $closures = [];
+        foreach ($method->getAttrGroups() as $group) {
+            foreach ($group->attrs as $attribute) {
+                $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
+                if ($attribute_class !== self::DATA_PROVIDER_CLOSURE) {
+                    continue;
+                }
+
+                $args    = self::attributeArguments($attribute);
+                $closure = $args['closure'] ?? $args[0] ?? null;
+                if ($closure instanceof Expr\Closure || $closure instanceof Expr\ArrowFunction) {
+                    $closures[] = [
+                        'line'       => $attribute->getStartLine(),
+                        'position'   => $closure->getStartFilePos(),
+                        'statements' => $closure instanceof Expr\Closure
+                            ? $closure->stmts
+                            : [new Return_($closure->expr)],
+                    ];
+                }
+            }
+        }
+
+        return $closures;
     }
 
     /**
@@ -1266,14 +1368,14 @@ final class TestCaseHandler implements
 
     /**
      * getAttributeDataProviders() leaves out the attributes it cannot read, such as #[DataProvider(self::NAME)] and
-     * #[DataProviderClosure] (named by string, as not every supported PHPUnit version has it).
+     * #[DataProviderClosure], which is named by string as not every supported PHPUnit version has it.
      */
     private static function countProviderAttributes(ClassMethod $method, Aliases $aliases): int
     {
         $provider_attributes = [
             DataProvider::class,
             DataProviderExternal::class,
-            'PHPUnit\\Framework\\Attributes\\DataProviderClosure',
+            self::DATA_PROVIDER_CLOSURE,
         ];
         $count = 0;
         foreach ($method->getAttrGroups() as $group) {
