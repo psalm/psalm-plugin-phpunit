@@ -477,6 +477,13 @@ final class TestCaseHandler implements
                     continue;
                 }
 
+                $provider_return_type = self::expandForMethod(
+                    $codebase,
+                    $provider_return_type,
+                    $apparent_provider_method_name,
+                    $provider['class'] ?? $class_storage->name,
+                );
+
                 $provider_return_type_location = $codebase->getMethodReturnTypeLocation($provider_method_id);
                 assert(null !== $provider_return_type_location);
                 $provided_types[] = [
@@ -514,8 +521,13 @@ final class TestCaseHandler implements
                 ];
             }
 
-            // Test parameters may use type aliases, which a provider's datasets are never typed with
-            $params = self::expandParams($codebase, $method_storage->params, $class_storage);
+            // Expand parameter aliases before checking datasets
+            $params = self::expandParams(
+                $codebase,
+                $method_storage->params,
+                $class_storage,
+                $class_storage->name . '::' . $method_name_lc,
+            );
 
             foreach ($provided_types as $provided) {
                 $provider_name                 = $provided['name'];
@@ -804,27 +816,47 @@ final class TestCaseHandler implements
     }
 
     /**
+     * `self` is the class the method appears in (the class importing a trait's method), `static` the analysed one.
+     *
+     * @param class-string $static_class
+     */
+    private static function expandForMethod(
+        Codebase $codebase,
+        Type\Union $type,
+        string $apparent_method_name,
+        string $static_class
+    ): Type\Union {
+        $appearing_id = $codebase->getAppearingMethodId($apparent_method_name);
+        $self_class   = $appearing_id === null ? $static_class : MethodIdentifier::wrap($appearing_id)->fq_class_name;
+
+        return TypeExpander::expandUnion(
+            $codebase,
+            $type,
+            $self_class,
+            $static_class,
+            $codebase->classlike_storage_provider->get($self_class)->parent_class,
+        );
+    }
+
+    /**
      * @param list<FunctionLikeParameter> $params
      * @return list<FunctionLikeParameter>
      */
-    private static function expandParams(Codebase $codebase, array $params, ClassLikeStorage $class): array
-    {
-        $expanded = [];
-        foreach ($params as $param) {
-            $param = clone $param;
+    private static function expandParams(
+        Codebase $codebase,
+        array $params,
+        ClassLikeStorage $class,
+        string $apparent_method_name
+    ): array {
+        foreach ($params as $offset => $param) {
             if ($param->type !== null) {
-                $param->type = TypeExpander::expandUnion(
-                    $codebase,
-                    $param->type,
-                    $class->name,
-                    $class->name,
-                    $class->parent_class,
+                $params[$offset] = $param->setType(
+                    self::expandForMethod($codebase, $param->type, $apparent_method_name, $class->name),
                 );
             }
-            $expanded[] = $param;
         }
 
-        return $expanded;
+        return $params;
     }
 
     /**

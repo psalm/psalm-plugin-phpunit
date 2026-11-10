@@ -554,3 +554,33 @@ Feature: Datasets
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
     And I see no other errors
+
+  Scenario: self in a trait test and its provider means the class using the trait
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait ProvidesSelf {
+        /**
+         * @return list<array{class-string<self>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[self::class]];
+        }
+
+        /**
+         * @param class-string<self> $class
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $class): void {
+          $this->assertSame(self::class, $class);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use ProvidesSelf;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
