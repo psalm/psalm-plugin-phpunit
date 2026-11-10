@@ -197,11 +197,13 @@ final class TestCaseHandler implements
 
             $visited[$trait_name_lc] = true;
 
-            if (self::hasInitializersFromTraits(
-                $codebase,
-                $codebase->classlike_storage_provider->get($trait_name),
-                $visited,
-            )) {
+            if (
+                self::hasInitializersFromTraits(
+                    $codebase,
+                    $codebase->classlike_storage_provider->get($trait_name),
+                    $visited,
+                )
+            ) {
                 return true;
             }
         }
