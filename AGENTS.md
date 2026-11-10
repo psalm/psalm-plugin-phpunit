@@ -25,7 +25,9 @@ Layout:
 - `src/Hooks/MissingParentCallHandler.php` and `src/Issue/MissingParentCall.php`: the
   `AfterClassLikeAnalysis` hook and plugin issue for `setUp()`-style overrides without a `parent::` call.
 - `stubs/TestCase.phpstub`: types `prophesize()`.
-- `tests/acceptance/TestCase.feature`: the Behat scenarios, the only test suite that CI runs.
+- `tests/acceptance/*.feature`: the Behat scenarios, the only test suite that CI runs. One file per area
+  (`DataProviders`, `NamedDatasets`, `Narrowing`, `MockMethod`, ...): add a scenario to the file of the area
+  it tests. Every file except `Prophecy.feature` starts with the same Background.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
   analyse `tools/behat/src/Context.php`). `Context` writes each scenario to
   `tools/behat/run/<random>/` and runs the **root** `vendor/bin/psalm` there.
@@ -71,7 +73,7 @@ Locally:
 - **Running a single scenario is fine, and recommended** (~2 s) for reproducing an issue or
   showing that a new scenario fails on the base and passes on the branch:
   - by line of the `Scenario:` header:
-    `cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line>`
+    `cd tools/behat && vendor/bin/behat ../../tests/acceptance/<Area>.feature:<line>`
     (a line that isn't a `Scenario:` header prints only Behat's usage, no error);
   - by title: `cd tools/behat && vendor/bin/behat --name 'Missing data provider is reported'`
     is a literal substring match. A regex needs delimiters:
@@ -168,8 +170,8 @@ workaround explicitly in the report.
     exact type **and** exact full message. Matched issues are removed;
   - `And I see no other errors`: nothing is left over. Without it, extra issues pass silently;
   - `Given PHPUnit identifies as version "12.5.0"` loads a fake `PHPUnit\Runner\Version` through the
-    config's `autoloader` (the file is deleted after the scenario). `TestCase.feature` pins `11.5.0` in
-    its Background, so docblock scenarios do not depend on the installed PHPUnit; scenarios for 12 and
+    config's `autoloader` (the file is deleted after the scenario). The feature files pin `11.5.0` in
+    their Background, so docblock scenarios do not depend on the installed PHPUnit; scenarios for 12 and
     newer override it;
   - `Given PHPUnit declares the DataProviderClosure attribute` adds `tools/behat/stubs/DataProviderClosure.phpstub`
     to the config, as the real attribute only exists since PHPUnit 13.1 (use it with version `13.1.0`);
