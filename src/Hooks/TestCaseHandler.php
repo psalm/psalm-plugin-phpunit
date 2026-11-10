@@ -1068,9 +1068,9 @@ final class TestCaseHandler implements
         if ($type instanceof Type\Atomic\TNamedObject) {
             $class = strtolower($type->value);
 
-            if (self::isClassLike($codebase, $class, 'IteratorAggregate') && !in_array($class, $aggregates, true)) {
+            if (self::isA($codebase, $class, 'IteratorAggregate') && !in_array($class, $aggregates, true)) {
                 $iterators = self::getMethodReturnType($codebase, $type, 'getIterator');
-                foreach ($iterators === null ? [] : $iterators->getAtomicTypes() as $iterator) {
+                foreach ($iterators?->getAtomicTypes() ?? [] as $iterator) {
                     if ($iterator instanceof Type\Atomic\TKeyedArray) {
                         $iterator = $iterator->getGenericArrayType();
                     }
@@ -1092,7 +1092,7 @@ final class TestCaseHandler implements
                     $key_type   = Type::combineUnionTypes($key_type, $key_part);
                     $value_type = Type::combineUnionTypes($value_type, $value_part);
                 }
-            } elseif ($class !== 'generator' && self::isClassLike($codebase, $class, 'Iterator')) {
+            } elseif ($class !== 'generator' && self::isA($codebase, $class, 'Iterator')) {
                 [$template_key, $template_value] = $codebase->getKeyValueParamsForTraversableObject($type);
                 $key_type   = self::getIteratorPartType($codebase, $type, 'key', $template_key);
                 $value_type = self::getIteratorPartType($codebase, $type, 'current', $template_value);
@@ -1122,8 +1122,7 @@ final class TestCaseHandler implements
             && (strtolower($type->value) === 'traversable' || $codebase->classImplements($type->value, 'Traversable'));
     }
 
-    /** @psalm-mutation-free */
-    private static function isClassLike(Codebase $codebase, string $class, string $parent): bool
+    private static function isA(Codebase $codebase, string $class, string $parent): bool
     {
         return $class === strtolower($parent)
             || $codebase->classImplements($class, $parent)
@@ -1184,8 +1183,8 @@ final class TestCaseHandler implements
         $parent_class = $class_storage->parent_class;
         $return_type  = TypeExpander::expandUnion($codebase, $return_type, $self_class, $type, $parent_class);
 
-        // Without a source analyzer, Codebase hands out the type the parent documents even where the method
-        // declares one of its own. A call weighs the two, as Methods::getMethodReturnType() does with one
+        // Without a source analyzer, Codebase returns the type the parent documents even where the method declares
+        // one of its own. Weigh the two as Methods::getMethodReturnType() does given an analyzer
         $own = $codebase->methods->getStorage($declaring_id)->return_type;
         if ($own === null || $self_class === $declaring_id->fq_class_name) {
             return $return_type;
