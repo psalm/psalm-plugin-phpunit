@@ -2,30 +2,6 @@ Feature: Data providers
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Missing data provider is reported
     Given I have the following code
@@ -37,7 +13,6 @@ Feature: Data providers
         /**
          * @param mixed $int
          * @return void
-         * @psalm-suppress UnusedMethod
          */
         #[Attributes\DataProvider('provide')]
         public function testSomething($int) {
@@ -304,7 +279,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-static external data provider is reported
     Given I have the following code
       """
@@ -334,7 +308,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be static |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-public external data provider is reported
     Given I have the following code
       """
@@ -364,7 +337,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be public |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: #[DataProvider] naming another class is reported, as PHPUnit looks it up on the test class
     Given I have the following code
       """
@@ -868,24 +840,7 @@ Feature: Data providers
     And I see no other errors
 
   Scenario: Non-static trait implementation of an abstract data provider can be suppressed on the test class
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code
+    Given I have the following code
       """
       use PHPUnit\Framework\Attributes;
 
@@ -978,24 +933,7 @@ Feature: Data providers
     Then I see no errors
 
   Scenario: Invalid data provider of a trait test can be suppressed on the trait method
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code
+    Given I have the following code
       """
       use PHPUnit\Framework\Attributes;
 

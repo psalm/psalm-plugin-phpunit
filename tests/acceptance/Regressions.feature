@@ -2,30 +2,6 @@ Feature: Regressions
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Invalid psalm annotation on a class does not crash psalm
     Given I have the following code
@@ -38,6 +14,7 @@ Feature: Regressions
       | Type            | Message         |
       | InvalidDocblock | Unrecognised annotation @psalm-ignore |
       | InvalidDocblock | Unrecognised annotation @psalm-ignore in docblock for NS\\MyTestCase |
+    And I see no other errors
 
   Scenario: Invalid psalm annotation on an before initializer does not crash psalm
     Given I have the following code
@@ -56,6 +33,7 @@ Feature: Regressions
     Then I see these errors
       | Type            | Message              |
       | InvalidDocblock | Unrecognised annotation @psalm-rm-Rf-slash |
+    And I see no other errors
 
   Scenario: Invalid psalm annotation on a test does not crash psalm
     Given I have the following code
@@ -74,6 +52,7 @@ Feature: Regressions
     Then I see these errors
       | Type            | Message                    |
       | InvalidDocblock | Unrecognised annotation @psalm-force-push-master |
+    And I see no other errors
 
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code

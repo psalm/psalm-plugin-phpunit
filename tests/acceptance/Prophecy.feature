@@ -4,24 +4,7 @@ Feature: Prophecy
   I need Psalm to understand the magic method calls on object prophecies
 
   Background:
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
+    Given I have the following code preamble
       """
       <?php
       namespace NS;
@@ -87,23 +70,7 @@ Feature: Prophecy
     Then I see no errors
 
   Scenario: Vendor @throws contracts of ObjectProphecy stay visible
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given Psalm checks for throws docblocks
     And I have the following code
       """
       final class MyTestCase extends TestCase
