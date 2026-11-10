@@ -69,7 +69,7 @@ Fixes #108
 - **Verify by running that single scenario** on `origin/master` (must fail) and on the
   branch (must pass):
   ```
-  cd tools/behat && vendor/bin/behat ../../tests/acceptance/TestCase.feature:<line of Scenario:>
+  cd tools/behat && vendor/bin/behat ../../tests/acceptance/<Area>.feature:<line of Scenario:>
   ```
   For the base, reverse only the source change (AGENTS.md "Shell, worktrees and git") or
   use a second worktree (skill `plugin-repro`).
