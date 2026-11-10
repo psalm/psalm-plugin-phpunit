@@ -39,6 +39,7 @@ use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
+use Psalm\Internal\Type\TypeExpander;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
@@ -56,6 +57,7 @@ use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
+use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
@@ -512,6 +514,9 @@ final class TestCaseHandler implements
                 ];
             }
 
+            // Test parameters may use type aliases, which a provider's datasets are never typed with
+            $params = self::expandParams($codebase, $method_storage->params, $class_storage);
+
             foreach ($provided_types as $provided) {
                 $provider_name                 = $provided['name'];
                 $provider_return_type          = $provided['type'];
@@ -669,13 +674,13 @@ final class TestCaseHandler implements
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // The dataset length is unknown, so assume the trailing params receive the return values
                     // of depended-upon tests, unless a variadic param could consume them.
-                    $last_param      = array_slice($method_storage->params, -1)[0] ?? null;
+                    $last_param      = array_slice($params, -1)[0] ?? null;
                     $provider_params = array_slice(
-                        $method_storage->params,
+                        $params,
                         0,
                         $last_param !== null && $last_param->is_variadic
                             ? null
-                            : max(0, count($method_storage->params) - $dependency_values),
+                            : max(0, count($params) - $dependency_values),
                     );
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
@@ -687,7 +692,7 @@ final class TestCaseHandler implements
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
                     $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
-                    $binding     = DatasetBinding::bind($dataset_type, $method_storage->params, $codebase);
+                    $binding     = DatasetBinding::bind($dataset_type, $params, $codebase);
 
                     foreach ($binding->arguments as $argument) {
                         $checkParam(
@@ -743,7 +748,7 @@ final class TestCaseHandler implements
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
 
-                    foreach ($method_storage->params as $param_offset => $param) {
+                    foreach ($params as $param_offset => $param) {
                         if (!isset($potential_argument_types[$param_offset])) {
                             // variadics are never required
                             // and they always come last
@@ -796,6 +801,30 @@ final class TestCaseHandler implements
                 }
             }
         }
+    }
+
+    /**
+     * @param list<FunctionLikeParameter> $params
+     * @return list<FunctionLikeParameter>
+     */
+    private static function expandParams(Codebase $codebase, array $params, ClassLikeStorage $class): array
+    {
+        $expanded = [];
+        foreach ($params as $param) {
+            $param = clone $param;
+            if ($param->type !== null) {
+                $param->type = TypeExpander::expandUnion(
+                    $codebase,
+                    $param->type,
+                    $class->name,
+                    $class->name,
+                    $class->parent_class,
+                );
+            }
+            $expanded[] = $param;
+        }
+
+        return $expanded;
     }
 
     /**
