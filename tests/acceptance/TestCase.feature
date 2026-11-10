@@ -10028,3 +10028,182 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: Methods with a hook attribute are used by PHPUnit
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\After;
+      use PHPUnit\Framework\Attributes\AfterClass;
+      use PHPUnit\Framework\Attributes\Before;
+      use PHPUnit\Framework\Attributes\BeforeClass;
+      use PHPUnit\Framework\Attributes\PostCondition;
+      use PHPUnit\Framework\Attributes\PreCondition;
+
+      final class MyTestCase extends TestCase {
+        #[BeforeClass]
+        public static function prepareClass(): void {
+          self::assertTrue(true);
+        }
+
+        #[AfterClass]
+        public static function cleanUpClass(): void {
+          self::assertTrue(true);
+        }
+
+        #[Before]
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+
+        #[After]
+        protected function cleanUp(): void {
+          $this->assertTrue(true);
+        }
+
+        #[PreCondition]
+        public function checkBefore(): void {
+          $this->assertTrue(true);
+        }
+
+        #[PostCondition]
+        public function checkAfter(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Methods with a hook docblock tag are used by PHPUnit 11
+    Given PHPUnit identifies as version "11.5.0"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @beforeClass
+         */
+        public static function prepareClass(): void {
+          self::assertTrue(true);
+        }
+
+        /**
+         * @afterClass
+         */
+        public static function cleanUpClass(): void {
+          self::assertTrue(true);
+        }
+
+        /**
+         * @before
+         */
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @after
+         */
+        protected function cleanUp(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @preCondition
+         */
+        public function checkBefore(): void {
+          $this->assertTrue(true);
+        }
+
+        /**
+         * @postCondition
+         */
+        public function checkAfter(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: A method with a hook docblock tag is unused on PHPUnit 12
+    Given PHPUnit identifies as version "12.5.0"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @before
+         */
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                    | Message                                                            |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @before docblock tag, use #[Before] instead |
+      | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::prepare             |
+    And I see no other errors
+
+  Scenario: A hook attribute of a method of a trait used by the test case is used by PHPUnit
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Before;
+      use PHPUnit\Framework\Attributes\BeforeClass;
+
+      trait Prepares {
+        #[BeforeClass]
+        public static function prepareClass(): void {
+          self::assertTrue(true);
+        }
+
+        #[Before]
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Prepares;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: A non-static #[BeforeClass] method is not run by PHPUnit
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\BeforeClass;
+
+      final class MyTestCase extends TestCase {
+        #[BeforeClass]
+        public function prepareClass(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                     |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::prepareClass |
+    And I see no other errors
