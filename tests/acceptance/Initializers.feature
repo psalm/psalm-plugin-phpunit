@@ -232,3 +232,31 @@ Feature: MissingConstructor in stateful test cases
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: @before next to a PHPUnit attribute is not an initializer
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase
+      {
+        private int $cents;
+
+        /**
+         * @before
+         */
+        #[Group('money')]
+        public function initCents(): void {
+          $this->cents = 100;
+        }
+
+        public function testCents(): void {
+          $this->assertSame(100, $this->cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type               | Message                                                                              |
+      | MissingConstructor | NS\MyTestCase has an uninitialized property NS\MyTestCase::$cents, but no constructor |
+    And I see no other errors
