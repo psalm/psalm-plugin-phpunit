@@ -56,7 +56,7 @@ These come first, before every other rule here:
 CI (`.github/workflows/ci.yml`) is the source of truth:
 - `psalm` (PHP 8.2): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
-- `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
+- `php-cs-fixer`: `vendor/bin/php-cs-fixer check --diff`. `composer check` runs PHP-CS-Fixer and Psalm.
 - `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`, then
   `php tools/behat/lint-features.php` (see "Tests").
 - `tests`: deps high/low/stable × PHP 8.2 and 8.4 on pull requests, PHP 8.2 to 8.4 on pushes,
@@ -83,8 +83,8 @@ Locally:
     nothing ("No scenarios"). Check that the output says `1 scenario`.
 - The full suite (a few minutes) at most once, right before pushing. Never between
   iterations, and never sweeps (re-running batches of scenarios, looping over fixtures).
-- `vendor/bin/phpcs -q`, `vendor/bin/psalm --no-cache` (~2 s) and `php tools/behat/lint-features.php` are cheap
-  and fine at any time.
+- `vendor/bin/php-cs-fixer check`, `vendor/bin/psalm --no-cache` (~2 s) and
+  `php tools/behat/lint-features.php` are cheap and fine at any time.
 - Also fine: a scratch-project repro (skill `plugin-repro`).
 - When briefing a subagent, spell all of this out ("single scenarios only, no full suite,
   no sweeps"); a vague "don't run the tests" is not enough.
@@ -209,9 +209,8 @@ workaround explicitly in the report.
 
 ## Code style
 
-- phpcs (`phpcs.xml.dist`): PSR12, short arrays, 120-character absolute line limit, applied
-  to `src/`. Run `vendor/bin/phpcs`
-  (`vendor/bin/phpcbf` fixes).
+- PHP-CS-Fixer (`.php-cs-fixer.php`): PER-CS 3.0, applied to `src/` and `tools/behat/`. Run
+  `vendor/bin/php-cs-fixer check --diff` (`vendor/bin/php-cs-fixer fix` fixes).
 - Match the surrounding code: comment density, naming, idiom.
 - Comments are concise and only explain what isn't obvious from the code:
   - don't restate the code in prose;
