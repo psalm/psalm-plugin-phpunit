@@ -10028,3 +10028,154 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: The data provider of a private test-named method is not checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return list<array{int}>
+         * @psalm-pure
+         */
+        public static function ints(): array {
+          return [[1]];
+        }
+
+        #[DataProvider('ints')]
+        private function testHelper(string $s): void {
+          $this->assertSame('a', $s);
+        }
+
+        public function testUses(): void {
+          $this->testHelper('a');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The data provider of a protected method marked with #[Test] is not checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Test;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return list<array{int}>
+         * @psalm-pure
+         */
+        public static function ints(): array {
+          return [[1]];
+        }
+
+        #[Test]
+        #[DataProvider('ints')]
+        protected function helper(string $s): void {
+          $this->assertSame('a', $s);
+        }
+
+        public function testUses(): void {
+          $this->helper('a');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The provider of an inherited protected test-named method is not checked against the child's provider
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      abstract class BaseTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int, array<int, int>>
+         * @psalm-pure
+         */
+        abstract public function provide();
+
+        #[DataProvider('provide')]
+        protected function testHelper(int $int): void {
+          $this->assertSame(1, $int);
+        }
+
+        public function testUses(): void {
+          $this->testHelper(1);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase
+      {
+        /**
+         * @return iterable<int, array<int, int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The data provider of a trait test method imported as protected is not checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait HelperTrait
+      {
+        /**
+         * @return list<array{int}>
+         * @psalm-pure
+         */
+        public static function ints(): array {
+          return [[1]];
+        }
+
+        #[DataProvider('ints')]
+        public function testHelper(string $s): void {
+          $this->assertSame('a', $s);
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait {
+          testHelper as protected;
+        }
+
+        public function testUses(): void {
+          $this->testHelper('a');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An unused private test-named method is not marked as used by PHPUnit
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        private function testHelper(): void {
+          $this->assertSame(1, 1);
+        }
+
+        public function testSomething(): void {
+          $this->assertSame(1, 1);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type         | Message |
+      | UnusedMethod | Cannot find any calls to private method NS\MyTestCase::testHelper |
+    And I see no other errors

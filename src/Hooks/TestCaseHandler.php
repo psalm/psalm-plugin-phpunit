@@ -46,6 +46,7 @@ use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
 use Psalm\PhpUnitPlugin\PhpUnitVersion;
+use Psalm\PhpUnitPlugin\TestMethod;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\AfterCodebasePopulatedInterface;
@@ -317,13 +318,15 @@ final class TestCaseHandler implements
 
             // The class declaring an inherited test does not see the providers its descendants implement
             if (!$declaring_class_storage->is_trait && $declaring_class_storage->name !== $class_storage->name) {
-                self::checkInheritedTestProviders(
-                    $codebase,
-                    $statements_source,
-                    $class_storage,
-                    $method_name_lc,
-                    $method_storage,
-                );
+                if (TestMethod::isPublic($declaring_class_storage, $method_storage, $method_name_lc)) {
+                    self::checkInheritedTestProviders(
+                        $codebase,
+                        $statements_source,
+                        $class_storage,
+                        $method_name_lc,
+                        $method_storage,
+                    );
+                }
                 continue;
             }
 
@@ -347,7 +350,8 @@ final class TestCaseHandler implements
                 $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
             );
 
-            $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
+            $is_test = TestMethod::isPublic($class_storage, $method_storage, $method_name_lc)
+                && (0 === strpos($method_name_lc, 'test') || isset($specials['test']));
             if (!$is_test) {
                 continue; // skip non-test methods
             }

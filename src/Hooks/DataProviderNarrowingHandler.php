@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Psalm\Codebase;
-use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\Analyzer\MethodAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\Internal\Type\TypeExpander;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
+use Psalm\PhpUnitPlugin\TestMethod;
 use Psalm\Plugin\EventHandler\BeforeStatementAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\BeforeStatementAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
@@ -159,9 +159,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
                 continue;
             }
 
-            $visibility = $class->trait_visibility_map[$name] ?? $method->visibility;
             if (
-                $visibility === ClassLikeAnalyzer::VISIBILITY_PUBLIC
+                TestMethod::isPublic($class, $method, $name)
                 && ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
             ) {
                 return true;
