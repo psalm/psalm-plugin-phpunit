@@ -2,30 +2,6 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: PHPUnit 13 reports ignored docblock tags
     Given PHPUnit identifies as version "13.0-dev"
@@ -288,23 +264,7 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
         }
       }
       """
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    And the config uses the autoloader "autoload.php"
     When I run Psalm
     Then I see no errors
 
@@ -329,23 +289,7 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
         }
       }
       """
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" autoloader="autoload.php">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    And the config uses the autoloader "autoload.php"
     When I run Psalm
     Then I see these errors
       | Type                    | Message                                                        | Line |
@@ -354,23 +298,6 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
 
   Scenario: A suppression on a trait covers the ignored docblock tags of its methods
     Given PHPUnit identifies as version "12.5.43"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
     And I have the following code in "trait.php"
       """
       <?php
@@ -403,23 +330,6 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
 
   Scenario: A suppression on the test case does not cover ignored docblock tags in a trait file
     Given PHPUnit identifies as version "12.5.43"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
     And I have the following code in "trait.php"
       """
       <?php
@@ -476,23 +386,6 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
 
   Scenario: Ignored docblock metadata can be suppressed
     Given PHPUnit identifies as version "12.5.43"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
     And I have the following code
       """
       final class MyTestCase extends TestCase {
