@@ -2,30 +2,6 @@ Feature: Data provider return types
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Invalid generator data provider is reported
     Given I have the following code
@@ -255,7 +231,6 @@ Feature: Data provider return types
     When I run Psalm
     Then I see no errors
 
-  @List
   Scenario: Providers returning list are ok
     Given I have the following code
       """
@@ -279,7 +254,6 @@ Feature: Data provider return types
     When I run Psalm
     Then I see no errors
 
-  @List
   Scenario: Providers returning mismatching list are reported
     Given I have the following code
       """
@@ -304,6 +278,7 @@ Feature: Data provider return types
     Then I see these errors
       | Type            | Message                                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
+    And I see no other errors
 
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
