@@ -46,6 +46,7 @@ use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\Internal\Type\Comparator\TypeComparisonResult;
 use Psalm\Internal\Type\Comparator\UnionTypeComparator;
+use Psalm\Internal\Type\TemplateResult;
 use Psalm\Internal\Type\TypeExpander;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
@@ -655,7 +656,8 @@ final class TestCaseHandler implements
                     Type\Union $param_type,
                     bool $is_optional,
                     int $param_offset,
-                    ?string $param_name = null
+                    ?string $param_name = null,
+                    ?TemplateResult $inferred = null,
                 ) use (
                     $codebase,
                     $method_name,
@@ -670,6 +672,7 @@ final class TestCaseHandler implements
                         $method_storage,
                         $param_type,
                         $potential_argument_type,
+                        $inferred,
                     );
                     $subject = 'Argument ' . ($param_offset + 1)
                         . ($param_name === null ? '' : ' ($' . $param_name . ')')
@@ -745,6 +748,19 @@ final class TestCaseHandler implements
                     }
                 };
 
+                // The dataset values are passed together: the templates are inferred from all of them, as in a call
+                $checkAll = static function (array $checks) use ($checkParam, $codebase, $method_storage): void {
+                    /** @var list<array{Type\Union, Type\Union, bool, int, ?string}> $checks */
+                    $inferred = TemplateInference::infer(
+                        $codebase,
+                        $method_storage,
+                        array_map(static fn (array $check): array => [$check[1], $check[0]], $checks),
+                    );
+                    foreach ($checks as $check) {
+                        $checkParam(...[...$check, $inferred]);
+                    }
+                };
+
                 /** @var Type\Atomic\TArray|Type\Atomic\TKeyedArray $dataset_type */
                 $dataset_type = self::getAtomics($provider_return_type->type_params[1])['array'];
 
@@ -771,15 +787,17 @@ final class TestCaseHandler implements
                     $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
                     $binding     = DatasetBinding::bind($dataset_type, $params, $codebase, $method_storage);
 
+                    $checks = [];
                     foreach ($binding->arguments as $argument) {
-                        $checkParam(
+                        $checks[] = [
                             $argument->type,
                             $argument->param_type,
                             $argument->is_optional,
                             $argument->position,
                             $argument->name,
-                        );
+                        ];
                     }
+                    $checkAll($checks);
 
                     foreach ($binding->unknown as $name) {
                         IssueBuffer::accepts(new Issue\InvalidNamedArgument(
@@ -840,6 +858,7 @@ final class TestCaseHandler implements
                             - $dependency_values;
                     }
 
+                    $checks = [];
                     foreach ($params as $param_offset => $param) {
                         $potential_argument_type = $potential_argument_types[$param_offset] ?? null;
                         if ($potential_argument_type === null && $list_tail !== null) {
@@ -887,21 +906,23 @@ final class TestCaseHandler implements
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {
-                                $checkParam(
+                                $checks[] = [
                                     $potential_argument_types[$param_offset],
                                     $variadic_param_type,
                                     true,
-                                    $param_offset
-                                );
+                                    $param_offset,
+                                    null,
+                                ];
                             }
                             if ($typed_tail !== null) {
-                                $checkParam($typed_tail, $variadic_param_type, true, $param_offset);
+                                $checks[] = [$typed_tail, $variadic_param_type, true, $param_offset, null];
                             }
                             break;
                         }
 
-                        $checkParam($potential_argument_type, $param_type, $param->is_optional, $param_offset);
+                        $checks[] = [$potential_argument_type, $param_type, $param->is_optional, $param_offset, null];
                     }
+                    $checkAll($checks);
                 }
             }
         }

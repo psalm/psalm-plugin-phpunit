@@ -1547,6 +1547,197 @@ Feature: Datasets
     When I run Psalm
     Then I see no errors
 
+  Scenario: A closure test parameter typed with method templates is inferred from the other dataset values
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array<int, string>, Closure(int, string): bool}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['a'], static fn (int $k, string $v): bool => $k === 0 && $v === 'a']];
+        }
+
+        /**
+         * @template Tk of array-key
+         * @template Tv
+         * @param array<Tk, Tv> $array
+         * @param (Closure(Tk, Tv): bool)|null $predicate
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $array, ?Closure $predicate): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A closure test parameter typed with method templates is inferred from a named dataset
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return array<string, array{array<int, string>, Closure(int, string): bool}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return ['case' => [['a'], static fn (int $k, string $v): bool => $k === 0 && $v === 'a']];
+        }
+
+        /**
+         * @template Tk of array-key
+         * @template Tv
+         * @param array<Tk, Tv> $array
+         * @param (Closure(Tk, Tv): bool)|null $predicate
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $array, ?Closure $predicate): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A closure test parameter before the parameter that infers its template accepts the dataset
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{Closure(int): bool, list<int>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[static fn (int $k): bool => $k > 0, [1, 2]]];
+        }
+
+        /**
+         * @template T of array-key
+         * @param Closure(T): bool $predicate
+         * @param list<T> $keys
+         */
+        #[DataProvider('provide')]
+        public function testSomething(Closure $predicate, array $keys): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A closure test parameter alone infers its template from what the closure accepts
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{Closure(int): bool}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[static fn (int $k): bool => $k > 0]];
+        }
+
+        /**
+         * @template T of array-key
+         * @param Closure(T): bool $predicate
+         */
+        #[DataProvider('provide')]
+        public function testSomething(Closure $predicate): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A closure that does not accept the inferred template types is reported
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array<int, string>, Closure(string, string): bool}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['a'], static fn (string $k, string $v): bool => $k === $v]];
+        }
+
+        /**
+         * @template Tk of array-key
+         * @template Tv
+         * @param array<Tk, Tv> $array
+         * @param Closure(Tk, Tv): bool $predicate
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $array, Closure $predicate): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects Closure[impure](int, string):bool, Closure[impure](string, string):bool provided by NS\MyTestCase::provide():(list<list{array<int, string>, Closure[impure](string, string):bool}>) |
+    And I see no other errors
+
+  Scenario: Conflicting dataset values for one method template are reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @template T
+       * @psalm-immutable
+       */
+      final class Box {
+        /** @param T $value */
+        public function __construct(public mixed $value) {}
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{Box<int>, Box<string>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[new Box(1), new Box('a')]];
+        }
+
+        /**
+         * @template T
+         * @param Box<T> $a
+         * @param Box<T> $b
+         */
+        #[DataProvider('provide')]
+        public function testSomething(Box $a, Box $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects NS\Box<int\|string>, NS\Box<int> provided by NS\MyTestCase::provide():(list<list{NS\Box<int>, NS\Box<string>}>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects NS\Box<int\|string>, NS\Box<string> provided by NS\MyTestCase::provide():(list<list{NS\Box<int>, NS\Box<string>}>) |
+    And I see no other errors
+
   Scenario: self in a trait test and its provider means the class using the trait
     Given I have the following code
       """
