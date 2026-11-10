@@ -209,6 +209,48 @@ Feature: Assertions
       | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 12   |
     And I see no other errors
 
+  Scenario: Assertion suggestions do not depend on the argument order
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOrder(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $lines = ['a', 'b', 'c'];
+          $collection = new \ArrayObject($lines);
+          $this->assertSame($value, null);
+          $this->assertNotSame($value, null);
+          $this->assertSame($flag, true);
+          $this->assertNotSame($flag, false);
+          $this->assertEquals($flag, true);
+          $this->assertNotEquals($flag, false);
+          $this->assertSame(count($lines), 3);
+          $this->assertEquals(\count($lines), 3);
+          $this->assertNotEquals($collection->count(), 2);
+          $this->assertEquals($int, true);
+          $this->assertEquals($int, null);
+          $this->assertEquals($text, false);
+          $this->assertEquals($int ? true : null, true);
+          $this->assertSame(count($lines), '3');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                          | Line |
+      | UnspecificNullAssertion    | Use assertNull() instead of assertSame(..., null)                | 13   |
+      | UnspecificNullAssertion    | Use assertNotNull() instead of assertNotSame(..., null)          | 14   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertSame(..., true)                | 15   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotSame(..., false)        | 16   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(..., true)              | 17   |
+      | UnspecificBooleanAssertion | Use assertNotFalse() instead of assertNotEquals(..., false)      | 18   |
+      | UnspecificCountAssertion   | Use assertCount() instead of assertSame(count(...), ...)         | 19   |
+      | UnspecificCountAssertion   | Use assertCount() instead of assertEquals(count(...), ...)       | 20   |
+      | UnspecificCountAssertion   | Use assertNotCount() instead of assertNotEquals(count(...), ...) | 21   |
+    And I see no other errors
+
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
     Given I have the following code
       """
@@ -333,7 +375,6 @@ Feature: Assertions
           $this->assertCount(2, $lines);
           $this->assertSame(1, $this->maybe());
           $this->assertSame(self::NOTHING, $this->maybe());
-          $this->assertSame($flag, true);
           $this->assertEquals(null, $this->maybe());
           $this->assertSame(2, count($lines, COUNT_RECURSIVE));
           $this->assertSame(2, (new Bag())->count());
