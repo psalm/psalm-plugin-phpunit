@@ -6,6 +6,7 @@ namespace Psalm\PhpUnitPlugin\Dataset;
 
 use Psalm\Codebase;
 use Psalm\Storage\FunctionLikeParameter;
+use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TKeyedArray;
 use Psalm\Type\Union;
@@ -42,9 +43,14 @@ final class DatasetBinding
      *
      * @param list<FunctionLikeParameter> $params
      * @param Codebase $codebase decides whether the values of an unsealed dataset can fill missing parameters
+     * @param MethodStorage|null $method owns the templates that the parameter types may use
      */
-    public static function bind(TKeyedArray $dataset, array $params, Codebase $codebase): self
-    {
+    public static function bind(
+        TKeyedArray $dataset,
+        array $params,
+        Codebase $codebase,
+        ?MethodStorage $method = null
+    ): self {
         $positional = [];
         $named      = [];
         foreach ($dataset->properties as $key => $type) {
@@ -154,7 +160,7 @@ final class DatasetBinding
                 && $offset >= $definite_positional
                 && $offset !== $optional_offset
                 && !isset($named[$param->name])
-                && !self::mayBeSuppliedByFallback($codebase, $dataset, $param)
+                && !self::mayBeSuppliedByFallback($codebase, $method, $dataset, $param)
             ) {
                 $missing[] = $param->name;
             }
@@ -169,6 +175,7 @@ final class DatasetBinding
      */
     private static function mayBeSuppliedByFallback(
         Codebase $codebase,
+        ?MethodStorage $method,
         TKeyedArray $dataset,
         FunctionLikeParameter $param
     ): bool {
@@ -177,8 +184,14 @@ final class DatasetBinding
         }
 
         [$key_type, $value_type] = $dataset->fallback_params;
+        $param_type              = $param->type ?? Type::getMixed();
 
         return $codebase->canTypeBeContainedByType(Type::getString($param->name), $key_type)
-            && $codebase->canTypeBeContainedByType($value_type, $param->type ?? Type::getMixed());
+            && $codebase->canTypeBeContainedByType(
+                $value_type,
+                $method === null
+                    ? $param_type
+                    : TemplateInference::resolve($codebase, $method, $param_type, $value_type),
+            );
     }
 }

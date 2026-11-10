@@ -50,6 +50,7 @@ use Psalm\Internal\Type\TypeExpander;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
+use Psalm\PhpUnitPlugin\Dataset\TemplateInference;
 use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\Issue\InvalidDataProvider;
 use Psalm\PhpUnitPlugin\Issue\InvalidPhpUnitAnnotation;
@@ -661,8 +662,15 @@ final class TestCaseHandler implements
                     $provider_name,
                     $provider_return_type_string,
                     $provider_docblock_location,
-                    $test_suppressions
+                    $test_suppressions,
+                    $method_storage
                 ): void {
+                    $param_type = TemplateInference::resolve(
+                        $codebase,
+                        $method_storage,
+                        $param_type,
+                        $potential_argument_type,
+                    );
                     $subject = 'Argument ' . ($param_offset + 1)
                         . ($param_name === null ? '' : ' ($' . $param_name . ')')
                         . ' of ' . $method_name;
@@ -761,7 +769,7 @@ final class TestCaseHandler implements
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
                     $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
-                    $binding     = DatasetBinding::bind($dataset_type, $params, $codebase);
+                    $binding     = DatasetBinding::bind($dataset_type, $params, $codebase, $method_storage);
 
                     foreach ($binding->arguments as $argument) {
                         $checkParam(
