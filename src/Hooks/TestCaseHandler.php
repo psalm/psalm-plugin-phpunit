@@ -321,13 +321,15 @@ final class TestCaseHandler implements
 
             // The class declaring an inherited test does not see the providers its descendants implement
             if (!$declaring_class_storage->is_trait && $declaring_class_storage->name !== $class_storage->name) {
-                self::checkInheritedTestProviders(
-                    $codebase,
-                    $statements_source,
-                    $class_storage,
-                    $method_name_lc,
-                    $method_storage,
-                );
+                if (self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc)) {
+                    self::checkInheritedTestProviders(
+                        $codebase,
+                        $statements_source,
+                        $class_storage,
+                        $method_name_lc,
+                        $method_storage,
+                    );
+                }
                 continue;
             }
 
@@ -350,7 +352,8 @@ final class TestCaseHandler implements
 
             self::reportMalformedTags($stmt_method, $method_storage->location, $test_suppressions);
 
-            $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
+            $is_test = (0 === strpos($method_name_lc, 'test') || isset($specials['test']))
+                && self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc);
             if ($is_test || self::isHook($specials, $method_storage)) {
                 $codebase->methodExists(
                     (string) $declaring_method_id,
@@ -1383,6 +1386,37 @@ final class TestCaseHandler implements
         }
 
         return $count;
+    }
+
+    /**
+     * PHPUnit only runs public methods as tests, whatever their name or #[Test] says. A trait method has the
+     * visibility the class appearing with it imports it with, which a subclass inherits. A method the class declares
+     * itself keeps its own.
+     *
+     * @param lowercase-string $name_lc the name the class knows the method by
+     *
+     * @internal
+     */
+    public static function isPublicMethod(
+        Codebase $codebase,
+        ClassLikeStorage $class,
+        MethodStorage $method,
+        string $name_lc
+    ): bool {
+        $declaring_id = $class->declaring_method_ids[$name_lc] ?? null;
+        $appearing_id = $class->appearing_method_ids[$name_lc] ?? null;
+        $visibility   = $method->visibility;
+
+        if (
+            $declaring_id !== null
+            && $appearing_id !== null
+            && $codebase->classlike_storage_provider->get($declaring_id->fq_class_name)->is_trait
+        ) {
+            $visibility = $codebase->classlike_storage_provider->get($appearing_id->fq_class_name)
+                ->trait_visibility_map[$appearing_id->method_name] ?? $visibility;
+        }
+
+        return $visibility === ClassLikeAnalyzer::VISIBILITY_PUBLIC;
     }
 
     /**

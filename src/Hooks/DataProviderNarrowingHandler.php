@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Psalm\Codebase;
-use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\Analyzer\MethodAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\Internal\Type\TypeExpander;
@@ -74,7 +73,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
 
         $method_id = (string) $method_analyzer->getMethodId();
         $marked    = (bool) $metadata['test'];
-        if (!self::isTest($codebase->classlike_storage_provider->get($self), $storage, $method_id, $marked)) {
+        $class     = $codebase->classlike_storage_provider->get($self);
+        if (!self::isTest($codebase, $class, $storage, $method_id, $marked)) {
             return null;
         }
 
@@ -142,12 +142,11 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
     }
 
     /**
-     * PHPUnit runs public methods named test* or marked as tests. A trait method is a test under the name and with
-     * the visibility the class imports it with.
-     *
-     * @psalm-mutation-free
+     * PHPUnit runs public methods named test* or marked as tests. A trait method is a test under the name the class
+     * imports it with.
      */
     private static function isTest(
+        Codebase $codebase,
         ClassLikeStorage $class,
         MethodStorage $method,
         string $method_id,
@@ -159,10 +158,9 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
                 continue;
             }
 
-            $visibility = $class->trait_visibility_map[$name] ?? $method->visibility;
             if (
-                $visibility === ClassLikeAnalyzer::VISIBILITY_PUBLIC
-                && ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
+                ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
+                && TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
             ) {
                 return true;
             }
