@@ -975,3 +975,220 @@ Feature: Datasets
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: An imported type alias in a test parameter is expanded in the provider check
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array<string, string>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x']]];
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('provide')]
+        public function testAlias(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+
+        /**
+         * @param array{host: string} $options
+         */
+        #[DataProvider('provide')]
+        public function testShape(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message | Line |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testAlias expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 23 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testShape expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 31 |
+    And I see no other errors
+
+  Scenario: An imported type alias in a test parameter accepts a matching dataset
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array{host: string}}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x']]];
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An imported type alias in a test parameter is expanded for named and unknown length datasets
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{options: array<string, string>}>
+         * @psalm-pure
+         */
+        public static function named(): array {
+          return [['options' => ['host' => 'x']]];
+        }
+
+        /**
+         * @return list<array<int, array<string, string>>>
+         * @psalm-pure
+         */
+        public static function lengthless(): array {
+          return [[['host' => 'x']]];
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('named')]
+        public function testNamed(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('lengthless')]
+        public function testLengthless(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message | Line |
+      | ArgumentTypeCoercion | Argument 1 ($options) of NS\MyTestCase::testNamed expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::named():(list<array{options: array<string, string>}>) | 31 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testLengthless expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::lengthless():(list<array<int, array<string, string>>>) | 39 |
+    And I see no other errors
+
+  Scenario: A test parameter typed with an imported type alias is narrowed to the dataset type
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array{host: 'x'}}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x']]];
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $options): void {
+          /** @psalm-check-type-exact $options = array{host: 'x'} */
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A variadic parameter typed with an imported type alias is expanded in the provider check
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array<string, string>, array<string, string>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x'], ['host' => 'y']]];
+        }
+
+        /**
+         * @param Options ...$options
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array ...$options): void {
+          $this->assertNotEmpty($options);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+      | ArgumentTypeCoercion | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+    And I see no other errors
+
+  Scenario: self in a trait test and its provider means the class using the trait
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait ProvidesSelf {
+        /**
+         * @return list<array{class-string<self>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[self::class]];
+        }
+
+        /**
+         * @param class-string<self> $class
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $class): void {
+          $this->assertSame(self::class, $class);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use ProvidesSelf;
+      }
+      """
+    When I run Psalm
+    Then I see no errors

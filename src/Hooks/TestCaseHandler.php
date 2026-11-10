@@ -46,6 +46,7 @@ use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\Internal\Type\Comparator\TypeComparisonResult;
 use Psalm\Internal\Type\Comparator\UnionTypeComparator;
+use Psalm\Internal\Type\TypeExpander;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
@@ -64,6 +65,7 @@ use Psalm\Plugin\EventHandler\Event\AfterCodebasePopulatedEvent;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
+use Psalm\Storage\FunctionLikeParameter;
 use Psalm\Storage\MethodStorage;
 use Psalm\Type;
 use Psalm\Type\Atomic\TNull;
@@ -483,6 +485,13 @@ final class TestCaseHandler implements
                     continue;
                 }
 
+                $provider_return_type = self::expandForMethod(
+                    $codebase,
+                    $provider_return_type,
+                    $apparent_provider_method_name,
+                    $provider['class'] ?? $class_storage->name,
+                );
+
                 $provider_return_type_location = $codebase->getMethodReturnTypeLocation($provider_method_id);
                 assert(null !== $provider_return_type_location);
                 $provided_types[] = [
@@ -524,6 +533,13 @@ final class TestCaseHandler implements
                     'return_type_suppressions' => $test_suppressions,
                 ];
             }
+
+            $params = self::expandParams(
+                $codebase,
+                $method_storage->params,
+                $class_storage->name,
+                $class_storage->name . '::' . $method_name_lc,
+            );
 
             foreach ($provided_types as $provided) {
                 $provider_name                 = $provided['name'];
@@ -718,13 +734,13 @@ final class TestCaseHandler implements
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // The dataset length is unknown, so assume the trailing params receive the return values
                     // of depended-upon tests, unless a variadic param could consume them.
-                    $last_param      = array_slice($method_storage->params, -1)[0] ?? null;
+                    $last_param      = array_slice($params, -1)[0] ?? null;
                     $provider_params = array_slice(
-                        $method_storage->params,
+                        $params,
                         0,
                         $last_param !== null && $last_param->is_variadic
                             ? null
-                            : max(0, count($method_storage->params) - $dependency_values),
+                            : max(0, count($params) - $dependency_values),
                     );
                     // check that all of the required (?) params accept value type
                     $potential_argument_type = $dataset_type->type_params[1];
@@ -736,7 +752,7 @@ final class TestCaseHandler implements
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
                     $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
-                    $binding     = DatasetBinding::bind($dataset_type, $method_storage->params, $codebase);
+                    $binding     = DatasetBinding::bind($dataset_type, $params, $codebase);
 
                     foreach ($binding->arguments as $argument) {
                         $checkParam(
@@ -800,14 +816,14 @@ final class TestCaseHandler implements
                     // PHPUnit appends the return values of depended-upon tests right after the dataset, so the
                     // dataset certainly supplies only the positions that the required params need beyond them.
                     // A trailing variadic param could consume them as well.
-                    $last_param         = array_slice($method_storage->params, -1)[0] ?? null;
-                    $tail_checked_until = count($method_storage->params);
+                    $last_param         = array_slice($params, -1)[0] ?? null;
+                    $tail_checked_until = count($params);
                     if ($dependency_values > 0 && ($last_param === null || !$last_param->is_variadic)) {
                         $tail_checked_until = ($method_storage->required_param_count ?? $tail_checked_until)
                             - $dependency_values;
                     }
 
-                    foreach ($method_storage->params as $param_offset => $param) {
+                    foreach ($params as $param_offset => $param) {
                         $potential_argument_type = $potential_argument_types[$param_offset] ?? null;
                         if ($potential_argument_type === null && $list_tail !== null) {
                             if ($param->is_variadic) {
@@ -872,6 +888,50 @@ final class TestCaseHandler implements
                 }
             }
         }
+    }
+
+    /**
+     * `self` is the class the method appears in (the class importing a trait's method), `static` the analysed one.
+     *
+     * @internal
+     */
+    public static function expandForMethod(
+        Codebase $codebase,
+        Type\Union $type,
+        string $apparent_method_name,
+        string $static_class
+    ): Type\Union {
+        $appearing_id = $codebase->getAppearingMethodId($apparent_method_name);
+        $self_class   = $appearing_id === null ? $static_class : MethodIdentifier::wrap($appearing_id)->fq_class_name;
+
+        return TypeExpander::expandUnion(
+            $codebase,
+            $type,
+            $self_class,
+            $static_class,
+            $codebase->classlike_storage_provider->get($self_class)->parent_class,
+        );
+    }
+
+    /**
+     * @param list<FunctionLikeParameter> $params
+     * @return list<FunctionLikeParameter>
+     */
+    private static function expandParams(
+        Codebase $codebase,
+        array $params,
+        string $static_class,
+        string $apparent_method_name
+    ): array {
+        foreach ($params as $offset => $param) {
+            if ($param->type !== null) {
+                $params[$offset] = $param->setType(
+                    self::expandForMethod($codebase, $param->type, $apparent_method_name, $static_class),
+                );
+            }
+        }
+
+        return $params;
     }
 
     /**
