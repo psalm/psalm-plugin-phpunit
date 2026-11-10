@@ -185,6 +185,38 @@ Feature: Assertions
       | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(true, ...)         | 12   |
     And I see no other errors
 
+  Scenario: Assertion suggestions do not depend on the argument order
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testOrder(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $lines = ['a', 'b', 'c'];
+          $collection = new \ArrayObject($lines);
+          $this->assertSame($value, null);
+          $this->assertSame($flag, true);
+          $this->assertEquals($flag, true);
+          $this->assertSame(count($lines), 3);
+          $this->assertNotEquals($collection->count(), 2);
+          $this->assertEquals($int, true);
+          $this->assertEquals($int ? true : null, true);
+          $this->assertEquals($int, null);
+          $this->assertSame(count($lines), '3');
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                       | Message                                                          | Line |
+      | UnspecificNullAssertion    | Use assertNull() instead of assertSame(..., null)                | 12   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertSame(..., true)                | 13   |
+      | UnspecificBooleanAssertion | Use assertTrue() instead of assertEquals(..., true)              | 14   |
+      | UnspecificCountAssertion   | Use assertCount() instead of assertSame(count(...), ...)         | 15   |
+      | UnspecificCountAssertion   | Use assertNotCount() instead of assertNotEquals(count(...), ...) | 16   |
+    And I see no other errors
+
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
     Given I have the following code
       """
@@ -276,7 +308,6 @@ Feature: Assertions
           $this->assertCount(2, $lines);
           $this->assertSame(1, $this->maybe());
           $this->assertSame(self::NOTHING, $this->maybe());
-          $this->assertSame($flag, true);
           $this->assertEquals(null, $this->maybe());
           $this->assertSame(2, count($lines, COUNT_RECURSIVE));
           $this->assertSame(2, (new Bag())->count());
