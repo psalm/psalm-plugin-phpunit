@@ -1254,16 +1254,8 @@ Feature: Data providers
 
       final class MyTestCase extends TestCase
       {
-        /**
-         * @return list<array{int}>
-         * @psalm-pure
-         */
-        public static function ints(): array {
-          return [[1]];
-        }
-
         #[Test]
-        #[DataProvider('ints')]
+        #[DataProvider('missing')]
         protected function helper(string $s): void {
           $this->assertSame('a', $s);
         }
@@ -1321,15 +1313,7 @@ Feature: Data providers
 
       trait HelperTrait
       {
-        /**
-         * @return list<array{int}>
-         * @psalm-pure
-         */
-        public static function ints(): array {
-          return [[1]];
-        }
-
-        #[DataProvider('ints')]
+        #[DataProvider('missing')]
         public function testHelper(string $s): void {
           $this->assertSame('a', $s);
         }
@@ -1348,6 +1332,80 @@ Feature: Data providers
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: A trait test method imported as public by an abstract parent is checked in a child
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait HelperTrait
+      {
+        #[DataProvider('provide')]
+        protected function testHelper(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase
+      {
+        use HelperTrait {
+          testHelper as public;
+        }
+
+        /**
+         * @return iterable<int, array<int, int>>
+         * @psalm-pure
+         */
+        abstract public function provide();
+      }
+
+      final class MyTestCase extends BaseTestCase
+      {
+        /**
+         * @return iterable<int, array<int, int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: A public test of the class replaces a trait method imported as protected
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait HelperTrait
+      {
+        public function testSomething(): void {
+          $this->assertSame(1, 1);
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait {
+          testSomething as protected;
+        }
+
+        #[DataProvider('missing')]
+        public function testSomething(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                               |
+      | UndefinedMethod | Provider method NS\MyTestCase::missing is not defined |
+    And I see no other errors
 
   Scenario: An unused private test-named method is not marked as used by PHPUnit
     Given I have the following code

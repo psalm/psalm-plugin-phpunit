@@ -9,7 +9,6 @@ use Psalm\Internal\Analyzer\MethodAnalyzer;
 use Psalm\Internal\MethodIdentifier;
 use Psalm\Internal\Type\TypeExpander;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
-use Psalm\PhpUnitPlugin\TestMethod;
 use Psalm\Plugin\EventHandler\BeforeStatementAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\BeforeStatementAnalysisEvent;
 use Psalm\Storage\ClassLikeStorage;
@@ -74,7 +73,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
 
         $method_id = (string) $method_analyzer->getMethodId();
         $marked    = (bool) $metadata['test'];
-        if (!self::isTest($codebase->classlike_storage_provider->get($self), $storage, $method_id, $marked)) {
+        $class     = $codebase->classlike_storage_provider->get($self);
+        if (!self::isTest($codebase, $class, $storage, $method_id, $marked)) {
             return null;
         }
 
@@ -144,10 +144,9 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
     /**
      * PHPUnit runs public methods named test* or marked as tests. A trait method is a test under the name and with
      * the visibility the class imports it with.
-     *
-     * @psalm-mutation-free
      */
     private static function isTest(
+        Codebase $codebase,
         ClassLikeStorage $class,
         MethodStorage $method,
         string $method_id,
@@ -160,7 +159,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             }
 
             if (
-                TestMethod::isPublic($class, $method, $name)
+                TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
                 && ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
             ) {
                 return true;
