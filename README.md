@@ -50,7 +50,7 @@ vendor/bin/psalm-plugin enable psalm/plugin-phpunit
 * `assertEquals()` and `assertNotEquals()` with two `int`, `float`, `string` or `bool` arguments (`assertEquals(1, $int)`) are reported as `UnspecificEqualsAssertion` (at `errorLevel="1"`), suggesting `assertSame()` / `assertNotSame()`. Nullable and mixed arguments are not reported. With `true` or `false` as one argument and a `bool` as the other (`assertEquals(true, $flag)`, `assertEquals($flag, true)`) the report is `UnspecificBooleanAssertion` instead, suggesting `assertTrue()` / `assertFalse()` and their `Not` variants.
 * `createMockForIntersectionOfInterfaces([A::class, B::class])` and `createStubForIntersectionOfInterfaces(...)` are typed as `A&B&MockObject` and `A&B&Stub`, so the methods of `A` and `B` can be called on the double without `UndefinedInterfaceMethod`.
 * `setUp()`, `tearDown()`, `setUpBeforeClass()`, `tearDownAfterClass()`, `assertPreConditions()` and `assertPostConditions()` overrides that never call `parent::` are reported as `MissingParentCall`, unless the parent is `TestCase` itself.
-* `$this->prophesize(Foo::class)` is typed as `ObjectProphecy<Foo>`, and magic calls on it resolve to `MethodProphecy`.
+* Magic calls on the `ObjectProphecy` that `ProphecyTrait::prophesize()` returns resolve to `MethodProphecy`.
 * `assertNotEmpty($x)` narrows `$x` to its non-empty type (`?Customer` becomes `Customer`, `list<int>|null` becomes `non-empty-list<int>`).
 
 ## License
