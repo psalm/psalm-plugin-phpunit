@@ -1156,6 +1156,24 @@ Feature: Data providers
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestTrait::provide():(iterable<int, array<array-key, int>>) |
     And I see no other errors
 
+  Scenario: Missing data provider can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-suppress UndefinedMethod
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: The data provider of a private test-named method is not checked
     Given I have the following code
       """
