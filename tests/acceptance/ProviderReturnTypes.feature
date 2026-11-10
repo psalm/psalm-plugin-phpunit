@@ -328,3 +328,26 @@ Feature: Data provider return types
       | Type              | Message                                                                           |
       | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, null provided |
     And I see no other errors
+
+  Scenario: Invalid provider return type can be suppressed on the provider
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-pure
+         * @psalm-suppress InvalidReturnType
+         */
+        public static function provideCents(): int {
+          return 100;
+        }
+
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

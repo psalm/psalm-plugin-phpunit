@@ -14,6 +14,7 @@ use PhpParser\NodeVisitorAbstract;
 use Psalm\Codebase;
 use Psalm\IssueBuffer;
 use Psalm\PhpUnitPlugin\Issue\MissingParentCall;
+use Psalm\PhpUnitPlugin\Suppressions;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
@@ -94,19 +95,17 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 continue;
             }
 
-            // Keys are source offsets, which array_merge() would renumber
-            $suppressions = $methodStorage->suppressed_issues + $declaringStorage->suppressed_issues;
-            // The analysed class's offsets mean nothing in a trait's file
-            if ($methodStorage->location->file_path === $source->getFilePath()) {
-                $suppressions += $storage->suppressed_issues + $source->getSuppressedIssues();
-            }
-
             IssueBuffer::accepts(
                 new MissingParentCall(
                     sprintf('Missing call to parent::%s()', $methodName),
                     $methodStorage->location,
                 ),
-                $suppressions,
+                Suppressions::of(
+                    $methodStorage->location,
+                    $methodStorage->suppressed_issues + $declaringStorage->suppressed_issues,
+                    $storage,
+                    $source,
+                ),
             );
         }
 
