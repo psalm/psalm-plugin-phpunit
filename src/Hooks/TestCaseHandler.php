@@ -1139,8 +1139,6 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
-     *
      * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. The "Class::method"
      * references of docblock tags are resolved with $reference_aliases (of the analysed file).
      *
@@ -1153,31 +1151,26 @@ final class TestCaseHandler implements
         Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array {
-        return self::getAttributeDataProviders($method, $aliases, $class)
-            ?? array_map(
+        return [
+            ...self::getAttributeDataProviders($method, $aliases, $class),
+            ...array_map(
                 static fn(array $entry): array => self::parseProviderReference(
                     $entry[0],
                     $entry[1],
                     $reference_aliases,
                 ),
                 self::docblockSpecials($method, $aliases)['dataProvider'] ?? [],
-            );
+            ),
+        ];
     }
 
-    /**
-     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither. A method with only a
-     * #[DataProviderClosure] has none of these providers, but is not left to its docblock either
-     * (see getClosureProviders()).
-     *
-     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
-     */
+    /** @return list<array{line: int, class: string|null, method: string, external: bool}> */
     private static function getAttributeDataProviders(
         ClassMethod $method,
         Aliases $aliases,
         ClassLikeStorage $class
-    ): array|null {
+    ): array {
         $references = self::attributeValue($method, $aliases, DataProvider::class);
-        $has_attributes = $references !== null;
         // PHPUnit takes a #[DataProvider] argument literally as a method name of the test class
         $providers = array_map(
             static fn(array $entry): array => [
@@ -1192,15 +1185,10 @@ final class TestCaseHandler implements
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                if ($attribute_class === self::DATA_PROVIDER_CLOSURE) {
-                    $has_attributes = true;
-                }
-
                 if ($attribute_class !== DataProviderExternal::class) {
                     continue;
                 }
 
-                $has_attributes = true;
                 $args           = self::attributeArguments($attribute);
 
                 $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
@@ -1218,7 +1206,7 @@ final class TestCaseHandler implements
             }
         }
 
-        return $has_attributes ? $providers : null;
+        return $providers;
     }
 
     /**
