@@ -3,7 +3,6 @@ Feature: External data providers
   Background:
     Given PHPUnit identifies as version "11.5.0"
 
-  @ExternalProviders
   Scenario: External providers are allowed
     Given I have the following code
       """
@@ -29,7 +28,6 @@ Feature: External data providers
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
   Scenario: External providers with parens are allowed
     Given I have the following code
       """
@@ -55,7 +53,6 @@ Feature: External data providers
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
   Scenario: External fully qualified providers are allowed
     Given I have the following code
       """
@@ -81,7 +78,6 @@ Feature: External data providers
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
   Scenario: External providers are not marked as unused
     Given I have the following code
       """
@@ -107,7 +103,6 @@ Feature: External data providers
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders
   Scenario: Mismatched external providers are reported
     Given I have the following code
       """
@@ -134,8 +129,8 @@ Feature: External data providers
     Then I see these errors
       | Type            | Message                                                                                                                                  |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
+    And I see no other errors
 
-  @ExternalProviders
   Scenario: External providers are available even when Psalm is asked to analyze single test case
     Given I have the following code in "test.php"
       """
@@ -191,7 +186,6 @@ Feature: External data providers
     When I run Psalm on "test.php"
     Then I see no errors
 
-  @ExternalProviders
   Scenario: Missing external provider classes are reported
     Given I have the following code
       """
@@ -207,8 +201,8 @@ Feature: External data providers
     Then I see these errors
       | Type           | Message                          |
       | UndefinedClass | Class NS\External does not exist |
+    And I see no other errors
 
-  @ExternalProviders
   Scenario: Unreferenced external providers are still marked as unused
     Given I have the following code
       """
@@ -246,7 +240,6 @@ Feature: External data providers
       | PossiblyUnusedMethod | Cannot find any calls to method NS\External::other |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Mismatched #[DataProviderExternal] providers are reported
     Given I have the following code
       """
@@ -276,7 +269,6 @@ Feature: External data providers
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Missing #[DataProviderExternal] method is reported on the line of its own attribute
     Given I have the following code
       """
@@ -307,7 +299,6 @@ Feature: External data providers
       | UndefinedMethod | Provider method NS\External::missing is not defined | 20   |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-static #[DataProviderExternal] provider is reported
     Given I have the following code
       """
@@ -337,7 +328,6 @@ Feature: External data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be static |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-public #[DataProviderExternal] provider is reported
     Given I have the following code
       """
@@ -367,7 +357,6 @@ Feature: External data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be public |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Invalid #[DataProviderExternal] provider can be suppressed on the test method
     Given I have the following code
       """
@@ -397,7 +386,6 @@ Feature: External data providers
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] with a class name string is checked
     Given I have the following code
       """
@@ -428,7 +416,6 @@ Feature: External data providers
       | ArgumentTypeCoercion | Argument 1 of PHPUnit\Framework\Attributes\DataProviderExternal::__construct expects class-string, but parent type 'NS\\\\External' provided   |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] class is resolved through an import alias and named arguments
     Given I have the following code
       """
@@ -456,7 +443,6 @@ Feature: External data providers
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] accepts self::class and parent::class
     Given I have the following code
       """
@@ -491,7 +477,6 @@ Feature: External data providers
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] can be repeated and mixed with #[DataProvider]
     Given I have the following code
       """
@@ -536,7 +521,6 @@ Feature: External data providers
     When I run Psalm with dead code detection
     Then I see no errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] of a trait test method is checked
     Given I have the following code
       """
@@ -570,7 +554,6 @@ Feature: External data providers
       | InvalidArgument | Argument 1 of NS\MyTestCase::testInTrait expects int, string provided by NS\External::provide():(iterable[pure]<string, array<int, string>>) |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Docblock providers of a trait test are resolved relative to the test case, not the trait
     Given I have the following code in "trait.php"
       """
@@ -614,7 +597,6 @@ Feature: External data providers
     When I run Psalm
     Then I see no errors
 
-  @ExternalProviders
   Scenario: Docblock data provider is unused when the test has a #[DataProviderExternal] attribute
     Given I have the following code
       """
@@ -655,7 +637,6 @@ Feature: External data providers
       | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::legacy |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Missing #[DataProviderExternal] class is reported once by Psalm
     Given I have the following code
       """
@@ -674,7 +655,6 @@ Feature: External data providers
       | UndefinedClass | Class, interface or enum named NS\Missing does not exist |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: #[DataProviderExternal] with a class name string is available even when Psalm is asked to analyze single test case
     Given I have the following code in "test.php"
       """

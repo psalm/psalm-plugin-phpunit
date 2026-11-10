@@ -231,7 +231,6 @@ Feature: Data provider return types
     When I run Psalm
     Then I see no errors
 
-  @List
   Scenario: Providers returning list are ok
     Given I have the following code
       """
@@ -255,7 +254,6 @@ Feature: Data provider return types
     When I run Psalm
     Then I see no errors
 
-  @List
   Scenario: Providers returning mismatching list are reported
     Given I have the following code
       """
@@ -280,6 +278,7 @@ Feature: Data provider return types
     Then I see these errors
       | Type            | Message                                                                                                                                              |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
+    And I see no other errors
 
   Scenario: Providers returning nullable generator are ok
     Given I have the following code
