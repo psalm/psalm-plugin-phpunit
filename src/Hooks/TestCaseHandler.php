@@ -169,75 +169,34 @@ final class TestCaseHandler implements
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             if (
                 $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
-                && self::hasInitializersFromTraits($codebase, $storage)
+                && self::hasInitializers($codebase, $storage)
             ) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
-
-                foreach (self::getDescendants($codebase, $name) as $dependent_name) {
-                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
-                    $dependent_storage->suppressed_issues[] = 'MissingConstructor';
-                }
             }
         }
     }
 
     /**
-     * Trait methods are not merged into the class yet when the class is visited, so its own flag misses them.
-     *
-     * @param array<string, true> $visited Psalm keeps circular trait edges, so each trait is walked once
+     * By now Psalm has merged the methods of parents and traits, with their aliases and exclusions, into the class.
      */
-    private static function hasInitializersFromTraits(
-        Codebase $codebase,
-        ClassLikeStorage $storage,
-        array &$visited = [],
-    ): bool {
-        $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-        if (($meta['hasInitializers'] ?? false) || isset($storage->trait_alias_map['setup'])) {
-            return true;
-        }
-
-        foreach ($storage->used_traits as $trait_name_lc => $trait_name) {
-            if (isset($visited[$trait_name_lc]) || !$codebase->classlike_storage_provider->has($trait_name)) {
+    private static function hasInitializers(Codebase $codebase, ClassLikeStorage $storage): bool
+    {
+        foreach ($storage->declaring_method_ids as $name_lc => $method_id) {
+            if ($name_lc === 'setup') {
+                if (strtolower($method_id->fq_class_name) !== 'phpunit\framework\testcase') {
+                    return true;
+                }
                 continue;
             }
 
-            $visited[$trait_name_lc] = true;
-
-            if (
-                self::hasInitializersFromTraits(
-                    $codebase,
-                    $codebase->classlike_storage_provider->get($trait_name),
-                    $visited,
-                )
-            ) {
+            $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
+            $meta      = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
+            if (isset($meta['before'][$method_id->method_name])) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * @return string[]
-     *
-     * @psalm-mutation-free
-     */
-    private static function getDescendants(Codebase $codebase, string $name): array
-    {
-        if (!$codebase->classlike_storage_provider->has($name)) {
-            return [];
-        }
-
-        $storage = $codebase->classlike_storage_provider->get($name);
-        $ret = [];
-
-        foreach ($storage->dependent_classlikes as $dependent => $_) {
-            if ($codebase->classExtends($dependent, $name)) {
-                $ret[] = $dependent;
-                $ret = array_merge($ret, self::getDescendants($codebase, $dependent));
-            }
-        }
-        return $ret;
     }
 
     #[\Override]
@@ -254,8 +213,9 @@ final class TestCaseHandler implements
             $class_storage->sealed_methods = false;
         }
 
-        if (self::hasInitializers($class_storage, $class_node, $aliases)) {
-            $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
+        $before = self::getBeforeMethods($class_storage, $class_node, $aliases);
+        if ($before !== []) {
+            $class_storage->custom_metadata[__NAMESPACE__] = ['before' => $before];
         }
 
         $file_path    = $statements_source->getFilePath();
@@ -1109,22 +1069,18 @@ final class TestCaseHandler implements
     }
 
 
-    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
+    /** @return array<lowercase-string, true> */
+    private static function getBeforeMethods(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): array
     {
-        if (isset($storage->methods['setup'])) {
-            return true;
-        }
-
+        $before = [];
         foreach ($storage->methods as $method => $_) {
             $stmt_method = $stmt->getMethod($method);
-            if (!$stmt_method) {
-                continue;
-            }
-            if (self::isBeforeInitializer($stmt_method, $aliases)) {
-                return true;
+            if ($stmt_method && self::isBeforeInitializer($stmt_method, $aliases)) {
+                $before[$method] = true;
             }
         }
-        return false;
+
+        return $before;
     }
 
     private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
