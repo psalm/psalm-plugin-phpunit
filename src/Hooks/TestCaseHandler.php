@@ -100,21 +100,6 @@ final class TestCaseHandler implements
         DependsExternalUsingShallowClone::class => true,
     ];
 
-    /**
-     * The hook attributes, which are also the names of the PHPUnit 11 docblock tags => whether PHPUnit only runs
-     * them on static methods.
-     *
-     * @var array<string, bool>
-     */
-    private const HOOKS = [
-        'before' => false,
-        'after' => false,
-        'preCondition' => false,
-        'postCondition' => false,
-        'beforeClass' => true,
-        'afterClass' => true,
-    ];
-
     private const DATA_PROVIDER_CLOSURE = 'PHPUnit\\Framework\\Attributes\\DataProviderClosure';
 
     private const EXPECT_EXCEPTION_METHODS = [
@@ -1522,6 +1507,7 @@ final class TestCaseHandler implements
 
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
+
     /** PHPUnit ignores a docblock tag on a method that has any PHPUnit attribute. */
     private static function isHook(ClassMethod $method, Aliases $aliases, MethodStorage $storage): bool
     {
@@ -1529,13 +1515,12 @@ final class TestCaseHandler implements
             ? self::getAttributeSpecials($method, $aliases)
             : self::docblockSpecials($method);
 
-        foreach (self::HOOKS as $hook => $static_only) {
-            if (isset($specials[$hook]) && (!$static_only || $storage->is_static)) {
-                return true;
-            }
-        }
-
-        return false;
+        // PHPUnit runs the class-level hooks only when they are static
+        return isset($specials['before'])
+            || isset($specials['after'])
+            || isset($specials['preCondition'])
+            || isset($specials['postCondition'])
+            || ($storage->is_static && (isset($specials['beforeClass']) || isset($specials['afterClass'])));
     }
 
     /** @return array<string, list<array{int, string}>> */

@@ -402,8 +402,7 @@ Feature: Dead code
     Then I see no errors
 
   Scenario: Methods with a hook docblock tag are used by PHPUnit 11
-    Given PHPUnit identifies as version "11.5.0"
-    And I have the following code
+    Given I have the following code
       """
       final class MyTestCase extends TestCase {
         /**
@@ -478,6 +477,31 @@ Feature: Dead code
       | Type                    | Message                                                            |
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @before docblock tag, use #[Before] instead |
       | PossiblyUnusedMethod    | Cannot find any calls to method NS\MyTestCase::prepare             |
+    And I see no other errors
+
+  Scenario: A docblock hook tag is ignored on a method that has a PHPUnit attribute
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @before
+         */
+        #[Group('hooks')]
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::prepare |
     And I see no other errors
 
   Scenario: A hook attribute of a method of a trait used by the test case is used by PHPUnit
