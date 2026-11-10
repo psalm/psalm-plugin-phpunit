@@ -6,23 +6,20 @@ namespace Psalm\PhpUnitPlugin;
 
 use PHPUnit\Runner\Version;
 
-use function class_exists;
-use function version_compare;
-
 /**
  * PHPUnit 12 dropped metadata in doc-comments, so the plugin has to stop honouring it there.
  */
 final class PhpUnitVersion
 {
-    private static bool|null $ignoresDocblockMetadata = null;
-    private static bool|null $stopsCollectingDependencyValuesEarly = null;
+    private static ?bool $ignoresDocblockMetadata = null;
+    private static ?bool $stopsCollectingDependencyValuesEarly = null;
 
     /**
      * An unknown version (PHPUnit absent, or a phar that doesn't expose it) keeps docblocks live.
      */
     public static function ignoresDocblockMetadata(): bool
     {
-        return self::$ignoresDocblockMetadata ??= class_exists(Version::class) && Version::majorVersionNumber() >= 12;
+        return self::$ignoresDocblockMetadata ??= \class_exists(Version::class) && Version::majorVersionNumber() >= 12;
     }
 
     /**
@@ -35,13 +32,13 @@ final class PhpUnitVersion
             return self::$stopsCollectingDependencyValuesEarly;
         }
 
-        if (!class_exists(Version::class)) {
+        if (!\class_exists(Version::class)) {
             return self::$stopsCollectingDependencyValuesEarly = true;
         }
 
         return self::$stopsCollectingDependencyValuesEarly = match (Version::majorVersionNumber()) {
-            12      => version_compare(Version::id(), '12.5.40', '<'),
-            13      => version_compare(Version::id(), '13.4.3', '<'),
+            12      => \version_compare(Version::id(), '12.5.40', '<'),
+            13      => \version_compare(Version::id(), '13.4.3', '<'),
             default => Version::majorVersionNumber() < 12,
         };
     }

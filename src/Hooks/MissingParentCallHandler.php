@@ -18,10 +18,6 @@ use Psalm\PhpUnitPlugin\Suppressions;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
 
-use function ltrim;
-use function sprintf;
-use function strtolower;
-
 /**
  * Reports setUp(), tearDown(), setUpBeforeClass(), tearDownAfterClass(), assertPreConditions() and
  * assertPostConditions() overrides that don't call the parent: the parent class may be a project base test case
@@ -67,8 +63,8 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 $declaringId === null
                 || $parentId === null
                 || $appearingId === null
-                || strtolower($appearingId->fq_class_name) !== strtolower($storage->name)
-                || strtolower($parentId->fq_class_name) === self::TEST_CASE
+                || \strtolower($appearingId->fq_class_name) !== \strtolower($storage->name)
+                || \strtolower($parentId->fq_class_name) === self::TEST_CASE
                 || $codebase->methods->getStorage($parentId)->abstract
             ) {
                 continue;
@@ -90,14 +86,14 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
             if (
                 $method === null
                 || $method->stmts === null
-                || self::callsParent($method->stmts, $methodNameLc, strtolower((string) $parentId), $codebase)
+                || self::callsParent($method->stmts, $methodNameLc, \strtolower((string) $parentId), $codebase)
             ) {
                 continue;
             }
 
             IssueBuffer::accepts(
                 new MissingParentCall(
-                    sprintf('Missing call to parent::%s()', $methodName),
+                    \sprintf('Missing call to parent::%s()', $methodName),
                     $methodStorage->location,
                 ),
                 Suppressions::of(
@@ -130,8 +126,7 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                 private readonly string $methodNameLc,
                 private readonly string $parentMethodIdLc,
                 private readonly Codebase $codebase,
-            ) {
-            }
+            ) {}
 
             #[\Override]
             public function enterNode(Node $node)
@@ -172,7 +167,7 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
                     return false;
                 }
 
-                $class = ltrim((string) $name->getAttribute('resolvedName', ''), '\\');
+                $class = \ltrim((string) $name->getAttribute('resolvedName', ''), '\\');
                 if ($class === '') {
                     return false;
                 }
@@ -184,7 +179,7 @@ final class MissingParentCallHandler implements AfterClassLikeAnalysisInterface
 
                 $declaringId = $this->codebase->getDeclaringMethodId($class . '::' . $this->methodNameLc);
 
-                return $declaringId !== null && strtolower($declaringId) === $this->parentMethodIdLc;
+                return $declaringId !== null && \strtolower($declaringId) === $this->parentMethodIdLc;
             }
         };
 

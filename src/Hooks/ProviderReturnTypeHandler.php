@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Psalm\PhpUnitPlugin\Hooks;
 
-use PhpParser\Node\Expr\YieldFrom;
 use PhpParser\Node\Expr\Yield_;
+use PhpParser\Node\Expr\YieldFrom;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\NodeFinder;
 use Psalm\Internal\Analyzer\FunctionLike\ReturnTypeCollector;
@@ -22,7 +22,6 @@ use Psalm\Type\Atomic\TNull;
 use Psalm\Type\TypeNode;
 use Psalm\Type\TypeVisitor;
 use Psalm\Type\Union;
-use WeakMap;
 
 /**
  * A data provider with only a native return type (`iterable`, `array`, `Generator`) has no `@return` type to check
@@ -34,8 +33,8 @@ use WeakMap;
  */
 final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterface
 {
-    /** @var WeakMap<object, list<Union>>|null */
-    private static ?WeakMap $inferredTypes = null;
+    /** @var \WeakMap<object, list<Union>>|null */
+    private static ?\WeakMap $inferredTypes = null;
 
     /** Whether the return type of the provider is its native one, with no docblock to override it */
     public static function hasNativeReturnTypeOnly(MethodStorage $storage): bool
@@ -68,8 +67,8 @@ final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterf
         }
 
         if (self::$inferredTypes === null) {
-            /** @var WeakMap<object, list<Union>> $types */
-            $types               = new WeakMap();
+            /** @var \WeakMap<object, list<Union>> $types */
+            $types               = new \WeakMap();
             self::$inferredTypes = $types;
         }
 

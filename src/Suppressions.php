@@ -22,7 +22,7 @@ final class Suppressions
      * @return array<array-key, string>
      */
     public static function of(
-        CodeLocation|null $location,
+        ?CodeLocation $location,
         array $own,
         ClassLikeStorage $class_storage,
         StatementsSource $source,

@@ -17,11 +17,6 @@ use Psalm\Type\Atomic\TArray;
 use Psalm\Type\Atomic\TKeyedArray;
 use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Union;
-use WeakMap;
-
-use function is_array;
-use function str_starts_with;
-use function strtolower;
 
 /**
  * Narrows the parameters of a test method to the types its data providers return, so that a provider returning
@@ -33,8 +28,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
 
     private const TEST_CASE = 'PHPUnit\\Framework\\TestCase';
 
-    /** @var WeakMap<object, bool>|null */
-    private static ?WeakMap $visited = null;
+    /** @var \WeakMap<object, bool>|null */
+    private static ?\WeakMap $visited = null;
 
     #[\Override]
     public static function beforeStatementAnalysis(BeforeStatementAnalysisEvent $event): ?bool
@@ -47,8 +42,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
 
         // Only the first statement of the method sees the context that holds the parameters
         if (self::$visited === null) {
-            /** @var WeakMap<object, bool> $visited */
-            $visited       = new WeakMap();
+            /** @var \WeakMap<object, bool> $visited */
+            $visited       = new \WeakMap();
             self::$visited = $visited;
         }
         if (isset(self::$visited[$statements_source])) {
@@ -65,7 +60,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
 
         $metadata = $storage->custom_metadata[self::METADATA_KEY] ?? null;
         $self     = $context->self;
-        if (!is_array($metadata) || $self === null || !$codebase->classExtends($self, self::TEST_CASE)) {
+        if (!\is_array($metadata) || $self === null || !$codebase->classExtends($self, self::TEST_CASE)) {
             return null;
         }
 
@@ -110,7 +105,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         string $self,
         array $providers,
         array $params,
-        bool $has_dependencies
+        bool $has_dependencies,
     ): array {
         /** @var array<int, Union>|null $types */
         $types = null;
@@ -148,16 +143,16 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         ClassLikeStorage $class,
         MethodStorage $method,
         string $method_id,
-        bool $marked
+        bool $marked,
     ): bool {
-        $method_id = strtolower($method_id);
+        $method_id = \strtolower($method_id);
         foreach ($class->declaring_method_ids as $name => $declaring_id) {
-            if (strtolower((string) $declaring_id) !== $method_id) {
+            if (\strtolower((string) $declaring_id) !== $method_id) {
                 continue;
             }
 
             if (
-                ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
+                ($marked || \str_starts_with(self::casedName($class, $method, $name), 'test'))
                 && TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
             ) {
                 return true;
@@ -175,7 +170,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
     private static function casedName(ClassLikeStorage $class, MethodStorage $method, string $name): string
     {
         foreach ($class->trait_alias_map_cased as $alias => $_) {
-            if (strtolower($alias) === $name) {
+            if (\strtolower($alias) === $name) {
                 return $alias;
             }
         }
@@ -241,7 +236,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         Codebase $codebase,
         TArray|TKeyedArray $dataset,
         array $params,
-        bool $has_dependencies
+        bool $has_dependencies,
     ): array {
         $bound = [];
         if ($dataset instanceof TArray) {

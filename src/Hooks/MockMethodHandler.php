@@ -3,11 +3,10 @@
 namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Iterator;
-use IteratorAggregate;
 use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
-use Psalm\CodeLocation;
 use Psalm\Codebase;
+use Psalm\CodeLocation;
 use Psalm\Issue\UndefinedMethod;
 use Psalm\IssueBuffer;
 use Psalm\Plugin\EventHandler\AfterExpressionAnalysisInterface;
@@ -16,13 +15,6 @@ use Psalm\Type\Atomic;
 use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Union;
 use Traversable;
-
-use function count;
-use function implode;
-use function in_array;
-use function sprintf;
-use function str_starts_with;
-use function strtolower;
 
 /**
  * Reports ->method('name') on a test double when the doubled class has no such method:
@@ -55,7 +47,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         }
 
         $args = $call->getArgs();
-        if (count($args) !== 1 || $args[0]->unpack || $args[0]->name !== null) {
+        if (\count($args) !== 1 || $args[0]->unpack || $args[0]->name !== null) {
             return null;
         }
 
@@ -100,7 +92,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
             $lookupClasses = $mockedClasses;
             foreach ($mockedClasses as $mockedClass) {
                 if (self::getsIteratorMethods($codebase, $mockedClass)) {
-                    $lookupClasses[] = Iterator::class;
+                    $lookupClasses[] = \Iterator::class;
                 }
             }
 
@@ -108,7 +100,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
                 $methodName = $literal->value;
 
                 // PHPUnit configures property hooks as '$name::get' and '$name::set', which Psalm cannot look up
-                if (str_starts_with($methodName, '$')) {
+                if (\str_starts_with($methodName, '$')) {
                     continue;
                 }
 
@@ -125,9 +117,9 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
 
                 IssueBuffer::accepts(
                     new UndefinedMethod(
-                        sprintf(
+                        \sprintf(
                             'Trying to mock an undefined method %s::%s()',
-                            implode('&', $mockedClasses),
+                            \implode('&', $mockedClasses),
                             $methodName,
                         ),
                         new CodeLocation($source, $args[0]->value),
@@ -159,7 +151,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
                 return [];
             }
 
-            if (in_array(strtolower($part->value), self::DOUBLE_CLASSES, true)) {
+            if (\in_array(\strtolower($part->value), self::DOUBLE_CLASSES, true)) {
                 $isDouble = true;
             } else {
                 $mocked[] = $part->value;
@@ -174,14 +166,14 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
      */
     private static function getsIteratorMethods(Codebase $codebase, string $class): bool
     {
-        if (strtolower($class) === 'traversable') {
+        if (\strtolower($class) === 'traversable') {
             return true;
         }
 
         return $codebase->interfaceExists($class)
-            && $codebase->interfaceExtends($class, Traversable::class)
-            && !$codebase->interfaceExtends($class, Iterator::class)
-            && !$codebase->interfaceExtends($class, IteratorAggregate::class);
+            && $codebase->interfaceExtends($class, \Traversable::class)
+            && !$codebase->interfaceExtends($class, \Iterator::class)
+            && !$codebase->interfaceExtends($class, \IteratorAggregate::class);
     }
 
     /**
@@ -198,7 +190,7 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
         $atomic = $type->getSingleAtomic();
 
         return $atomic instanceof TNamedObject
-            && in_array(strtolower($atomic->value), self::EXPECTATION_BUILDERS, true);
+            && \in_array(\strtolower($atomic->value), self::EXPECTATION_BUILDERS, true);
     }
 
     /**
@@ -206,6 +198,6 @@ final class MockMethodHandler implements AfterExpressionAnalysisInterface
      */
     private static function isNamed(MethodCall $call, string $name): bool
     {
-        return $call->name instanceof Identifier && strtolower($call->name->name) === $name;
+        return $call->name instanceof Identifier && \strtolower($call->name->name) === $name;
     }
 }

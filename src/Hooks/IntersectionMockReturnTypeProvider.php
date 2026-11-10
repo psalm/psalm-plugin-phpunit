@@ -10,10 +10,6 @@ use Psalm\Type\Atomic\TLiteralClassString;
 use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Union;
 
-use function array_key_first;
-use function count;
-use function strtolower;
-
 /**
  * Types createMockForIntersectionOfInterfaces() and createStubForIntersectionOfInterfaces() as
  * `A&B&MockObject` and `A&B&Stub` when the interfaces are given as a literal list of `X::class`.
@@ -44,12 +40,12 @@ final class IntersectionMockReturnTypeProvider implements MethodReturnTypeProvid
         }
 
         $args = $event->getCallArgs();
-        if (count($args) !== 1) {
+        if (\count($args) !== 1) {
             return null;
         }
 
         $arg = $args[0];
-        if ($arg->unpack || ($arg->name !== null && strtolower($arg->name->name) !== 'interfaces')) {
+        if ($arg->unpack || ($arg->name !== null && \strtolower($arg->name->name) !== 'interfaces')) {
             return null;
         }
 
@@ -59,7 +55,7 @@ final class IntersectionMockReturnTypeProvider implements MethodReturnTypeProvid
         }
 
         $list = $argType->getSingleAtomic();
-        if (!$list instanceof TKeyedArray || !$list->isSealed() || count($list->properties) < 2) {
+        if (!$list instanceof TKeyedArray || !$list->isSealed() || \count($list->properties) < 2) {
             return null;
         }
 
@@ -74,7 +70,7 @@ final class IntersectionMockReturnTypeProvider implements MethodReturnTypeProvid
         }
 
         $names[$doubleClass] = new TNamedObject($doubleClass);
-        $head = array_key_first($names);
+        $head = \array_key_first($names);
         unset($names[$head]);
 
         return new Union([new TNamedObject($head, extra_types: $names)]);

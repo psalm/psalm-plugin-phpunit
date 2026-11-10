@@ -27,16 +27,6 @@ use Psalm\StatementsSource;
 use Psalm\Storage\ClassLikeStorage;
 use Psalm\Type;
 
-use function array_intersect_key;
-use function explode;
-use function ltrim;
-use function preg_replace;
-use function str_contains;
-use function str_starts_with;
-use function strpos;
-use function strtolower;
-use function substr;
-
 /**
  * Reports #[CoversMethod], #[CoversFunction], #[UsesMethod], #[UsesFunction] and docblock @covers, @uses,
  * @coversDefaultClass and @usesDefaultClass targets that do not exist. Psalm already reports missing classes in
@@ -92,7 +82,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
                     }
 
                     $codebase->queueClassLikeForScanning($class_name);
-                    $file_storage->referenced_classlikes[strtolower($class_name)] = $class_name;
+                    $file_storage->referenced_classlikes[\strtolower($class_name)] = $class_name;
                 }
             }
         }
@@ -163,7 +153,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
                         continue;
                     }
 
-                    $function_id = ltrim($function_name->value, '\\');
+                    $function_id = \ltrim($function_name->value, '\\');
                     if (!self::functionExists($codebase, $function_id)) {
                         IssueBuffer::accepts(new Issue\UndefinedFunction(
                             self::attributeMessage(self::FUNCTION_ATTRIBUTES[$attribute_class], $function_id),
@@ -315,7 +305,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
         array $suppressed,
     ): void {
         $target = self::cleanUpTarget($value);
-        if (str_starts_with($target, '::') && $default_class !== null) {
+        if (\str_starts_with($target, '::') && $default_class !== null) {
             // The default class does not exist, which was reported already
             if ($default_class === false) {
                 return;
@@ -413,11 +403,11 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
     private static function docblockTags(ClassLike|ClassMethod $node, array $tags): array
     {
         $docblock = $node->getDocComment()?->getText() ?? '';
-        if (!str_contains($docblock, '@covers') && !str_contains($docblock, '@uses')) {
+        if (!\str_contains($docblock, '@covers') && !\str_contains($docblock, '@uses')) {
             return [];
         }
 
-        return array_intersect_key(DocblockSpecials::of($node), $tags);
+        return \array_intersect_key(DocblockSpecials::of($node), $tags);
     }
 
     /**
@@ -428,9 +418,9 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
      */
     private static function cleanUpTarget(string $value): string
     {
-        $value = (string) preg_replace('/[\s()]+$/', '', $value);
+        $value = (string) \preg_replace('/[\s()]+$/', '', $value);
 
-        return ltrim(explode(' ', $value, 2)[0], '\\');
+        return \ltrim(\explode(' ', $value, 2)[0], '\\');
     }
 
     /**
@@ -440,7 +430,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
     private static function splitTarget(string $tag, string $value): array
     {
         if (isset(self::DEFAULT_CLASS_TAGS[$tag])) {
-            return [ltrim($value, '\\'), null];
+            return [\ltrim($value, '\\'), null];
         }
 
         return self::splitMember(self::cleanUpTarget($value));
@@ -452,9 +442,9 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
      */
     private static function splitMember(string $target): array
     {
-        $position = strpos($target, '::');
+        $position = \strpos($target, '::');
 
-        return $position === false ? [$target, null] : [substr($target, 0, $position), substr($target, $position + 2)];
+        return $position === false ? [$target, null] : [\substr($target, 0, $position), \substr($target, $position + 2)];
     }
 
     /** Unlike methodExists() and the class checks with a location, this does not mark the target as used. */
@@ -465,6 +455,6 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
 
     private static function functionExists(Codebase $codebase, string $name): bool
     {
-        return $codebase->functions->isDeclaredInCode(ltrim($name, '\\'));
+        return $codebase->functions->isDeclaredInCode(\ltrim($name, '\\'));
     }
 }
