@@ -743,8 +743,22 @@ final class TestCaseHandler implements
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
 
+                    $params_count = count($method_storage->params);
                     foreach ($method_storage->params as $param_offset => $param) {
-                        if (!isset($potential_argument_types[$param_offset])) {
+                        $potential_argument_type = $potential_argument_types[$param_offset] ?? null;
+                        if ($potential_argument_type === null) {
+                            // an open list can supply any further position
+                            $fallback_type = self::getPositionalFallbackType($codebase, $dataset_type, $param_offset);
+                            if ($fallback_type !== null) {
+                                // the return values of depended-upon tests follow the provider values
+                                if (!$param->is_variadic && $param_offset >= $params_count - $dependency_values) {
+                                    break;
+                                }
+                                $potential_argument_type = $fallback_type;
+                            }
+                        }
+
+                        if ($potential_argument_type === null) {
                             // variadics are never required
                             // and they always come last
                             if ($param->is_variadic) {
@@ -771,7 +785,6 @@ final class TestCaseHandler implements
                             ));
                             break;
                         }
-                        $potential_argument_type = $potential_argument_types[$param_offset];
 
                         $param_type = $param->type === null ? Type::getMixed() : $param->type;
                         if ($param->is_variadic) {
@@ -780,13 +793,16 @@ final class TestCaseHandler implements
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {
-                                $potential_argument_type = $potential_argument_types[$param_offset];
                                 $checkParam(
-                                    $potential_argument_type,
+                                    $potential_argument_types[$param_offset],
                                     $variadic_param_type,
                                     true,
                                     $param_offset
                                 );
+                            }
+                            $fallback_type = self::getPositionalFallbackType($codebase, $dataset_type, $param_offset);
+                            if ($fallback_type !== null) {
+                                $checkParam($fallback_type, $variadic_param_type, true, $param_offset);
                             }
                             break;
                         }
@@ -984,6 +1000,21 @@ final class TestCaseHandler implements
                 ), $suppressed_issues);
             }
         }
+    }
+
+    /** The value type an unsealed dataset supplies at a position its known entries do not cover. */
+    private static function getPositionalFallbackType(
+        Codebase $codebase,
+        Type\Atomic\TKeyedArray $dataset_type,
+        int $position
+    ): ?Type\Union {
+        if ($dataset_type->fallback_params === null) {
+            return null;
+        }
+
+        [$key_type, $value_type] = $dataset_type->fallback_params;
+
+        return $codebase->canTypeBeContainedByType(Type::getInt(false, $position), $key_type) ? $value_type : null;
     }
 
     /** @psalm-pure */

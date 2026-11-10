@@ -10028,3 +10028,201 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: A non-empty-list dataset can supply any number of parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The values of an open list dataset are checked against the parameters they can fill
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<int>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => [1, 2];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
+    And I see no other errors
+
+  Scenario: A sealed list dataset still cannot supply more parameters than it has entries
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
+    And I see no other errors
+
+  Scenario: A possibly empty list dataset is reported for a required first parameter only
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined string provided by NS\MyTestCase::provide():(iterable[pure]<string, list<string>>) |
+    And I see no other errors
+
+  Scenario: The values of an open list dataset are checked against a variadic parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function ok(): iterable {
+          yield 'x' => ['a', 'b', 'c'];
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<int>>
+         * @psalm-pure
+         */
+        public static function wrong(): iterable {
+          yield 'x' => [1, 2, 3];
+        }
+
+        #[DataProvider('ok')]
+        public function testOk(string $a, string ...$rest): void {
+          $this->assertSame($a, $rest[0] ?? $a);
+        }
+
+        #[DataProvider('wrong')]
+        public function testWrong(string $a, string ...$rest): void {
+          $this->assertSame($a, $rest[0] ?? $a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
+    And I see no other errors
+
+  Scenario: The values of an open list dataset are checked against optional parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, int $b = 1): void {
+          $this->assertSame($a, (string) $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
+    And I see no other errors
+
+  Scenario: An open list dataset leaves the last parameters to the values of depended-upon tests
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): int {
+          $this->assertTrue(true);
+          return 1;
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $a, string $b, int $one): void {
+          $this->assertSame($a . $b, (string) $one);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
