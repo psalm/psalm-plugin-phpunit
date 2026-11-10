@@ -64,42 +64,6 @@ Feature: MissingConstructor in stateful test cases
     When I run Psalm
     Then I see no errors
 
-  Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes;
-
-      /** @psalm-mutable */
-      interface I {
-        /** @psalm-impure */
-        public function work(): int;
-      }
-
-      class BaseTestCase extends TestCase {
-        /** @var I&\PHPUnit\Framework\MockObject\Stub */
-        protected $i;
-
-        #[Attributes\Before]
-        public function myInit(): void {
-          $this->i = $this->createStub(I::class);
-        }
-      }
-
-      class Intermediate extends BaseTestCase {}
-
-      final class MyTestCase extends Intermediate
-      {
-        /** @return void */
-        public function testSomething() {
-          $this->i->method('work')->willReturn(1);
-
-          $this->assertSame(1, $this->i->work());
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """

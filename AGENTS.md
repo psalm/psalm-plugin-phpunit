@@ -56,7 +56,8 @@ CI (`.github/workflows/ci.yml`) is the source of truth:
 - `psalm` (PHP 8.2): `COMPOSER_ROOT_VERSION=dev-master composer update --prefer-dist`, then
   `vendor/bin/psalm --output-format=github --shepherd` on `src/`.
 - `phpcs`: `vendor/bin/phpcs`. `composer check` runs phpcs and Psalm.
-- `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`.
+- `test-static-analysis` (PHP 8.2): `cd tools/behat && composer install && vendor/bin/psalm`, then
+  `php tools/behat/lint-features.php` (see "Tests").
 - `tests`: deps high/low/stable × PHP 8.2 and 8.4 on pull requests, PHP 8.2 to 8.4 on pushes,
   the weekly schedule and manual runs (8.4 low excluded). `composer update` (plus
   `--prefer-lowest` or `--prefer-stable`) at the root **and** in `tools/behat`, then
@@ -81,7 +82,8 @@ Locally:
     nothing ("No scenarios"). Check that the output says `1 scenario`.
 - The full suite (a few minutes) at most once, right before pushing. Never between
   iterations, and never sweeps (re-running batches of scenarios, looping over fixtures).
-- `vendor/bin/phpcs -q` and `vendor/bin/psalm --no-cache` (~2 s) are cheap and fine at any time.
+- `vendor/bin/phpcs -q`, `vendor/bin/psalm --no-cache` (~2 s) and `php tools/behat/lint-features.php` are cheap
+  and fine at any time.
 - Also fine: a scratch-project repro (skill `plugin-repro`).
 - When briefing a subagent, spell all of this out ("single scenarios only, no full suite,
   no sweeps"); a vague "don't run the tests" is not enough.
@@ -185,7 +187,9 @@ workaround explicitly in the report.
 - Ways a scenario silently asserts nothing:
   - `I see no errors` for a missed-issue fix (it passes on the base): assert the issue with
     `I see these errors` + `I see no other errors`;
-  - `I see these errors` without `I see no other errors` (extra issues are ignored);
+  - `I see these errors` without `I see no other errors` (extra issues are ignored).
+    `tools/behat/lint-features.php` reports it, along with duplicate scenario titles and
+    single-line docblocks with several tags;
   - a fixture `@psalm-suppress` or `issueHandlers` hiding the issue under test;
   - dead-code behaviour tested with plain `When I run Psalm` (needs
     `with dead code detection`).

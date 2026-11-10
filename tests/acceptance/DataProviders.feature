@@ -279,7 +279,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-static external data provider is reported
     Given I have the following code
       """
@@ -309,7 +308,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be static |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: Non-public external data provider is reported
     Given I have the following code
       """
@@ -339,7 +337,6 @@ Feature: Data providers
       | InvalidDataProvider | Data provider method NS\External::provide must be public |
     And I see no other errors
 
-  @ExternalProviders
   Scenario: #[DataProvider] naming another class is reported, as PHPUnit looks it up on the test class
     Given I have the following code
       """

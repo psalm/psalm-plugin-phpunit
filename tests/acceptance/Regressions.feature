@@ -14,6 +14,7 @@ Feature: Regressions
       | Type            | Message         |
       | InvalidDocblock | Unrecognised annotation @psalm-ignore |
       | InvalidDocblock | Unrecognised annotation @psalm-ignore in docblock for NS\\MyTestCase |
+    And I see no other errors
 
   Scenario: Invalid psalm annotation on an before initializer does not crash psalm
     Given I have the following code
@@ -32,6 +33,7 @@ Feature: Regressions
     Then I see these errors
       | Type            | Message              |
       | InvalidDocblock | Unrecognised annotation @psalm-rm-Rf-slash |
+    And I see no other errors
 
   Scenario: Invalid psalm annotation on a test does not crash psalm
     Given I have the following code
@@ -50,6 +52,7 @@ Feature: Regressions
     Then I see these errors
       | Type            | Message                    |
       | InvalidDocblock | Unrecognised annotation @psalm-force-push-master |
+    And I see no other errors
 
   Scenario: Missing param type on a test with tuple data provider does not crash psalm
     Given I have the following code
