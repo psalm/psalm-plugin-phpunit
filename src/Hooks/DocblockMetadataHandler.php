@@ -59,10 +59,10 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
     #[\Override]
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
-        $class_node    = $event->getStmt();
+        $class_node = $event->getStmt();
         $class_storage = $event->getClasslikeStorage();
-        $codebase      = $event->getCodebase();
-        $source        = $event->getStatementsSource();
+        $codebase = $event->getCodebase();
+        $source = $event->getStatementsSource();
 
         $is_test_case = $codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase');
         if (!PhpUnitVersion::ignoresDocblockMetadata() || !$is_test_case) {

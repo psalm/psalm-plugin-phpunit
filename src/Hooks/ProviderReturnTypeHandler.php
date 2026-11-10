@@ -53,9 +53,9 @@ final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterf
     #[\Override]
     public static function afterStatementAnalysis(AfterFunctionLikeAnalysisEvent $event): ?bool
     {
-        $method  = $event->getStmt();
+        $method = $event->getStmt();
         $storage = $event->getFunctionlikeStorage();
-        $nodes   = $event->getNodeTypeProvider();
+        $nodes = $event->getNodeTypeProvider();
         if (
             !$method instanceof ClassMethod
             || !$method->isStatic()
@@ -68,13 +68,13 @@ final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterf
 
         if (self::$inferredTypes === null) {
             /** @var \WeakMap<object, list<Union>> $types */
-            $types               = new \WeakMap();
+            $types = new \WeakMap();
             self::$inferredTypes = $types;
         }
 
         unset(self::$inferredTypes[$storage]);
 
-        $codebase   = $event->getCodebase();
+        $codebase = $event->getCodebase();
         $statements = $method->stmts ?? [];
 
         $finder = new NodeFinder();
@@ -83,7 +83,7 @@ final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterf
             return null;
         }
 
-        $yield_types  = [];
+        $yield_types = [];
         $return_types = ReturnTypeCollector::getReturnTypes($codebase, $nodes, $statements, $yield_types);
 
         $datasets = [];

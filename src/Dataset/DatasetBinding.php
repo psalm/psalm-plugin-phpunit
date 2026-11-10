@@ -46,7 +46,7 @@ final class DatasetBinding
         ?MethodStorage $method = null,
     ): self {
         $positional = [];
-        $named      = [];
+        $named = [];
         foreach ($dataset->properties as $key => $type) {
             if (\is_string($key)) {
                 $named[$key] = $type;
@@ -64,18 +64,18 @@ final class DatasetBinding
 
         $offsets_by_name = [];
         $variadic_offset = null;
-        $variadic_type   = Type::getMixed();
+        $variadic_type = Type::getMixed();
         foreach ($params as $offset => $param) {
             if ($param->is_variadic) {
                 $variadic_offset = $offset;
-                $variadic_type   = new Union(\array_values(($param->type ?? Type::getMixed())->getAtomicTypes()));
+                $variadic_type = new Union(\array_values(($param->type ?? Type::getMixed())->getAtomicTypes()));
                 break;
             }
             $offsets_by_name[$param->name] = $offset;
         }
 
         $arguments = [];
-        $unknown   = [];
+        $unknown = [];
         $duplicate = [];
 
         // The parameter an offset maps to: every offset from the variadic one on lands in the variadic parameter.
@@ -91,7 +91,7 @@ final class DatasetBinding
             // array_merge() renumbers int keys: an entry lands at the position after the entries certainly present
             // before it at the earliest, and at its own index at the latest. Bind it only if that range is within
             // one parameter (the first possibly undefined entry always is).
-            $lowest          = $definite_before;
+            $lowest = $definite_before;
             $definite_before += $type->possibly_undefined ? 0 : 1;
             if ($slot($lowest) !== $slot($index)) {
                 continue;
@@ -133,7 +133,7 @@ final class DatasetBinding
                     $duplicate[] = $name;
                 }
             } else {
-                $param       = $params[$offset];
+                $param = $params[$offset];
                 $arguments[] = new BoundArgument(
                     $offset,
                     $name,
@@ -178,7 +178,7 @@ final class DatasetBinding
         }
 
         [$key_type, $value_type] = $dataset->fallback_params;
-        $param_type              = $param->type ?? Type::getMixed();
+        $param_type = $param->type ?? Type::getMixed();
 
         return $codebase->canTypeBeContainedByType(Type::getString($param->name), $key_type)
             && $codebase->canTypeBeContainedByType(

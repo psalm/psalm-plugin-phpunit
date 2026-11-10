@@ -35,7 +35,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
     public static function beforeStatementAnalysis(BeforeStatementAnalysisEvent $event): ?bool
     {
         $statements_source = $event->getStatementsSource();
-        $method_analyzer   = $statements_source->getSource();
+        $method_analyzer = $statements_source->getSource();
         if (!$method_analyzer instanceof MethodAnalyzer) {
             return null;
         }
@@ -43,7 +43,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         // Only the first statement of the method sees the context that holds the parameters
         if (self::$visited === null) {
             /** @var \WeakMap<object, bool> $visited */
-            $visited       = new \WeakMap();
+            $visited = new \WeakMap();
             self::$visited = $visited;
         }
         if (isset(self::$visited[$statements_source])) {
@@ -51,22 +51,22 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         }
         self::$visited[$statements_source] = true;
 
-        $context  = $event->getContext();
+        $context = $event->getContext();
         $codebase = $event->getCodebase();
-        $storage  = $method_analyzer->getFunctionLikeStorage();
+        $storage = $method_analyzer->getFunctionLikeStorage();
         if (!$storage instanceof MethodStorage) {
             return null;
         }
 
         $metadata = $storage->custom_metadata[self::METADATA_KEY] ?? null;
-        $self     = $context->self;
+        $self = $context->self;
         if (!\is_array($metadata) || $self === null || !$codebase->classExtends($self, self::TEST_CASE)) {
             return null;
         }
 
         $method_id = (string) $method_analyzer->getMethodId();
-        $marked    = (bool) $metadata['test'];
-        $class     = $codebase->classlike_storage_provider->get($self);
+        $marked = (bool) $metadata['test'];
+        $class = $codebase->classlike_storage_provider->get($self);
         if (!self::isTest($codebase, $class, $storage, $method_id, $marked)) {
             return null;
         }
@@ -77,8 +77,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         $provided = self::providedTypes($codebase, $self, $providers, $storage->params, (bool) $metadata['depends']);
         foreach ($storage->params as $offset => $param) {
             $var_id = '$' . $param->name;
-            $old    = $context->vars_in_scope[$var_id] ?? null;
-            $type   = $provided[$offset] ?? null;
+            $old = $context->vars_in_scope[$var_id] ?? null;
+            $type = $provided[$offset] ?? null;
             if ($old === null || $type === null || $type->isNever() || $param->by_ref || $old->hasTemplate()) {
                 continue;
             }
@@ -193,7 +193,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         }
 
         $overridden_class = null;
-        $return_type      = $codebase->getMethodReturnType($method_id, $overridden_class);
+        $return_type = $codebase->getMethodReturnType($method_id, $overridden_class);
         if ($return_type === null) {
             return null;
         }
@@ -219,7 +219,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         }
 
         $datasets = TestCaseHandler::unionizeIterables($codebase, new Union($iterables))->type_params[1];
-        $dataset  = $datasets->isSingle() ? $datasets->getSingleAtomic() : null;
+        $dataset = $datasets->isSingle() ? $datasets->getSingleAtomic() : null;
 
         return $dataset instanceof TArray || $dataset instanceof TKeyedArray ? $dataset : null;
     }

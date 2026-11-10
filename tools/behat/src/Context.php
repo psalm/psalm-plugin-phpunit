@@ -119,25 +119,25 @@ final class Context implements BehatContext
                 error_output_behavior: ErrorOutputBehavior::Discard,
             );
         } catch (FailedExecutionException $failed) {
-            $output              = $failed->getOutput();
+            $output = $failed->getOutput();
             $this->processOutput = $output;
             $this->processFailed = true;
-            $this->exitCode      = Type\u8()->coerce($failed->getCode());
-            $this->errors        = \array_map(
+            $this->exitCode = Type\u8()->coerce($failed->getCode());
+            $this->errors = \array_map(
                 // Psalm >= 7.0.1 reports "seems to have no effect, its result is not used"
                 // for unused pure calls: older versions say "is not used". The suite runs on both.
                 static fn(array $error): array => [
-                    'type'    => $error['type'],
+                    'type' => $error['type'],
                     'message' => Type\non_empty_string()->coerce(
                         \str_replace(' seems to have no effect, its result is not used', ' is not used', $error['message']),
                     ),
-                    'line'    => $error['line_from'],
+                    'line' => $error['line_from'],
                 ],
                 Json\typed(
                     $output,
                     Type\vec(Type\shape([
-                        'type'      => Type\non_empty_string(),
-                        'message'   => Type\non_empty_string(),
+                        'type' => Type\non_empty_string(),
+                        'message' => Type\non_empty_string(),
                         'line_from' => Type\int(),
                     ])),
                 ),
@@ -224,7 +224,7 @@ final class Context implements BehatContext
     private function writeConfig(): void
     {
         $autoloader = $this->autoloader;
-        $version    = $this->phpunitVersion;
+        $version = $this->phpunitVersion;
         if ($version !== null) {
             $autoloader = $this->writeVersionShim($version);
         }
@@ -289,7 +289,7 @@ final class Context implements BehatContext
      */
     private function writeVersionShim(string $version): string
     {
-        $own  = $this->autoloader;
+        $own = $this->autoloader;
         $shim = $this->versionShimFile();
         File\write($shim, \sprintf(
             "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
@@ -347,19 +347,19 @@ final class Context implements BehatContext
         // The Line column is optional: a missing line matches any line.
         $expectedErrors = Type\vec(Type\converted(
             Type\shape([
-                'Type'    => Type\non_empty_string(),
+                'Type' => Type\non_empty_string(),
                 'Message' => Type\non_empty_string(),
-                'Line'    => Type\optional(Type\int()),
+                'Line' => Type\optional(Type\int()),
             ]),
             Type\shape([
-                'type'    => Type\non_empty_string(),
+                'type' => Type\non_empty_string(),
                 'message' => Type\non_empty_string(),
-                'line'    => Type\nullable(Type\int()),
+                'line' => Type\nullable(Type\int()),
             ]),
             static fn(array $coerced) => [
-                'type'    => $coerced['Type'],
+                'type' => $coerced['Type'],
                 'message' => $coerced['Message'],
-                'line'    => $coerced['Line'] ?? null,
+                'line' => $coerced['Line'] ?? null,
             ],
         ))->coerce($table->getColumnsHash());
 

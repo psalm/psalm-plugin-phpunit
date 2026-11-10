@@ -11,6 +11,7 @@ return (new Config())
     ->setRiskyAllowed(false)
     ->setRules([
         '@PER-CS3x0' => true,
+        'binary_operator_spaces' => ['default' => 'single_space'],
         // import
         'global_namespace_import' => [
             'import_classes' => false,

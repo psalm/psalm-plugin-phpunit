@@ -37,8 +37,8 @@ final class PhpUnitVersion
         }
 
         return self::$stopsCollectingDependencyValuesEarly = match (Version::majorVersionNumber()) {
-            12      => \version_compare(Version::id(), '12.5.40', '<'),
-            13      => \version_compare(Version::id(), '13.4.3', '<'),
+            12 => \version_compare(Version::id(), '12.5.40', '<'),
+            13 => \version_compare(Version::id(), '13.4.3', '<'),
             default => Version::majorVersionNumber() < 12,
         };
     }

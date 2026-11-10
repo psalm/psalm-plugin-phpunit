@@ -178,7 +178,7 @@ final class TestCaseHandler implements
             }
 
             $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
-            $meta      = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
+            $meta = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
             if (isset($meta['before'][$method_id->method_name])) {
                 return true;
             }
@@ -190,11 +190,11 @@ final class TestCaseHandler implements
     #[\Override]
     public static function afterClassLikeVisit(AfterClassLikeVisitEvent $event)
     {
-        $class_node        = $event->getStmt();
-        $class_storage     = $event->getStorage();
+        $class_node = $event->getStmt();
+        $class_storage = $event->getStorage();
         $statements_source = $event->getStatementsSource();
-        $codebase          = $event->getCodebase();
-        $aliases           = $statements_source->getAliases();
+        $codebase = $event->getCodebase();
+        $aliases = $statements_source->getAliases();
 
         // Psalm 7 seals methods by default, so ObjectProphecy::__call() is ignored
         if (\strtolower($class_storage->name) === 'prophecy\\prophecy\\objectprophecy') {
@@ -206,7 +206,7 @@ final class TestCaseHandler implements
             $class_storage->custom_metadata[__NAMESPACE__] = ['before' => $before];
         }
 
-        $file_path    = $statements_source->getFilePath();
+        $file_path = $statements_source->getFilePath();
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
         foreach ($class_node->getMethods() as $method) {
@@ -235,8 +235,8 @@ final class TestCaseHandler implements
                     static fn(array $provider): array => [$provider['class'] ?? '', $provider['method']],
                     $providers,
                 ),
-                'test'      => isset($test_specials['test']),
-                'depends'   => self::getDependencyTargets($method, $aliases, $class_storage) !== [],
+                'test' => isset($test_specials['test']),
+                'depends' => self::getDependencyTargets($method, $aliases, $class_storage) !== [],
             ];
         }
     }
@@ -244,11 +244,11 @@ final class TestCaseHandler implements
     #[\Override]
     public static function afterStatementAnalysis(AfterClassLikeAnalysisEvent $event)
     {
-        $class_node        = $event->getStmt();
-        $class_storage     = $event->getClasslikeStorage();
-        $codebase          = $event->getCodebase();
+        $class_node = $event->getStmt();
+        $class_storage = $event->getClasslikeStorage();
+        $codebase = $event->getCodebase();
         $statements_source = $event->getStatementsSource();
-        $aliases           = $statements_source->getAliases();
+        $aliases = $statements_source->getAliases();
 
         if (!$codebase->classExtends($class_storage->name, 'PHPUnit\Framework\TestCase')) {
             return null;
@@ -293,7 +293,7 @@ final class TestCaseHandler implements
         }
 
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
-            $method_name    = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
+            $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
             $method_storage = $codebase->methods->getStorage($declaring_method_id);
             [$declaring_method_class, $declaring_method_name] = \explode('::', (string) $declaring_method_id);
             $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
@@ -436,9 +436,9 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $provider_id             = MethodIdentifier::wrap($provider_method_id);
+                $provider_id = MethodIdentifier::wrap($provider_method_id);
                 $provider_method_storage = $codebase->methods->getStorage($provider_id);
-                $provider_class_storage  = $codebase->classlike_storage_provider->get($provider_id->fq_class_name);
+                $provider_class_storage = $codebase->classlike_storage_provider->get($provider_id->fq_class_name);
 
                 // Abstract providers are checked on the concrete classes implementing them
                 if (!$provider_method_storage->abstract) {
@@ -470,7 +470,7 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $provider_hint  = '';
+                $provider_hint = '';
                 $provider_types = [$provider_return_type];
                 if (ProviderReturnTypeHandler::hasNativeReturnTypeOnly($provider_method_storage)) {
                     // A trait method is analysed with each class using it, other methods only with their own class
@@ -499,14 +499,14 @@ final class TestCaseHandler implements
 
                 foreach ($provider_types as $provider_type) {
                     $provided_types[] = [
-                        'name'                 => $provider_method_id . '()',
-                        'type'                 => self::expandForMethod(
+                        'name' => $provider_method_id . '()',
+                        'type' => self::expandForMethod(
                             $codebase,
                             $provider_type,
                             $apparent_provider_method_name,
                             $provider['class'] ?? $class_storage->name,
                         ),
-                        'location'             => $provider_docblock_location,
+                        'location' => $provider_docblock_location,
                         'return_type_location' => $provider_return_type_location,
                         'return_type_suppressions' => $return_type_suppressions,
                         'hint' => $provider_hint,
@@ -532,9 +532,9 @@ final class TestCaseHandler implements
 
                 $closure_location = $method_storage->location->setCommentLine($closure['line']);
                 $provided_types[] = [
-                    'name'                 => '#[DataProviderClosure]',
-                    'type'                 => $closure_return_type,
-                    'location'             => $closure_location,
+                    'name' => '#[DataProviderClosure]',
+                    'type' => $closure_return_type,
+                    'location' => $closure_location,
                     'return_type_location' => $closure_location,
                     'return_type_suppressions' => $test_suppressions,
                     'hint' => '',
@@ -549,13 +549,13 @@ final class TestCaseHandler implements
             );
 
             foreach ($provided_types as $provided) {
-                $provider_name                 = $provided['name'];
-                $provider_return_type          = $provided['type'];
-                $provider_docblock_location    = $provided['location'];
+                $provider_name = $provided['name'];
+                $provider_return_type = $provided['type'];
+                $provider_docblock_location = $provided['location'];
                 $provider_return_type_location = $provided['return_type_location'];
-                $return_type_suppressions      = $provided['return_type_suppressions'];
-                $provider_hint                 = $provided['hint'];
-                $provider_return_type_string   = $provider_return_type->getId();
+                $return_type_suppressions = $provided['return_type_suppressions'];
+                $provider_hint = $provided['hint'];
+                $provider_return_type_string = $provider_return_type->getId();
 
                 $expected_provider_return_type = new Type\Atomic\TIterable([
                     Type::getArrayKey(),
@@ -681,11 +681,11 @@ final class TestCaseHandler implements
                     $subject = 'Argument ' . ($param_offset + 1)
                         . ($param_name === null ? '' : ' ($' . $param_name . ')')
                         . ' of ' . $method_name;
-                    $by      = ' by ' . $provider_name . ':(' . $provider_return_type_string . ')';
+                    $by = ' by ' . $provider_name . ':(' . $provider_return_type_string . ')';
                     if ($is_optional) {
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
-                    $param_id    = $param_type->getId();
+                    $param_id = $param_type->getId();
                     $argument_id = $potential_argument_type->getId();
 
                     $comparison = new TypeComparisonResult();
@@ -758,7 +758,7 @@ final class TestCaseHandler implements
                 if ($dataset_type instanceof Type\Atomic\TArray) {
                     // The dataset length is unknown, so assume the trailing params receive the return values
                     // of depended-upon tests, unless a variadic param could consume them.
-                    $last_param      = \array_slice($params, -1)[0] ?? null;
+                    $last_param = \array_slice($params, -1)[0] ?? null;
                     $provider_params = \array_slice(
                         $params,
                         0,
@@ -776,7 +776,7 @@ final class TestCaseHandler implements
                     }
                 } elseif (self::hasStringKeys($dataset_type)) {
                     $provided_by = $provider_name . ':(' . $provider_return_type_string . ')';
-                    $binding     = DatasetBinding::bind($dataset_type, $params, $codebase, $method_storage);
+                    $binding = DatasetBinding::bind($dataset_type, $params, $codebase, $method_storage);
 
                     foreach ($binding->arguments as $argument) {
                         $checkParam(
@@ -840,7 +840,7 @@ final class TestCaseHandler implements
                     // PHPUnit appends the return values of depended-upon tests right after the dataset, so the
                     // dataset certainly supplies only the positions that the required params need beyond them.
                     // A trailing variadic param could consume them as well.
-                    $last_param         = \array_slice($params, -1)[0] ?? null;
+                    $last_param = \array_slice($params, -1)[0] ?? null;
                     $tail_checked_until = \count($params);
                     if ($dependency_values > 0 && ($last_param === null || !$last_param->is_variadic)) {
                         $tail_checked_until = ($method_storage->required_param_count ?? $tail_checked_until)
@@ -926,7 +926,7 @@ final class TestCaseHandler implements
         string $static_class,
     ): Type\Union {
         $appearing_id = $codebase->getAppearingMethodId($apparent_method_name);
-        $self_class   = $appearing_id === null ? $static_class : MethodIdentifier::wrap($appearing_id)->fq_class_name;
+        $self_class = $appearing_id === null ? $static_class : MethodIdentifier::wrap($appearing_id)->fq_class_name;
 
         return TypeExpander::expandUnion(
             $codebase,
@@ -997,7 +997,7 @@ final class TestCaseHandler implements
                 continue;
             }
 
-            $provider_id      = MethodIdentifier::wrap($provider_method_id);
+            $provider_id = MethodIdentifier::wrap($provider_method_id);
             $provider_storage = $codebase->methods->getStorage($provider_id);
             if ($provider_storage->abstract || $provider_storage->location === null) {
                 continue;
@@ -1027,7 +1027,7 @@ final class TestCaseHandler implements
         CodeLocation $location,
         array $suppressed_issues,
     ): void {
-        $provider_visibility   = $provider_method_storage->visibility;
+        $provider_visibility = $provider_method_storage->visibility;
         $appearing_provider_id = $codebase->methods->getAppearingMethodId(
             MethodIdentifier::wrap($apparent_provider_method_name),
         );
@@ -1108,10 +1108,10 @@ final class TestCaseHandler implements
 
         // PHPUnit ignores the return value of a generator
         foreach ($visitor->generator ? $visitor->yielded : $visitor->returned as $dataset) {
-            $named    = false;
+            $named = false;
             $violated = false;
-            $seen     = [];
-            $next     = 0;
+            $seen = [];
+            $next = 0;
             foreach ($dataset->items as $item) {
                 $key = $item->key;
                 if ($item->unpack || ($key !== null && !$key instanceof String_ && !$key instanceof Int_)) {
@@ -1125,7 +1125,7 @@ final class TestCaseHandler implements
                 }
 
                 $position = $key === null ? $next : (int) $key->value;
-                $next     = \max($next, $position + 1);
+                $next = \max($next, $position + 1);
 
                 // An array keeps the place of a key's first insertion, so overwriting a positional key is harmless
                 if ($named && !isset($seen[$position])) {
@@ -1180,10 +1180,10 @@ final class TestCaseHandler implements
             }
 
             if ($type instanceof Type\Atomic\TArray) {
-                $key_types[]   = $type->type_params[0] ?? Type::getMixed();
+                $key_types[] = $type->type_params[0] ?? Type::getMixed();
                 $value_types[] = $type->type_params[1] ?? Type::getMixed();
             } elseif ($type instanceof Type\Atomic\TKeyedArray) {
-                $key_types[]   = $type->getGenericKeyType();
+                $key_types[] = $type->getGenericKeyType();
                 $value_types[] = $type->getGenericValueType();
             } elseif ($type instanceof Type\Atomic\TNamedObject || $type instanceof Type\Atomic\TIterable) {
                 [$key_types[], $value_types[]] = $codebase->getKeyValueParamsForTraversableObject($type);
@@ -1321,9 +1321,9 @@ final class TestCaseHandler implements
         // PHPUnit takes a #[DataProvider] argument literally as a method name of the test class
         $providers = \array_map(
             static fn(array $entry): array => [
-                'line'     => $entry[0],
-                'class'    => null,
-                'method'   => $entry[1],
+                'line' => $entry[0],
+                'class' => null,
+                'method' => $entry[1],
                 'external' => false,
             ],
             $references ?? [],
@@ -1336,18 +1336,18 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $args           = self::attributeArguments($attribute);
+                $args = self::attributeArguments($attribute);
 
-                $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
+                $class_name = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
                 $method_name = $args['methodName'] ?? $args[1] ?? null;
                 if ($class_name === null || !$method_name instanceof String_) {
                     continue;
                 }
 
                 $providers[] = [
-                    'line'     => $attribute->getStartLine(),
-                    'class'    => $class_name,
-                    'method'   => $method_name->value,
+                    'line' => $attribute->getStartLine(),
+                    'class' => $class_name,
+                    'method' => $method_name->value,
                     'external' => true,
                 ];
             }
@@ -1372,12 +1372,12 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $args    = self::attributeArguments($attribute);
+                $args = self::attributeArguments($attribute);
                 $closure = $args['closure'] ?? $args[0] ?? null;
                 if ($closure instanceof Expr\Closure || $closure instanceof Expr\ArrowFunction) {
                     $closures[] = [
-                        'line'       => $attribute->getStartLine(),
-                        'position'   => $closure->getStartFilePos(),
+                        'line' => $attribute->getStartLine(),
+                        'position' => $closure->getStartFilePos(),
                         'statements' => $closure instanceof Expr\Closure
                             ? $closure->stmts
                             : [new Return_($closure->expr)],
@@ -1399,14 +1399,14 @@ final class TestCaseHandler implements
      */
     private static function parseProviderReference(int $line, string $reference, Aliases $aliases): array
     {
-        $parts  = \explode('::', $reference, 2);
+        $parts = \explode('::', $reference, 2);
         $method = preg_replace('/\(\s*\)$/', '', $parts[1] ?? $parts[0]);
         assert($method !== null);
 
         return [
-            'line'     => $line,
-            'class'    => isset($parts[1]) ? Type::getFQCLNFromString($parts[0], $aliases) : null,
-            'method'   => $method,
+            'line' => $line,
+            'class' => isset($parts[1]) ? Type::getFQCLNFromString($parts[0], $aliases) : null,
+            'method' => $method,
             'external' => false,
         ];
     }
@@ -1422,7 +1422,7 @@ final class TestCaseHandler implements
         ClassLikeStorage $class,
     ): int {
         $count = 0;
-        $seen  = [];
+        $seen = [];
         foreach (self::getDependencyTargets($method, $aliases, $class) as $target) {
             if ($target !== null) {
                 if (isset($seen[\strtolower($target)])) {
@@ -1494,7 +1494,7 @@ final class TestCaseHandler implements
     private static function dependencyReturnsValue(Codebase $codebase, string $target): ?bool
     {
         $target_class = \explode('::', $target)[0];
-        $target_id    = $codebase->classOrInterfaceExists($target_class)
+        $target_id = $codebase->classOrInterfaceExists($target_class)
             ? $codebase->getDeclaringMethodId($target)
             : null;
         if ($target_id === null) {
@@ -1547,7 +1547,7 @@ final class TestCaseHandler implements
     ): bool {
         $declaring_id = $class->declaring_method_ids[$name_lc] ?? null;
         $appearing_id = $class->appearing_method_ids[$name_lc] ?? null;
-        $visibility   = $method->visibility;
+        $visibility = $method->visibility;
 
         if (
             $declaring_id !== null
@@ -1595,8 +1595,8 @@ final class TestCaseHandler implements
 
                 $args = self::attributeArguments($attribute);
 
-                $is_external  = self::DEPENDS_ATTRIBUTES[$attribute_class];
-                $target_name  = $args['methodName'] ?? $args[$is_external ? 1 : 0] ?? null;
+                $is_external = self::DEPENDS_ATTRIBUTES[$attribute_class];
+                $target_name = $args['methodName'] ?? $args[$is_external ? 1 : 0] ?? null;
                 $target_class = $is_external
                     ? self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class)
                     : $class->name;
@@ -1604,7 +1604,7 @@ final class TestCaseHandler implements
                     continue; // PHPUnit treats this as a class dependency, which passes no value
                 }
 
-                $targets[]    = $target_class !== null && $target_name instanceof String_
+                $targets[] = $target_class !== null && $target_name instanceof String_
                     ? $target_class . '::' . $target_name->value
                     : null;
             }
@@ -1616,7 +1616,7 @@ final class TestCaseHandler implements
                 continue;
             }
 
-            $target    = $matches[1];
+            $target = $matches[1];
             $targets[] = \str_contains($target, '::') ? \ltrim($target, '\\') : $class->name . '::' . $target;
         }
 
@@ -1678,13 +1678,13 @@ final class TestCaseHandler implements
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return \array_filter([
-            'before'        => self::attributeValue($method, $aliases, Before::class),
-            'after'         => self::attributeValue($method, $aliases, After::class),
-            'preCondition'  => self::attributeValue($method, $aliases, PreCondition::class),
+            'before' => self::attributeValue($method, $aliases, Before::class),
+            'after' => self::attributeValue($method, $aliases, After::class),
+            'preCondition' => self::attributeValue($method, $aliases, PreCondition::class),
             'postCondition' => self::attributeValue($method, $aliases, PostCondition::class),
-            'beforeClass'   => self::attributeValue($method, $aliases, BeforeClass::class),
-            'afterClass'    => self::attributeValue($method, $aliases, AfterClass::class),
-            'test'          => self::attributeValue($method, $aliases, Test::class),
+            'beforeClass' => self::attributeValue($method, $aliases, BeforeClass::class),
+            'afterClass' => self::attributeValue($method, $aliases, AfterClass::class),
+            'test' => self::attributeValue($method, $aliases, Test::class),
         ], static fn(?array $special): bool => $special !== null);
     }
 
