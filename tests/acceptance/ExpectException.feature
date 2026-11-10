@@ -2,30 +2,6 @@ Feature: Exceptions
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Unused calls after expectException are not reported
     Given I have the following code
@@ -99,25 +75,9 @@ Feature: Exceptions
     And I see no other errors
 
   Scenario: MissingThrowsDocblock is not reported after expectException
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-          <InternalMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given Psalm checks for throws docblocks
+    And the config suppresses the issue "MissingPureAnnotation"
+    And the config suppresses the issue "InternalMethod"
     And I have the following code
       """
       final class MyTestCase extends TestCase {
@@ -169,24 +129,8 @@ Feature: Exceptions
     And I see no other errors
 
   Scenario: MissingThrowsDocblock is not reported after expectException in a branch
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-          <MissingPureAnnotation errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given Psalm checks for throws docblocks
+    And the config suppresses the issue "MissingPureAnnotation"
     And I have the following code
       """
       final class MyTestCase extends TestCase {
@@ -220,23 +164,7 @@ Feature: Exceptions
     Then I see no errors
 
   Scenario: MissingThrowsDocblock is not reported for exceptions of PHPUnit's own API
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given Psalm checks for throws docblocks
     And I have the following code
       """
       /** @psalm-mutable */
@@ -288,26 +216,8 @@ Feature: Exceptions
     And I see no other errors
 
   Scenario: Exceptions configured in ignoreExceptions are still ignored
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" checkForThrowsDocblock="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <ignoreExceptions>
-          <classAndDescendants name="DomainException"/>
-        </ignoreExceptions>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given Psalm checks for throws docblocks
+    And Psalm ignores the exception "DomainException"
     And I have the following code
       """
       final class MyTestCase extends TestCase {

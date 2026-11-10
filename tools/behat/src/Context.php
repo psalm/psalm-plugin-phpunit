@@ -30,10 +30,20 @@ final class Context implements BehatContext
 {
     /** @var non-empty-string|null */
     private string|null $scenarioDirectory = null;
-    private string|null $config = null;
+    private const DEFAULT_PREAMBLE = "<?php\nnamespace NS;\nuse PHPUnit\\Framework\\TestCase;\n";
+
+    private int $errorLevel = 1;
+    private bool $checksForThrowsDocblock = false;
+    private string|null $autoloader = null;
+    /** @var list<string> */
+    private array $suppressedIssues = [];
+    /** @var list<string> */
+    private array $suppressedPluginIssues = [];
+    /** @var list<string> */
+    private array $ignoredExceptions = [];
     private string|null $phpunitVersion = null;
     private bool $declaresDataProviderClosure = false;
-    private string $codePreamble = '';
+    private string $codePreamble = self::DEFAULT_PREAMBLE;
     private string|null $processOutput = null;
     /** @var int<0, 255> */
     private int $exitCode = 0;
@@ -133,10 +143,40 @@ final class Context implements BehatContext
         }
     }
 
-    #[Given('I have the following config')]
-    public function iHaveTheFollowingConfig(PyStringNode $config): void
+    #[Given('the error level is :level')]
+    public function theErrorLevelIs(int $level): void
     {
-        $this->config = sprintf($config->getRaw(), '');
+        $this->errorLevel = $level;
+    }
+
+    #[Given('Psalm checks for throws docblocks')]
+    public function psalmChecksForThrowsDocblocks(): void
+    {
+        $this->checksForThrowsDocblock = true;
+    }
+
+    #[Given('the config uses the autoloader :file')]
+    public function theConfigUsesTheAutoloader(string $file): void
+    {
+        $this->autoloader = $file;
+    }
+
+    #[Given('the config suppresses the issue :issue')]
+    public function theConfigSuppressesTheIssue(string $issue): void
+    {
+        $this->suppressedIssues[] = $issue;
+    }
+
+    #[Given('the config suppresses the plugin issue :issue')]
+    public function theConfigSuppressesThePluginIssue(string $issue): void
+    {
+        $this->suppressedPluginIssues[] = $issue;
+    }
+
+    #[Given('Psalm ignores the exception :class')]
+    public function psalmIgnoresTheException(string $class): void
+    {
+        $this->ignoredExceptions[] = $class;
     }
 
     /** Psalm loads the config's autoloader before analysis, and the plugin reads the version from PHPUnit\Runner\Version. */
@@ -167,58 +207,92 @@ final class Context implements BehatContext
     }
 
     /**
-     * With a PHPUnit version given, the config's autoloader is replaced by a shim that declares
-     * PHPUnit\Runner\Version and then requires the scenario's own autoloader, if any.
+     * Unused suppressions are reported, so a scenario that suppresses an issue also proves that it is raised.
      */
     private function writeConfig(): void
     {
-        $xml = $this->config;
-        if ($xml === null) {
-            return;
-        }
-
-        $version = $this->phpunitVersion;
+        $autoloader = $this->autoloader;
+        $version    = $this->phpunitVersion;
         if ($version !== null) {
-            $own = null;
-            $withoutAutoloader = \preg_replace_callback(
-                '/(<psalm\b[^>]*?)\s+autoloader="([^"]*)"/',
-                static function (array $matches) use (&$own): string {
-                    $own = $matches[2];
-
-                    return $matches[1];
-                },
-                $xml,
-                1,
-            );
-            invariant($withoutAutoloader !== null, 'Cannot read the config');
-
-            $shim = $this->versionShimFile();
-            File\write($shim, sprintf(
-                "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
-                . "        public static function id(): string\n        {\n            return %s;\n        }\n\n"
-                . "        public static function majorVersionNumber(): int\n        {\n            return %d;\n        }\n    }\n}\n"
-                . "namespace {\n%s}\n",
-                \var_export($version, true),
-                (int) $version,
-                $own === null ? '' : sprintf(
-                    "    require_once %s;\n",
-                    \var_export(\str_starts_with($own, '/') ? $own : $this->scenarioDirectory() . '/' . $own, true),
-                ),
-            ));
-
-            $xml = \preg_replace('/<psalm\b/', sprintf('<psalm autoloader="%s"', $shim), $withoutAutoloader, 1);
-            invariant($xml !== null, 'Cannot read the config');
+            $autoloader = $this->writeVersionShim($version);
         }
 
+        $attributes = sprintf('errorLevel="%d" findUnusedCode="false" findUnusedPsalmSuppress="true"', $this->errorLevel);
+        if ($this->checksForThrowsDocblock) {
+            $attributes .= ' checkForThrowsDocblock="true"';
+        }
+        if ($autoloader !== null) {
+            $attributes .= sprintf(' autoloader="%s"', self::xml($autoloader));
+        }
+
+        $issueHandlers = '';
+        foreach (['MissingClassConstType', 'DeprecatedMethod', ...$this->suppressedIssues] as $issue) {
+            $issueHandlers .= sprintf("    <%s errorLevel=\"suppress\"/>\n", $issue);
+        }
+        foreach ($this->suppressedPluginIssues as $issue) {
+            $issueHandlers .= sprintf("    <PluginIssue name=\"%s\" errorLevel=\"suppress\"/>\n", self::xml($issue));
+        }
+
+        $extra = '';
+        if ($this->ignoredExceptions !== []) {
+            $extra .= "  <ignoreExceptions>\n";
+            foreach ($this->ignoredExceptions as $class) {
+                $extra .= sprintf("    <classAndDescendants name=\"%s\"/>\n", self::xml($class));
+            }
+            $extra .= "  </ignoreExceptions>\n";
+        }
         if ($this->declaresDataProviderClosure) {
-            $xml = \str_replace(
-                '</psalm>',
-                sprintf("  <stubs><file name=\"%s\"/></stubs>\n</psalm>", __DIR__ . '/../stubs/DataProviderClosure.phpstub'),
-                $xml,
+            $extra .= sprintf(
+                "  <stubs><file name=\"%s\"/></stubs>\n",
+                self::xml(__DIR__ . '/../stubs/DataProviderClosure.phpstub'),
             );
         }
 
-        $this->writeFile('psalm.xml', $xml);
+        $this->writeFile('psalm.xml', <<<XML
+            <?xml version="1.0"?>
+            <psalm {$attributes}>
+              <projectFiles>
+                <directory name="."/>
+                <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+              </projectFiles>
+              <plugins>
+                <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
+              </plugins>
+              <issueHandlers>
+            {$issueHandlers}  </issueHandlers>
+            {$extra}</psalm>
+
+            XML);
+    }
+
+    /**
+     * Declares PHPUnit\Runner\Version and then requires the scenario's own autoloader, if any.
+     *
+     * @return non-empty-string the autoloader to configure
+     */
+    private function writeVersionShim(string $version): string
+    {
+        $own  = $this->autoloader;
+        $shim = $this->versionShimFile();
+        File\write($shim, sprintf(
+            "<?php\nnamespace PHPUnit\\Runner {\n    final class Version\n    {\n"
+            . "        public static function id(): string\n        {\n            return %s;\n        }\n\n"
+            . "        public static function majorVersionNumber(): int\n        {\n            return %d;\n        }\n    }\n}\n"
+            . "namespace {\n%s}\n",
+            \var_export($version, true),
+            (int) $version,
+            $own === null ? '' : sprintf(
+                "    require_once %s;\n",
+                \var_export(\str_starts_with($own, '/') ? $own : $this->scenarioDirectory() . '/' . $own, true),
+            ),
+        ));
+
+        return $shim;
+    }
+
+    private static function xml(string $value): string
+    {
+        return \htmlspecialchars($value, \ENT_XML1 | \ENT_QUOTES);
     }
 
     #[Given('I have the following code preamble')]

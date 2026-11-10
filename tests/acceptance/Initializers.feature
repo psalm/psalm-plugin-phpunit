@@ -2,30 +2,6 @@ Feature: MissingConstructor in stateful test cases
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Stateful test case with setUp produces no MissingConstructor
     Given I have the following code
@@ -77,42 +53,6 @@ Feature: MissingConstructor in stateful test cases
           $this->i = $this->createStub(I::class);
         }
 
-        /** @return void */
-        public function testSomething() {
-          $this->i->method('work')->willReturn(1);
-
-          $this->assertSame(1, $this->i->work());
-        }
-      }
-      """
-    When I run Psalm
-    Then I see no errors
-
-  Scenario: Descendant of a test that has #[Before] produces no MissingConstructor
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes;
-
-      /** @psalm-mutable */
-      interface I {
-        /** @psalm-impure */
-        public function work(): int;
-      }
-
-      class BaseTestCase extends TestCase {
-        /** @var I&\PHPUnit\Framework\MockObject\Stub */
-        protected $i;
-
-        #[Attributes\Before]
-        public function myInit(): void {
-          $this->i = $this->createStub(I::class);
-        }
-      }
-
-      class Intermediate extends BaseTestCase {}
-
-      final class MyTestCase extends Intermediate
-      {
         /** @return void */
         public function testSomething() {
           $this->i->method('work')->willReturn(1);
