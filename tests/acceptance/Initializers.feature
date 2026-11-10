@@ -233,6 +233,144 @@ Feature: MissingConstructor in stateful test cases
     When I run Psalm
     Then I see no errors
 
+  Scenario: A trait providing setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      trait Init {
+        private int $x;
+
+        protected function setUp(): void {
+          $this->x = 1;
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Init;
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->x);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A trait providing a #[Before] method produces no MissingConstructor
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Before;
+
+      trait Init {
+        private int $x;
+
+        #[Before]
+        protected function init(): void {
+          $this->x = 1;
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Init;
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->x);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A trait used by a trait providing setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      trait Init {
+        private int $x;
+
+        protected function setUp(): void {
+          $this->x = 1;
+        }
+      }
+
+      trait Wrapper {
+        use Init;
+      }
+
+      final class MyTestCase extends TestCase {
+        use Wrapper;
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->x);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A trait method aliased as setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      trait Init {
+        private int $x;
+
+        protected function init(): void {
+          $this->x = 1;
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Init {
+          init as protected setUp;
+        }
+
+        public function testSomething(): void {
+          $this->assertSame(1, $this->x);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Descendant of a test case whose trait provides setUp produces no MissingConstructor
+    Given I have the following code
+      """
+      trait Init {
+        protected int $x;
+
+        protected function setUp(): void {
+          $this->x = 1;
+        }
+      }
+
+      abstract class BaseTestCase extends TestCase {
+        use Init;
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        public function testSomething(): void {
+          $this->assertSame(1, $this->x);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A trait without initializers still produces MissingConstructor
+    Given I have the following code
+      """
+      trait State {
+        private int $x;
+      }
+
+      final class MyTestCase extends TestCase {
+        use State;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type               | Message |
+      | MissingConstructor | NS\MyTestCase has an uninitialized property NS\State::$x, but no constructor |
+    And I see no other errors
+
   Scenario: @before next to a PHPUnit attribute is not an initializer
     Given I have the following code
       """

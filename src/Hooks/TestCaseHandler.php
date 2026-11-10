@@ -167,39 +167,36 @@ final class TestCaseHandler implements
         }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
-            $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-            if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
+            if (
+                $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
+                && self::hasInitializers($codebase, $storage)
+            ) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
-
-                foreach (self::getDescendants($codebase, $name) as $dependent_name) {
-                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
-                    $dependent_storage->suppressed_issues[] = 'MissingConstructor';
-                }
             }
         }
     }
 
     /**
-     * @return string[]
-     *
-     * @psalm-mutation-free
+     * By now Psalm has merged the methods of parents and traits, with their aliases and exclusions, into the class.
      */
-    private static function getDescendants(Codebase $codebase, string $name): array
+    private static function hasInitializers(Codebase $codebase, ClassLikeStorage $storage): bool
     {
-        if (!$codebase->classlike_storage_provider->has($name)) {
-            return [];
-        }
+        foreach ($storage->declaring_method_ids as $name_lc => $method_id) {
+            if ($name_lc === 'setup') {
+                if (strtolower($method_id->fq_class_name) !== 'phpunit\framework\testcase') {
+                    return true;
+                }
+                continue;
+            }
 
-        $storage = $codebase->classlike_storage_provider->get($name);
-        $ret = [];
-
-        foreach ($storage->dependent_classlikes as $dependent => $_) {
-            if ($codebase->classExtends($dependent, $name)) {
-                $ret[] = $dependent;
-                $ret = array_merge($ret, self::getDescendants($codebase, $dependent));
+            $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
+            $meta      = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
+            if (isset($meta['before'][$method_id->method_name])) {
+                return true;
             }
         }
-        return $ret;
+
+        return false;
     }
 
     #[\Override]
@@ -216,8 +213,9 @@ final class TestCaseHandler implements
             $class_storage->sealed_methods = false;
         }
 
-        if (self::hasInitializers($class_storage, $class_node, $aliases)) {
-            $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
+        $before = self::getBeforeMethods($class_storage, $class_node, $aliases);
+        if ($before !== []) {
+            $class_storage->custom_metadata[__NAMESPACE__] = ['before' => $before];
         }
 
         $file_path    = $statements_source->getFilePath();
@@ -1061,22 +1059,18 @@ final class TestCaseHandler implements
     }
 
 
-    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
+    /** @return array<lowercase-string, true> */
+    private static function getBeforeMethods(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): array
     {
-        if (isset($storage->methods['setup'])) {
-            return true;
-        }
-
+        $before = [];
         foreach ($storage->methods as $method => $_) {
             $stmt_method = $stmt->getMethod($method);
-            if (!$stmt_method) {
-                continue;
-            }
-            if (self::isBeforeInitializer($stmt_method, $aliases)) {
-                return true;
+            if ($stmt_method && self::isBeforeInitializer($stmt_method, $aliases)) {
+                $before[$method] = true;
             }
         }
-        return false;
+
+        return $before;
     }
 
     private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
