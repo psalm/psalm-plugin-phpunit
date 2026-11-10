@@ -14,7 +14,8 @@ Layout:
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`, and `assertSame()` over `assertEquals()`
-  for two arguments of one scalar type.
+  for two arguments of one scalar type. Psalter fixes the null, boolean and equals suggestions
+  (`Plugin` declares them with `PluginFixableIssuesInterface`), not the count ones.
 - `src/Hooks/ProviderReturnTypeHandler.php`: the `AfterFunctionLikeAnalysis` hook that keeps the type Psalm
   infers for each dataset of a static provider with only a native return type (never the merged type of all
   datasets). `TestCaseHandler` checks the datasets against it only for providers of the analysed class or its
@@ -95,12 +96,16 @@ Locally:
 
 ### Psalm versions
 
-`composer.json` allows Psalm `^7.2`: 7.0 and 7.1 require `psalm/plugin-phpunit: ^0.21` and
-never install 1.x. The CI low jobs (`--prefer-lowest`) resolve Psalm 7.2.0, the high and
-stable jobs the newest. They can report different issues.
+`composer.json` requires `psalm/psalm-plugin-api: ^0.4.2` (Psalter fixes through
+`PluginFixableIssuesInterface`) next to Psalm `^7.2 || dev-master`. Only Psalm dev-master
+requires that API version for now: Psalm 7.2.0 and 7.2.1 pin 0.4.1. So every CI job (low,
+stable, high) installs dev-master until a Psalm release ships 0.4.2, and Psalm 7.2 users stay
+on the previous plugin release. Once such a release exists, raise `vimeo/psalm` to it.
+Psalm 7.0 and 7.1 require `psalm/plugin-phpunit: ^0.21` and never install 1.x.
 - Always check `vendor/bin/psalm --version` before trusting a result.
 - For a change that is sensitive to the Psalm version (issue names, purity, stubs, hook
-  events), run the relevant scenarios on both (skill `plugin-repro`).
+  events), run the relevant scenarios on both once a released Psalm satisfies the
+  requirement (skill `plugin-repro`).
 
 ## Pull requests
 
@@ -190,6 +195,9 @@ workaround explicitly in the report.
     to the config, as the real attribute only exists since PHPUnit 13.1 (use it with version `13.1.0`);
   - `When I run Psalm with dead code detection` adds `--find-dead-code`;
     `When I run Psalm on "<file>"` and `Then I see exit code N` also exist.
+  - `When I run Psalter with the issues "X"` runs `vendor/bin/psalter --issues=X` in the scenario
+    directory and fails unless Psalter exits 0 (the failure shows the exit code and the output);
+    `Then the code is` (a PyString) compares `code.php` with the preamble plus the given code.
 - Ways a scenario silently asserts nothing:
   - `I see no errors` for a missed-issue fix (it passes on the base): assert the issue with
     `I see these errors` + `I see no other errors`;

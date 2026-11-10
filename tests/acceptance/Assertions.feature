@@ -372,3 +372,262 @@ Feature: Assertions
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Psalter replaces assertEquals() with assertSame()
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $this->assertEquals(1, $int);
+          self::assertNotEquals($int, 2);
+          static::assertEquals('a', $text, 'The text must match');
+          $this->assertNotEquals($text, strrev($text), 'Must differ');
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testEquals(): void {
+          $int = random_int(0, 1);
+          $text = (string) $int;
+          $this->assertSame(1, $int);
+          self::assertNotSame($int, 2);
+          static::assertSame('a', $text, 'The text must match');
+          $this->assertNotSame($text, strrev($text), 'Must differ');
+        }
+      }
+      """
+
+  Scenario: Psalter replaces assertSame(null|true|false) with the dedicated assertion
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testDedicated(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $this->assertSame(null, $value);
+          $this->assertNotSame($value, null);
+          self::assertSame(true, $flag);
+          self::assertNotSame($flag, true);
+          $this->assertSame(false, $flag, 'Must be false');
+          $this->assertNotSame($flag, false, 'Must not be false');
+          $this->assertEquals(true, $flag);
+          $this->assertNotEquals(false, $flag);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion,UnspecificBooleanAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testDedicated(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $this->assertNull($value);
+          $this->assertNotNull($value);
+          self::assertTrue($flag);
+          self::assertNotTrue($flag);
+          $this->assertFalse($flag, 'Must be false');
+          $this->assertNotFalse($flag, 'Must not be false');
+          $this->assertTrue($flag);
+          $this->assertNotFalse($flag);
+        }
+      }
+      """
+
+  Scenario: Psalter fixes only the requested assertion issue
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testRequested(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $int = random_int(0, 1);
+          $this->assertSame(null, $value);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testRequested(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $int = random_int(0, 1);
+          $this->assertNull($value);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+
+  Scenario: Psalter fixes the assertion issues with all
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testAll(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $items = ['a', 'b'];
+          $this->assertSame(null, $value);
+          $this->assertEquals(true, $flag);
+          $this->assertEquals(1, $int);
+          $this->assertSame(2, count($items));
+        }
+      }
+      """
+    When I run Psalter with the issues "all"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testAll(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $items = ['a', 'b'];
+          $this->assertNull($value);
+          $this->assertTrue($flag);
+          $this->assertSame(1, $int);
+          $this->assertSame(2, count($items));
+        }
+      }
+      """
+
+  Scenario: Psalter keeps a suppressed assertion issue
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-suppress UnspecificEqualsAssertion
+         */
+        public function testSuppressed(): void {
+          $int = random_int(0, 1);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-suppress UnspecificEqualsAssertion
+         */
+        public function testSuppressed(): void {
+          $int = random_int(0, 1);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+
+  Scenario: Psalter keeps an assertion issue suppressed in the config
+    Given the config suppresses the plugin issue "UnspecificEqualsAssertion"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testConfigSuppressed(): void {
+          $int = random_int(0, 1);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testConfigSuppressed(): void {
+          $int = random_int(0, 1);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+
+  Scenario: Psalter fixes assertions reported as info below error level 1
+    Given the error level is 2
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testLevel(): void {
+          $int = random_int(0, 1);
+          $this->assertEquals(1, $int);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testLevel(): void {
+          $int = random_int(0, 1);
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+
+  Scenario: Psalter fixes multi-line assertions
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testMultiLine(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $this->assertSame(
+            null,
+            $value,
+          );
+          $this->assertNotSame(
+            $flag,
+            true,
+          );
+          $this->assertEquals(
+            1,
+            $int,
+          );
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion,UnspecificBooleanAssertion,UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testMultiLine(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          $flag = random_int(0, 1) === 1;
+          $int = random_int(0, 1);
+          $this->assertNull(
+            $value,
+          );
+          $this->assertNotTrue(
+            $flag,
+          );
+          $this->assertSame(
+            1,
+            $int,
+          );
+        }
+      }
+      """
+
+  Scenario: Psalter keeps assertion callables passed to array_map()
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        public function testCallable(): void {
+          array_map([$this, 'assertEquals'], [1, 2], [1, 2]);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificEqualsAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        public function testCallable(): void {
+          array_map([$this, 'assertEquals'], [1, 2], [1, 2]);
+        }
+      }
+      """

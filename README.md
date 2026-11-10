@@ -66,13 +66,19 @@ Classes, methods and functions in coverage attributes (and `@covers` on PHPUnit 
 
 ### Assertion suggestions
 
-Assertions that a dedicated one expresses better are reported as `UnspecificNullAssertion`, `UnspecificBooleanAssertion`, `UnspecificCountAssertion` and `UnspecificEqualsAssertion`, at `errorLevel="1"` only.
+Assertions that a dedicated one expresses better are reported as `UnspecificNullAssertion`, `UnspecificBooleanAssertion`, `UnspecificCountAssertion` and `UnspecificEqualsAssertion`. They are errors at `errorLevel="1"` and info at higher levels.
 
 ```php
 self::assertSame(null, $maybe); // UnspecificNullAssertion
 self::assertSame(true, $flag); // UnspecificBooleanAssertion
 self::assertSame(3, count($items)); // UnspecificCountAssertion
 self::assertEquals(1, $int); // UnspecificEqualsAssertion
+```
+
+Psalter fixes the null, boolean and equals ones (Psalm with `psalm/psalm-plugin-api` 0.4.2 or newer).
+
+```shell
+vendor/bin/psalter --issues=UnspecificNullAssertion,UnspecificBooleanAssertion,UnspecificEqualsAssertion
 ```
 
 ### Mocks and doubles

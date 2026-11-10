@@ -437,4 +437,38 @@ final class Context implements BehatContext
                 ->coerce($file),
         ]);
     }
+
+    /**
+     * Applies the fixes of the given comma separated issues (or "all") to the scenario's files.
+     * A non-zero exit (a rejected "--issues", a crash) lets Psl's FailedExecutionException fail the step:
+     * its message carries the exit code, STDOUT and STDERR.
+     */
+    #[When('I run Psalter with the issues :issues')]
+    public function iRunPsalterWithTheIssues(string $issues): void
+    {
+        $this->writeConfig();
+
+        $this->processOutput = Shell\execute(
+            __DIR__ . '/../../../vendor/bin/psalter',
+            [
+                '--no-progress',
+                '--no-cache',
+                '--issues=' . $issues,
+            ],
+            $this->scenarioDirectory(),
+            error_output_behavior: ErrorOutputBehavior::Append,
+        );
+    }
+
+    #[Then('the code is')]
+    public function theCodeIs(PyStringNode $expected): void
+    {
+        $actual = File\read($this->scenarioDirectory() . '/code.php');
+
+        invariant(
+            $actual === $this->codePreamble . "\n" . $expected->getRaw(),
+            "The code differs from the expected one. Actual code:\n%s",
+            $actual,
+        );
+    }
 }

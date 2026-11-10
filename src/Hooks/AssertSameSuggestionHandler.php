@@ -12,7 +12,9 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Identifier;
 use PhpParser\Node\Name;
 use Psalm\CodeLocation;
+use Psalm\FileManipulation;
 use Psalm\IssueBuffer;
+use Psalm\Node\VirtualNode;
 use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificCountAssertion;
 use Psalm\PhpUnitPlugin\Issue\UnspecificEqualsAssertion;
@@ -23,7 +25,8 @@ use Psalm\Type\Atomic\TNamedObject;
 
 /**
  * Suggests the dedicated assertion for assertSame(null|true|false, ...) and assertSame(n, count(...)) in either
- * argument order, and assertSame() over assertEquals() when both arguments are of the same scalar type.
+ * argument order, and assertSame() over assertEquals() when both arguments are of the same scalar type. Psalter
+ * fixes the null, boolean and equals suggestions (see Plugin::getFixableIssues()), never the count ones.
  */
 final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterface
 {
@@ -71,6 +74,8 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             [$expected, $actual] = [$actual, $expected];
         }
         $literal = self::literalName($expected);
+        $fixedName = null;
+        $dropsLiteral = false;
 
         // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool actual
         if (
@@ -81,6 +86,8 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
                     && self::scalarFamily($actual, $event) === 'bool'))
         ) {
             [$name, $not] = self::COUNT_METHODS[$method];
+            $fixedName = 'assert' . $not . \ucfirst($literal);
+            $dropsLiteral = true;
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
             $message = \sprintf(
                 'Use assert%s%s() instead of %s(%s)',
@@ -104,6 +111,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             && $family === self::scalarFamily($actual, $event)
         ) {
             [$name, $not] = self::EQUALS_METHODS[$method];
+            $fixedName = 'assert' . $not . 'Same';
             $issueClass = UnspecificEqualsAssertion::class;
             $message = \sprintf(
                 'Use assert%sSame() instead of %s(), both arguments are of type %s',
@@ -116,10 +124,36 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         }
 
         $source = $event->getStatementsSource();
-        IssueBuffer::accepts(
-            new $issueClass($message, new CodeLocation($source, $call)),
-            $source->getSuppressedIssues(),
-        );
+        $issue = new $issueClass($message, new CodeLocation($source, $call));
+
+        $methodName = $call->name;
+        $replacements = [];
+        // array_map([$this, 'assertEquals'], ...) is analysed as a virtual call positioned at the whole callable
+        if (
+            $fixedName !== null
+            && $methodName instanceof Identifier
+            && !$methodName instanceof VirtualNode
+            && !$call instanceof VirtualNode
+        ) {
+            $replacements[] = new FileManipulation(
+                $methodName->getStartFilePos(),
+                $methodName->getEndFilePos() + 1,
+                $fixedName,
+            );
+            if ($dropsLiteral) {
+                $replacements[] = $swapped
+                    ? new FileManipulation($args[0]->getEndFilePos() + 1, $args[1]->getEndFilePos() + 1, '')
+                    : new FileManipulation($args[0]->getStartFilePos(), $args[1]->getStartFilePos(), '');
+            }
+        }
+
+        if ($replacements !== [] && $event->getCodebase()->shouldFixIssue($issue, $source->getSuppressedIssues())) {
+            $event->setFileReplacements([...$event->getFileReplacements(), ...$replacements]);
+
+            return;
+        }
+
+        IssueBuffer::accepts($issue, $source->getSuppressedIssues(), $replacements !== []);
     }
 
     /**
