@@ -280,3 +280,23 @@ Feature: DataProviderClosure
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: Mismatched datasets of a #[DataProviderClosure] can be suppressed on the test method
+    Given PHPUnit identifies as version "13.1.0"
+    And PHPUnit declares the DataProviderClosure attribute
+    And I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProviderClosure;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @psalm-suppress InvalidArgument
+         */
+        #[DataProviderClosure(static fn (): iterable => [['not an int']])]
+        public function testDouble(int $value): void {
+          $this->assertSame($value * 2, $value + $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

@@ -344,6 +344,191 @@ Feature: Datasets
     When I run Psalm with dead code detection
     Then I see no errors
 
+  Scenario: Mismatched datasets can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        /**
+         * @psalm-suppress InvalidArgument
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Mismatched datasets can be suppressed on the test class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @psalm-suppress InvalidArgument
+       */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A suppression on one test does not hide the mismatched datasets of another
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        /**
+         * @psalm-suppress InvalidArgument
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+
+        #[DataProvider('provideCents')]
+        public function testPositiveCents(int $cents): void {
+          $this->assertGreaterThan(0, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testPositiveCents expects int, string provided by NS\MyTestCase::providecents():(iterable[pure]<string, list{string}>) | 24 |
+    And I see no other errors
+
+  Scenario: Mismatched datasets of a trait test can be suppressed on the trait method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait CentsTests {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        /**
+         * @psalm-suppress InvalidArgument
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use CentsTests;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A suppression on the test class does not reach a trait test from another file
+    Given I have the following code in "CentsTests.php"
+      """
+      <?php
+      namespace NS;
+
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait CentsTests {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      /**
+       * @psalm-suppress InvalidArgument
+       */
+      final class MyTestCase extends TestCase {
+        use CentsTests;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message | Line |
+      | InvalidArgument     | Argument 1 of NS\MyTestCase::testCents expects int, string provided by NS\CentsTests::providecents():(iterable[pure]<string, list{string}>) | 15 |
+      | UnusedPsalmSuppress | This suppression is never used | 6 |
+    And I see no other errors
+
+  Scenario: Missing dataset values can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{int}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => [100];
+        }
+
+        /**
+         * @psalm-suppress TooFewArguments
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents, string $currency): void {
+          $this->assertSame('100 EUR', $cents . ' ' . $currency);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: A non-empty-list dataset can supply any number of parameters
     Given I have the following code
       """
