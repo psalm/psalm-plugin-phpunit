@@ -1697,6 +1697,38 @@ Feature: Datasets
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects Closure[impure](int, string):bool, Closure[impure](string, string):bool provided by NS\MyTestCase::provide():(list<list{array<int, string>, Closure[impure](string, string):bool}>) |
     And I see no other errors
 
+  Scenario: A closure test parameter before an unbounded list template is checked against the list
+    Given I have the following code
+      """
+      use Closure;
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{Closure(int): bool, list<string>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[static fn (int $i): bool => true, ['a']]];
+        }
+
+        /**
+         * @template T
+         * @param Closure(T): bool $p
+         * @param list<T> $l
+         */
+        #[DataProvider('provide')]
+        public function testSomething(Closure $p, array $l): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects Closure[impure](string):bool, Closure[impure](int):bool provided by NS\MyTestCase::provide():(list<list{Closure[impure](int):bool, list<string>}>) |
+    And I see no other errors
+
   Scenario: Conflicting dataset values for one method template are reported
     Given I have the following code
       """

@@ -46,7 +46,7 @@ final class TemplateInference
             );
         }
 
-        // A template that no value infers takes what the closure accepts (Psalm does this after checking a call's arguments)
+        // A template that no value infers takes what the closure accepts, as Psalm decides after checking a call
         foreach ($result->upper_bounds as $name => $by_class) {
             foreach ($by_class as $class => $upper_bound) {
                 $result->lower_bounds[$name][$class] ??= [new TemplateBound($upper_bound->type)];

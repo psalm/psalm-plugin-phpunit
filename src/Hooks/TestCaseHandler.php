@@ -763,7 +763,7 @@ final class TestCaseHandler implements
                     $inferred = TemplateInference::infer(
                         $codebase,
                         $method_storage,
-                        array_map(static fn (array $check): array => [$check[1], $check[0]], $checks),
+                        array_map(static fn(array $check): array => [$check[1], $check[0]], $checks),
                     );
                     foreach ($checks as [$argument_type, $param_type, $is_optional, $param_offset, $param_name]) {
                         $checkParam($argument_type, $param_type, $is_optional, $param_offset, $param_name, $inferred);
