@@ -463,3 +463,57 @@ Feature: Data provider return types
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: An iterable provider with an object key type is still reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<object, array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield new \stdClass => [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message | Line |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable[pure]<object, list{int}> provided | 10 |
+    And I see no other errors
+
+  Scenario: An iterable provider without a key type and with non-array values is still reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<int>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 1;
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message | Line |
+      | InvalidReturnType | Providers must return iterable<array-key, array<array-key, mixed>>, iterable[pure]<mixed, int> provided | 10 |
+    And I see no other errors

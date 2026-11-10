@@ -562,14 +562,12 @@ final class TestCaseHandler implements
                 );
 
                 // A single-argument iterable such as iterable<V> has a mixed key, and PHPUnit rejects keys
-                // that are not int|string at runtime. Only a mixed value reveals an untyped provider.
-                $provider_key_type_is_compatible = (
-                    $provider_return_type->type_params[0]->isMixed()
-                    && !$provider_return_type->type_params[1]->hasMixed()
-                ) || $codebase->isTypeContainedByType(
-                    $provider_return_type->type_params[0],
-                    $expected_provider_return_type->type_params[0]
-                );
+                // that are not int|string at runtime.
+                $provider_key_type_is_compatible = $provider_return_type->type_params[0]->isMixed()
+                    || $codebase->isTypeContainedByType(
+                        $provider_return_type->type_params[0],
+                        $expected_provider_return_type->type_params[0]
+                    );
 
                 if (!$provider_key_type_is_compatible) {
                     // XXX: isn't array key allowed by the $expected_provider_return_type ?
