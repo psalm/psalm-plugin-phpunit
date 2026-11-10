@@ -641,9 +641,7 @@ final class TestCaseHandler implements
                         $codebase,
                         $potential_argument_type,
                         $param_type,
-                        false,
-                        false,
-                        $comparison,
+                        union_comparison_result: $comparison,
                     )) {
                         // ok
                     } elseif ($comparison->type_coerced && !$potential_argument_type->hasMixed()) {
@@ -656,6 +654,27 @@ final class TestCaseHandler implements
                                 ? new Issue\MixedArgumentTypeCoercion($message, $provider_docblock_location)
                                 : new Issue\ArgumentTypeCoercion($message, $provider_docblock_location)
                         );
+                        // Core reports these separately from the coercion, so they must not be hidden by it
+                        $provided_by = ' by ' . $provider_name . ':(' . $provider_return_type_string . ')';
+                        if ($potential_argument_type->isNullable() && !$param_type->isNullable()) {
+                            IssueBuffer::accepts(new Issue\PossiblyNullArgument(
+                                $argument . ' of ' . $method_name
+                                . ' cannot be null, possibly null value provided' . $provided_by,
+                                $provider_docblock_location
+                            ));
+                        }
+                        if ($potential_argument_type->isFalsable()
+                            && !$param_type->isFalsable()
+                            && !$param_type->hasBool()
+                            && !$param_type->hasScalar()
+                        ) {
+                            IssueBuffer::accepts(new Issue\PossiblyFalseArgument(
+                                $argument . ' of ' . $method_name
+                                . ' cannot be false, possibly ' . $param_type->getId() . ' value expected'
+                                . $provided_by,
+                                $provider_docblock_location
+                            ));
+                        }
                     } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
                             $argument . ' of ' . $method_name
