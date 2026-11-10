@@ -2,3 +2,4 @@
 composer.lock
 vendor
 .claude/settings.local.json
+/.php-cs-fixer.cache
