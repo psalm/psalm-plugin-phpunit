@@ -77,6 +77,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         }
         $literal = self::literalName($expected);
         $fixedName = null;
+        $dropLiteral = null;
 
         // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool actual
         if (
@@ -88,6 +89,10 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         ) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $fixedName = 'assert' . $not . \ucfirst($literal);
+            // From the literal to the next argument, or from the previous argument to the literal
+            $dropLiteral = $swapped
+                ? new FileManipulation($args[0]->getEndFilePos() + 1, $args[1]->getEndFilePos() + 1, '')
+                : new FileManipulation($args[0]->getStartFilePos(), $args[1]->getStartFilePos(), '');
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
             $message = \sprintf(
                 'Use %s() instead of %s(%s)',
@@ -124,15 +129,7 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
 
         $source = $event->getStatementsSource();
         $issue = new $issueClass($message, new CodeLocation($source, $call));
-        $replacements = $fixedName === null
-            ? []
-            : self::replacements(
-                $call,
-                $fixedName,
-                $issueClass !== UnspecificEqualsAssertion::class,
-                $swapped,
-                $event,
-            );
+        $replacements = $fixedName === null ? [] : self::replacements($call, $fixedName, $dropLiteral, $event);
 
         if ($replacements !== [] && $event->getCodebase()->shouldFixIssue($issue, $source->getSuppressedIssues())) {
             $event->setFileReplacements([...$event->getFileReplacements(), ...$replacements]);
@@ -249,12 +246,11 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     private static function replacements(
         MethodCall|StaticCall $call,
         string $fixedName,
-        bool $dropsLiteral,
-        bool $swapped,
+        ?FileManipulation $dropLiteral,
         AfterMethodCallAnalysisEvent $event,
     ): array {
         $methodName = $call->name;
-        // Positions of virtual calls (array_map callables, `?->`, pipes) can't be trusted
+        // Virtual calls are skipped: their positions may not be the call's own
         if (
             !$methodName instanceof Identifier
             || $call instanceof VirtualNode
@@ -263,17 +259,9 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             return [];
         }
 
-        $args = $call->getArgs();
-        $replacements = [
-            new FileManipulation($methodName->getStartFilePos(), $methodName->getEndFilePos() + 1, $fixedName),
-        ];
-        if ($dropsLiteral) {
-            $replacements[] = $swapped
-                ? new FileManipulation($args[0]->getEndFilePos() + 1, $args[1]->getEndFilePos() + 1, '')
-                : new FileManipulation($args[0]->getStartFilePos(), $args[1]->getStartFilePos(), '');
-        }
+        $rename = new FileManipulation($methodName->getStartFilePos(), $methodName->getEndFilePos() + 1, $fixedName);
 
-        return $replacements;
+        return $dropLiteral === null ? [$rename] : [$rename, $dropLiteral];
     }
 
     private static function isCountCall(Expr $expr, AfterMethodCallAnalysisEvent $event): bool
