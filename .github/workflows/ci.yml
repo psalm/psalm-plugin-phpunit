@@ -118,6 +118,9 @@ jobs:
             - name: Static analysis
               run: cd tools/behat && vendor/bin/psalm
 
+            - name: Lint the Behat scenarios
+              run: php tools/behat/lint-features.php
+
     tests:
         name: Test on ${{matrix.php}} - ${{matrix.deps}} deps
         runs-on: ubuntu-latest

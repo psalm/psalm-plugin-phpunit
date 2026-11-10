@@ -2,30 +2,6 @@ Feature: Docblock annotation parsing
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: Annotation without a value is reported instead of a provider error
     Given I have the following code
@@ -284,24 +260,7 @@ Feature: Docblock annotation parsing
     And I see no other errors
 
   Scenario: Malformed annotation in a trait method is suppressed on the test class using the trait
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code
+    Given I have the following code
       """
       /** @psalm-immutable */
       trait HelperTrait
@@ -325,24 +284,7 @@ Feature: Docblock annotation parsing
     Then I see no errors
 
   Scenario: Malformed annotation in a trait from another file is suppressed on the trait
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code in "HelperTrait.php"
+    Given I have the following code in "HelperTrait.php"
       """
       <?php
       namespace NS;
@@ -375,24 +317,7 @@ final class MyTestCase extends TestCase
     Then I see no errors
 
   Scenario: Suppression on the test class does not reach a trait method from another file
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" findUnusedPsalmSuppress="true">
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code in "HelperTrait.php"
+    Given I have the following code in "HelperTrait.php"
       """
       <?php
       namespace NS;
