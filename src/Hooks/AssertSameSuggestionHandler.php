@@ -23,6 +23,7 @@ use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
 use Psalm\Plugin\EventHandler\AfterMethodCallAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\AfterMethodCallAnalysisEvent;
 use Psalm\Type\Atomic\TNamedObject;
+use Psalm\Type\Union;
 
 /**
  * Suggests the dedicated assertion for assertSame(null|true|false, ...) and assertSame(n, count(...)) in either
@@ -76,7 +77,6 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         }
         $literal = self::literalName($expected);
         $fixedName = null;
-        $dropsLiteral = false;
 
         // assertEquals(true, 1) passes while assertTrue(1) fails, so assertEquals() needs a bool actual
         if (
@@ -88,12 +88,10 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
         ) {
             [$name, $not] = self::COUNT_METHODS[$method];
             $fixedName = 'assert' . $not . \ucfirst($literal);
-            $dropsLiteral = true;
             $issueClass = $literal === 'null' ? UnspecificNullAssertion::class : UnspecificBooleanAssertion::class;
             $message = \sprintf(
-                'Use assert%s%s() instead of %s(%s)',
-                $not,
-                \ucfirst($literal),
+                'Use %s() instead of %s(%s)',
+                $fixedName,
                 $name,
                 $swapped ? '..., ' . $literal : $literal . ', ...',
             );
@@ -115,8 +113,8 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
             $fixedName = 'assert' . $not . 'Same';
             $issueClass = UnspecificEqualsAssertion::class;
             $message = \sprintf(
-                'Use assert%sSame() instead of %s(), both arguments are of type %s',
-                $not,
+                'Use %s() instead of %s(), both arguments are of type %s',
+                $fixedName,
                 $name,
                 $family,
             );
@@ -126,28 +124,15 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
 
         $source = $event->getStatementsSource();
         $issue = new $issueClass($message, new CodeLocation($source, $call));
-
-        $methodName = $call->name;
-        $replacements = [];
-        // array_map([$this, 'assertEquals'], ...) is analysed as a virtual call positioned at the whole callable
-        if (
-            $fixedName !== null
-            && $methodName instanceof Identifier
-            && !$methodName instanceof VirtualNode
-            && !$call instanceof VirtualNode
-            && self::onlyReachesAssert($call, $event)
-        ) {
-            $replacements[] = new FileManipulation(
-                $methodName->getStartFilePos(),
-                $methodName->getEndFilePos() + 1,
+        $replacements = $fixedName === null
+            ? []
+            : self::replacements(
+                $call,
                 $fixedName,
+                $issueClass !== UnspecificEqualsAssertion::class,
+                $swapped,
+                $event,
             );
-            if ($dropsLiteral) {
-                $replacements[] = $swapped
-                    ? new FileManipulation($args[0]->getEndFilePos() + 1, $args[1]->getEndFilePos() + 1, '')
-                    : new FileManipulation($args[0]->getStartFilePos(), $args[1]->getStartFilePos(), '');
-            }
-        }
 
         if ($replacements !== [] && $event->getCodebase()->shouldFixIssue($issue, $source->getSuppressedIssues())) {
             $event->setFileReplacements([...$event->getFileReplacements(), ...$replacements]);
@@ -241,32 +226,54 @@ final class AssertSameSuggestionHandler implements AfterMethodCallAnalysisInterf
     }
 
     /**
-     * A union receiver such as TestCase|Helper may dispatch to Helper::assertSame(), which has no assertNull().
+     * A union receiver such as TestCase|Helper may reach Helper::assertSame(), which has no assertNull().
      */
     private static function onlyReachesAssert(MethodCall|StaticCall $call, AfterMethodCallAnalysisEvent $event): bool
     {
         if ($call instanceof StaticCall) {
-            return true;
+            return $call->class instanceof Name;
         }
 
         $receiver = $event->getStatementsSource()->getNodeTypeProvider()->getType($call->var);
-        if ($receiver === null) {
-            return false;
+
+        return $receiver !== null
+            && $event->getCodebase()->isTypeContainedByType(
+                $receiver,
+                new Union([new TNamedObject('PHPUnit\\Framework\\Assert')]),
+            );
+    }
+
+    /**
+     * @return list<FileManipulation>
+     */
+    private static function replacements(
+        MethodCall|StaticCall $call,
+        string $fixedName,
+        bool $dropsLiteral,
+        bool $swapped,
+        AfterMethodCallAnalysisEvent $event,
+    ): array {
+        $methodName = $call->name;
+        // Positions of virtual calls (array_map callables, `?->`, pipes) can't be trusted
+        if (
+            !$methodName instanceof Identifier
+            || $call instanceof VirtualNode
+            || !self::onlyReachesAssert($call, $event)
+        ) {
+            return [];
         }
 
-        $codebase = $event->getCodebase();
-        foreach ($receiver->getAtomicTypes() as $atomic) {
-            if (
-                !$atomic instanceof TNamedObject
-                || !$codebase->classOrInterfaceExists($atomic->value)
-                || (\strtolower($atomic->value) !== 'phpunit\\framework\\assert'
-                    && !$codebase->classExtendsOrImplements($atomic->value, 'PHPUnit\\Framework\\Assert'))
-            ) {
-                return false;
-            }
+        $args = $call->getArgs();
+        $replacements = [
+            new FileManipulation($methodName->getStartFilePos(), $methodName->getEndFilePos() + 1, $fixedName),
+        ];
+        if ($dropsLiteral) {
+            $replacements[] = $swapped
+                ? new FileManipulation($args[0]->getEndFilePos() + 1, $args[1]->getEndFilePos() + 1, '')
+                : new FileManipulation($args[0]->getStartFilePos(), $args[1]->getStartFilePos(), '');
         }
 
-        return true;
+        return $replacements;
     }
 
     private static function isCountCall(Expr $expr, AfterMethodCallAnalysisEvent $event): bool

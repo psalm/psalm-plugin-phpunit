@@ -676,3 +676,81 @@ Feature: Assertions
         }
       }
       """
+
+  Scenario: Psalter keeps static assertions on a class-string that may not be a test case
+    Given I have the following code
+      """
+      final class StaticHelper {
+        public static function assertSame(mixed $expected, mixed $actual): void {
+          if ($expected !== $actual) {
+            throw new \RuntimeException('Not the same');
+          }
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @param class-string<MyTestCase>|class-string<StaticHelper> $receiver
+         */
+        public static function check(string $receiver, ?int $value): void {
+          $receiver::assertSame(null, $value);
+        }
+
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          self::assertSame(null, $value);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion"
+    Then the code is
+      """
+      final class StaticHelper {
+        public static function assertSame(mixed $expected, mixed $actual): void {
+          if ($expected !== $actual) {
+            throw new \RuntimeException('Not the same');
+          }
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @param class-string<MyTestCase>|class-string<StaticHelper> $receiver
+         */
+        public static function check(string $receiver, ?int $value): void {
+          $receiver::assertSame(null, $value);
+        }
+
+        public function testNull(): void {
+          $value = random_int(0, 1) ? 1 : null;
+          self::assertNull($value);
+        }
+      }
+      """
+
+  Scenario: Psalter fixes assertions on a templated test case receiver
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @template T of MyTestCase
+         * @param T $testCase
+         */
+        public function check(MyTestCase $testCase, ?int $value): void {
+          $testCase->assertSame(null, $value);
+        }
+      }
+      """
+    When I run Psalter with the issues "UnspecificNullAssertion"
+    Then the code is
+      """
+      final class MyTestCase extends TestCase {
+        /**
+         * @template T of MyTestCase
+         * @param T $testCase
+         */
+        public function check(MyTestCase $testCase, ?int $value): void {
+          $testCase->assertNull($value);
+        }
+      }
+      """

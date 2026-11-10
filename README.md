@@ -75,9 +75,9 @@ self::assertSame(3, count($items)); // UnspecificCountAssertion
 self::assertEquals(1, $int); // UnspecificEqualsAssertion
 ```
 
-Psalter fixes the null, boolean and equals ones (Psalm with `psalm/psalm-plugin-api` 0.4.2 or newer).
+Psalter fixes the null, boolean and equals ones.
 
-```shell
+```bash
 vendor/bin/psalter --issues=UnspecificNullAssertion,UnspecificBooleanAssertion,UnspecificEqualsAssertion
 ```
 
