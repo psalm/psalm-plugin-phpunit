@@ -8,6 +8,7 @@
 >
     <projectFiles>
         <directory name="src"/>
+        <file name="lint-features.php"/>
     </projectFiles>
 
     <plugins>
