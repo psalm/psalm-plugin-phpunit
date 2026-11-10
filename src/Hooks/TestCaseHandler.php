@@ -820,13 +820,8 @@ final class TestCaseHandler implements
                     $last_param         = array_slice($method_storage->params, -1)[0] ?? null;
                     $tail_checked_until = count($method_storage->params);
                     if ($dependency_values > 0 && ($last_param === null || !$last_param->is_variadic)) {
-                        $required_count = 0;
-                        foreach ($method_storage->params as $param_offset => $param) {
-                            if (!$param->is_optional) {
-                                $required_count = $param_offset + 1;
-                            }
-                        }
-                        $tail_checked_until = $required_count - $dependency_values;
+                        $tail_checked_until = ($method_storage->required_param_count ?? $tail_checked_until)
+                            - $dependency_values;
                     }
 
                     foreach ($method_storage->params as $param_offset => $param) {
