@@ -743,18 +743,35 @@ final class TestCaseHandler implements
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
 
-                    $params_count = count($method_storage->params);
+                    // An open list supplies any number of further positions. A `mixed` tail only tells the
+                    // arity: nothing is known about its values, so they are not checked.
+                    $list_tail = $dataset_type->is_list ? $dataset_type->fallback_params[1] ?? null : null;
+                    $typed_tail = $list_tail !== null && !$list_tail->hasMixed() ? $list_tail : null;
+
+                    // PHPUnit appends the return values of depended-upon tests right after the dataset, so the
+                    // dataset certainly supplies only the positions that the required params need beyond them.
+                    // A trailing variadic param could consume them as well.
+                    $last_param         = array_slice($method_storage->params, -1)[0] ?? null;
+                    $tail_checked_until = count($method_storage->params);
+                    if ($dependency_values > 0 && ($last_param === null || !$last_param->is_variadic)) {
+                        $required_count = 0;
+                        foreach ($method_storage->params as $param_offset => $param) {
+                            if (!$param->is_optional) {
+                                $required_count = $param_offset + 1;
+                            }
+                        }
+                        $tail_checked_until = $required_count - $dependency_values;
+                    }
+
                     foreach ($method_storage->params as $param_offset => $param) {
                         $potential_argument_type = $potential_argument_types[$param_offset] ?? null;
-                        if ($potential_argument_type === null) {
-                            // an open list can supply any further position
-                            $fallback_type = self::getPositionalFallbackType($codebase, $dataset_type, $param_offset);
-                            if ($fallback_type !== null) {
-                                // the return values of depended-upon tests follow the provider values
-                                if (!$param->is_variadic && $param_offset >= $params_count - $dependency_values) {
-                                    break;
-                                }
-                                $potential_argument_type = $fallback_type;
+                        if ($potential_argument_type === null && $list_tail !== null) {
+                            if ($param->is_variadic) {
+                                $potential_argument_type = $list_tail;
+                            } elseif ($typed_tail !== null && $param_offset < $tail_checked_until) {
+                                $potential_argument_type = $typed_tail;
+                            } else {
+                                continue;
                             }
                         }
 
@@ -800,9 +817,8 @@ final class TestCaseHandler implements
                                     $param_offset
                                 );
                             }
-                            $fallback_type = self::getPositionalFallbackType($codebase, $dataset_type, $param_offset);
-                            if ($fallback_type !== null) {
-                                $checkParam($fallback_type, $variadic_param_type, true, $param_offset);
+                            if ($typed_tail !== null) {
+                                $checkParam($typed_tail, $variadic_param_type, true, $param_offset);
                             }
                             break;
                         }
@@ -1000,21 +1016,6 @@ final class TestCaseHandler implements
                 ), $suppressed_issues);
             }
         }
-    }
-
-    /** The value type an unsealed dataset supplies at a position its known entries do not cover. */
-    private static function getPositionalFallbackType(
-        Codebase $codebase,
-        Type\Atomic\TKeyedArray $dataset_type,
-        int $position
-    ): ?Type\Union {
-        if ($dataset_type->fallback_params === null) {
-            return null;
-        }
-
-        [$key_type, $value_type] = $dataset_type->fallback_params;
-
-        return $codebase->canTypeBeContainedByType(Type::getInt(false, $position), $key_type) ? $value_type : null;
     }
 
     /** @psalm-pure */

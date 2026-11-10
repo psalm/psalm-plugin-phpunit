@@ -418,32 +418,6 @@ Feature: Datasets
       | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
     And I see no other errors
 
-  Scenario: A sealed list dataset still cannot supply more parameters than it has entries
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-
-      final class MyTestCase extends TestCase {
-        /**
-         * @return iterable<string, list{string}>
-         * @psalm-pure
-         */
-        public static function provide(): iterable {
-          yield 'x' => ['a'];
-        }
-
-        #[DataProvider('provide')]
-        public function testSomething(string $a, string $b): void {
-          $this->assertSame($a, $b);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type | Message |
-      | TooFewArguments | Too few arguments for NS\MyTestCase::testSomething - expecting at least 2, but saw 1 provided by NS\MyTestCase::provide():(iterable[pure]<string, list{string}>) |
-    And I see no other errors
-
   Scenario: A possibly empty list dataset is reported for a required first parameter only
     Given I have the following code
       """
@@ -560,6 +534,37 @@ Feature: Datasets
         #[Depends('testOne')]
         public function testSecond(string $a, string $b, int $one): void {
           $this->assertSame($a . $b, (string) $one);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An open list dataset leaves optional parameters after the dependency params unchecked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): int {
+          $this->assertTrue(true);
+          return 1;
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $a, int $one, bool $unused = false): void {
+          $this->assertSame($a, (string) $one);
+          $this->assertFalse($unused);
         }
       }
       """
