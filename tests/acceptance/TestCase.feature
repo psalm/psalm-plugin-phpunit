@@ -10028,3 +10028,113 @@ final class MyTestCase extends TestCase
       | Type                 | Message |
       | InvalidNamedArgument | Cannot use positional argument after named argument in a dataset provided by #[DataProviderClosure] |
     And I see no other errors
+
+  Scenario: An iterable provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An iterable provider without a key type reports datasets that do not match the test
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<mixed, list{int}>) | 17 |
+    And I see no other errors
+
+  Scenario: A generator provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return \Generator<array{int}>
+         * @psalm-pure
+         */
+        public static function provide(): \Generator {
+          yield [1];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An IteratorAggregate provider without a key type has its datasets checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @implements \IteratorAggregate<array{int}>
+       * @psalm-immutable
+       */
+      final class Datasets implements \IteratorAggregate {
+        #[\Override]
+        public function getIterator(): \Iterator {
+          return new \ArrayIterator([[1]]);
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return Datasets
+         * @psalm-pure
+         */
+        public static function provide(): Datasets {
+          return new Datasets();
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

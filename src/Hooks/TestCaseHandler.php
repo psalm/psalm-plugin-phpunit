@@ -561,7 +561,12 @@ final class TestCaseHandler implements
                     new Type\Union($non_null_provider_return_types)
                 );
 
-                $provider_key_type_is_compatible = $codebase->isTypeContainedByType(
+                // A single-argument iterable such as iterable<V> has a mixed key, and PHPUnit rejects keys
+                // that are not int|string at runtime. Only a mixed value reveals an untyped provider.
+                $provider_key_type_is_compatible = (
+                    $provider_return_type->type_params[0]->isMixed()
+                    && !$provider_return_type->type_params[1]->hasMixed()
+                ) || $codebase->isTypeContainedByType(
                     $provider_return_type->type_params[0],
                     $expected_provider_return_type->type_params[0]
                 );
