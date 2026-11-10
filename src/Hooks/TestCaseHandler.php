@@ -169,75 +169,34 @@ final class TestCaseHandler implements
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             if (
                 $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
-                && self::hasInitializersFromTraits($codebase, $storage)
+                && self::hasInitializers($codebase, $storage)
             ) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
-
-                foreach (self::getDescendants($codebase, $name) as $dependent_name) {
-                    $dependent_storage = $codebase->classlike_storage_provider->get($dependent_name);
-                    $dependent_storage->suppressed_issues[] = 'MissingConstructor';
-                }
             }
         }
     }
 
     /**
-     * Trait methods are not merged into the class yet when the class is visited, so its own flag misses them.
-     *
-     * @param array<string, true> $visited Psalm keeps circular trait edges, so each trait is walked once
+     * By now Psalm has merged the methods of parents and traits, with their aliases and exclusions, into the class.
      */
-    private static function hasInitializersFromTraits(
-        Codebase $codebase,
-        ClassLikeStorage $storage,
-        array &$visited = [],
-    ): bool {
-        $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-        if (($meta['hasInitializers'] ?? false) || isset($storage->trait_alias_map['setup'])) {
-            return true;
-        }
-
-        foreach ($storage->used_traits as $trait_name_lc => $trait_name) {
-            if (isset($visited[$trait_name_lc]) || !$codebase->classlike_storage_provider->has($trait_name)) {
+    private static function hasInitializers(Codebase $codebase, ClassLikeStorage $storage): bool
+    {
+        foreach ($storage->declaring_method_ids as $name_lc => $method_id) {
+            if ($name_lc === 'setup') {
+                if (strtolower($method_id->fq_class_name) !== 'phpunit\framework\testcase') {
+                    return true;
+                }
                 continue;
             }
 
-            $visited[$trait_name_lc] = true;
-
-            if (
-                self::hasInitializersFromTraits(
-                    $codebase,
-                    $codebase->classlike_storage_provider->get($trait_name),
-                    $visited,
-                )
-            ) {
+            $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
+            $meta      = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
+            if (isset($meta['before'][$method_id->method_name])) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * @return string[]
-     *
-     * @psalm-mutation-free
-     */
-    private static function getDescendants(Codebase $codebase, string $name): array
-    {
-        if (!$codebase->classlike_storage_provider->has($name)) {
-            return [];
-        }
-
-        $storage = $codebase->classlike_storage_provider->get($name);
-        $ret = [];
-
-        foreach ($storage->dependent_classlikes as $dependent => $_) {
-            if ($codebase->classExtends($dependent, $name)) {
-                $ret[] = $dependent;
-                $ret = array_merge($ret, self::getDescendants($codebase, $dependent));
-            }
-        }
-        return $ret;
     }
 
     #[\Override]
@@ -254,8 +213,9 @@ final class TestCaseHandler implements
             $class_storage->sealed_methods = false;
         }
 
-        if (self::hasInitializers($class_storage, $class_node, $aliases)) {
-            $class_storage->custom_metadata[__NAMESPACE__] = ['hasInitializers' => true];
+        $before = self::getBeforeMethods($class_storage, $class_node, $aliases);
+        if ($before !== []) {
+            $class_storage->custom_metadata[__NAMESPACE__] = ['before' => $before];
         }
 
         $file_path    = $statements_source->getFilePath();
@@ -272,20 +232,15 @@ final class TestCaseHandler implements
             }
 
             $method_storage = $class_storage->methods[strtolower($method->name->name)] ?? null;
-            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
-            $has_attribute = self::hasPhpUnitAttribute($method, $aliases);
             if (
                 $method_storage === null
                 || $providers === []
-                || ($has_attribute && self::getAttributeDataProviders($method, $aliases, $class_storage) === null)
                 || count($providers) < self::countProviderAttributes($method, $aliases)
             ) {
                 continue;
             }
 
-            $test_specials = $has_attribute
-                ? self::getAttributeSpecials($method, $aliases)
-                : self::docblockSpecials($method);
+            $test_specials = self::getSpecials($method, $aliases);
             $method_storage->custom_metadata[DataProviderNarrowingHandler::METADATA_KEY] = [
                 // the test's own class is resolved at analysis, where a trait method has the class that uses it
                 'providers' => array_map(
@@ -387,9 +342,6 @@ final class TestCaseHandler implements
             // Use the declaring class's aliases so trait-declared attributes resolve via the trait's imports.
             $method_aliases = $declaring_class_storage->aliases ?? $aliases;
             $specials = self::getSpecials($stmt_method, $method_aliases);
-            // PHPUnit ignores docblock annotations on a method that has any PHPUnit attribute
-            $docblock_providers_ignored = self::hasPhpUnitAttribute($stmt_method, $method_aliases)
-                && self::getAttributeDataProviders($stmt_method, $method_aliases, $class_storage) === null;
 
             $test_suppressions = Suppressions::of(
                 $method_storage->location,
@@ -400,16 +352,14 @@ final class TestCaseHandler implements
 
             self::reportMalformedTags($stmt_method, $method_storage->location, $test_suppressions);
 
-            $is_test = self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc)
-                && (0 === strpos($method_name_lc, 'test') || isset($specials['test']));
-            if (!$is_test && !self::isHook($stmt_method, $method_aliases, $method_storage)) {
-                continue; // skip methods PHPUnit never calls
+            $is_test = (0 === strpos($method_name_lc, 'test') || isset($specials['test']))
+                && self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc);
+            if ($is_test || self::isHook($specials, $method_storage)) {
+                $codebase->methodExists(
+                    (string) $declaring_method_id,
+                    calling_method_id: 'PHPUnit\Framework\TestSuite::run',
+                );
             }
-
-            $codebase->methodExists(
-                (string) $declaring_method_id,
-                calling_method_id: 'PHPUnit\Framework\TestSuite::run',
-            );
 
             if (!$is_test) {
                 continue;
@@ -427,7 +377,7 @@ final class TestCaseHandler implements
                 $method_aliases,
                 $class_storage,
             );
-            $appends_dependency_value = !$docblock_providers_ignored && self::appendsDependencyValue(
+            $appends_dependency_value = self::appendsDependencyValue(
                 $codebase,
                 $class_node,
                 $class_storage,
@@ -502,7 +452,7 @@ final class TestCaseHandler implements
                 $provider_class_storage  = $codebase->classlike_storage_provider->get($provider_id->fq_class_name);
 
                 // Abstract providers are checked on the concrete classes implementing them
-                if (!$provider_method_storage->abstract && !$docblock_providers_ignored) {
+                if (!$provider_method_storage->abstract) {
                     self::reportInvalidProviderSignature(
                         $codebase,
                         $provider_method_storage,
@@ -1115,45 +1065,44 @@ final class TestCaseHandler implements
     }
 
 
-    private static function hasInitializers(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): bool
+    /** @return array<lowercase-string, true> */
+    private static function getBeforeMethods(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): array
     {
-        if (isset($storage->methods['setup'])) {
-            return true;
-        }
-
+        $before = [];
         foreach ($storage->methods as $method => $_) {
             $stmt_method = $stmt->getMethod($method);
-            if (!$stmt_method) {
-                continue;
-            }
-            if (self::isBeforeInitializer($stmt_method, $aliases)) {
-                return true;
+            if ($stmt_method && self::isBeforeInitializer($stmt_method, $aliases)) {
+                $before[$method] = true;
             }
         }
-        return false;
+
+        return $before;
     }
 
     private static function isBeforeInitializer(ClassMethod $method, Aliases $aliases): bool
     {
-        return isset(self::getSpecials($method, $aliases)['before']);
+        return isset(self::docblockSpecials($method, $aliases)['before'])
+            || self::attributeValue($method, $aliases, Before::class) !== null;
     }
 
     /**
-     * PHPUnit 12 ignores docblock metadata altogether.
+     * The docblock metadata PHPUnit reads: none on PHPUnit 12, and, like PHPUnit's ParserChain, none on a method
+     * that has any PHPUnit attribute.
      *
      * @return array<string, list<array{int, string}>> Each entry is [file line, value]
      */
-    private static function docblockSpecials(ClassMethod $method): array
+    private static function docblockSpecials(ClassMethod $method, Aliases $aliases): array
     {
-        return PhpUnitVersion::ignoresDocblockMetadata() ? [] : DocblockSpecials::of($method);
+        return PhpUnitVersion::ignoresDocblockMetadata() || self::hasPhpUnitAttribute($method, $aliases)
+            ? []
+            : DocblockSpecials::of($method);
     }
 
     /** @return array<string, list<array{int, string}>> Each entry is [file line, value] */
     private static function getSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_merge(
-            self::docblockSpecials($method),
-            // Attributes take priority over docblocks
+            self::docblockSpecials($method, $aliases),
             self::getAttributeSpecials($method, $aliases),
         );
     }
@@ -1198,8 +1147,6 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Attributes take priority over docblocks, like in PHPUnit's ParserChain.
-     *
      * $aliases resolve the attribute names and the arguments of #[DataProviderExternal]. The "Class::method"
      * references of docblock tags are resolved with $reference_aliases (of the analysed file).
      *
@@ -1212,31 +1159,26 @@ final class TestCaseHandler implements
         Aliases $reference_aliases,
         ClassLikeStorage $class
     ): array {
-        return self::getAttributeDataProviders($method, $aliases, $class)
-            ?? array_map(
+        return [
+            ...self::getAttributeDataProviders($method, $aliases, $class),
+            ...array_map(
                 static fn(array $entry): array => self::parseProviderReference(
                     $entry[0],
                     $entry[1],
                     $reference_aliases,
                 ),
-                self::docblockSpecials($method)['dataProvider'] ?? [],
-            );
+                self::docblockSpecials($method, $aliases)['dataProvider'] ?? [],
+            ),
+        ];
     }
 
-    /**
-     * #[DataProvider] and #[DataProviderExternal], or null when the method has neither. A method with only a
-     * #[DataProviderClosure] has none of these providers, but is not left to its docblock either
-     * (see getClosureProviders()).
-     *
-     * @return list<array{line: int, class: string|null, method: string, external: bool}>|null
-     */
+    /** @return list<array{line: int, class: string|null, method: string, external: bool}> */
     private static function getAttributeDataProviders(
         ClassMethod $method,
         Aliases $aliases,
         ClassLikeStorage $class
-    ): array|null {
+    ): array {
         $references = self::attributeValue($method, $aliases, DataProvider::class);
-        $has_attributes = $references !== null;
         // PHPUnit takes a #[DataProvider] argument literally as a method name of the test class
         $providers = array_map(
             static fn(array $entry): array => [
@@ -1251,15 +1193,10 @@ final class TestCaseHandler implements
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
-                if ($attribute_class === self::DATA_PROVIDER_CLOSURE) {
-                    $has_attributes = true;
-                }
-
                 if ($attribute_class !== DataProviderExternal::class) {
                     continue;
                 }
 
-                $has_attributes = true;
                 $args           = self::attributeArguments($attribute);
 
                 $class_name  = self::classFromExpression($args['className'] ?? $args[0] ?? null, $aliases, $class);
@@ -1277,7 +1214,7 @@ final class TestCaseHandler implements
             }
         }
 
-        return $has_attributes ? $providers : null;
+        return $providers;
     }
 
     /**
@@ -1505,14 +1442,11 @@ final class TestCaseHandler implements
     }
 
     /**
-     * Mirrors PHPUnit's ParserChain: docblock annotations are only read when the method has no PHPUnit attribute.
-     *
      * @return list<string|null> "Class::method" per method dependency, null when the target is not a literal
      */
     private static function getDependencyTargets(ClassMethod $method, Aliases $aliases, ClassLikeStorage $class): array
     {
-        $has_phpunit_attribute = self::hasPhpUnitAttribute($method, $aliases);
-        $targets               = [];
+        $targets = [];
         foreach ($method->getAttrGroups() as $group) {
             foreach ($group->attrs as $attribute) {
                 $attribute_class = Type::getFQCLNFromString($attribute->name->toCodeString(), $aliases);
@@ -1537,11 +1471,7 @@ final class TestCaseHandler implements
             }
         }
 
-        if ($has_phpunit_attribute) {
-            return $targets;
-        }
-
-        foreach (self::docblockSpecials($method)['depends'] ?? [] as [, $value]) {
+        foreach (self::docblockSpecials($method, $aliases)['depends'] ?? [] as [, $value]) {
             $is_target = preg_match('/^(?:!?(?:clone|shallowClone)\s+)?(\S+)/', $value, $matches) === 1;
             if (!$is_target || str_ends_with(strtolower($matches[1]), '::class')) {
                 continue;
@@ -1594,13 +1524,9 @@ final class TestCaseHandler implements
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
 
-    /** PHPUnit ignores a docblock tag on a method that has any PHPUnit attribute. */
-    private static function isHook(ClassMethod $method, Aliases $aliases, MethodStorage $storage): bool
+    /** @param array<string, list<array{int, string}>> $specials */
+    private static function isHook(array $specials, MethodStorage $storage): bool
     {
-        $specials = self::hasPhpUnitAttribute($method, $aliases)
-            ? self::getAttributeSpecials($method, $aliases)
-            : self::docblockSpecials($method);
-
         // PHPUnit runs the class-level hooks only when they are static
         return isset($specials['before'])
             || isset($specials['after'])

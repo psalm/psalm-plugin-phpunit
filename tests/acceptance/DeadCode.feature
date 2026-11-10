@@ -530,3 +530,55 @@ Feature: Dead code
       | Type                 | Message                                                     |
       | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::prepareClass |
     And I see no other errors
+
+  Scenario: Providers named only by a docblock that PHPUnit ignores are marked as unused
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @return iterable<string, array{int}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => [100];
+        }
+
+        /**
+         * @dataProvider provideCents
+         */
+        #[Group('money')]
+        public function testCents(int $cents = 100): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                     |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::provideCents |
+    And I see no other errors
+
+  Scenario: @test next to a PHPUnit attribute does not make a method a test
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase
+      {
+        /**
+         * @test
+         */
+        #[Group('money')]
+        public function centsAreCounted(): void {
+          $this->assertSame(100, 50 + 50);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                                        |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::centsAreCounted |
+    And I see no other errors

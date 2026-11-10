@@ -142,8 +142,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
     }
 
     /**
-     * PHPUnit runs public methods named test* or marked as tests. A trait method is a test under the name and with
-     * the visibility the class imports it with.
+     * PHPUnit runs public methods named test* or marked as tests. A trait method is a test under the name the class
+     * imports it with.
      */
     private static function isTest(
         Codebase $codebase,
@@ -159,8 +159,8 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             }
 
             if (
-                TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
-                && ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
+                ($marked || str_starts_with(self::casedName($class, $method, $name), 'test'))
+                && TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
             ) {
                 return true;
             }

@@ -4,11 +4,13 @@ Feature: Prophecy
   I need Psalm to understand the magic method calls on object prophecies
 
   Background:
-    Given I have the following code preamble
+    Given Psalm ignores the vendor package "phpspec/prophecy-phpunit"
+    And I have the following code preamble
       """
       <?php
       namespace NS;
       use PHPUnit\Framework\TestCase;
+      use Prophecy\PhpUnit\ProphecyTrait;
 
       /** @psalm-mutable */
       interface Resp {
@@ -26,6 +28,8 @@ Feature: Prophecy
       """
       final class MyTestCase extends TestCase
       {
+        use ProphecyTrait;
+
         public function testSomething(): void {
           $response = $this->prophesize(Resp::class);
           $response->getStatusCode()->shouldBeCalled()->willReturn(202);
@@ -41,6 +45,8 @@ Feature: Prophecy
       """
       final class MyTestCase extends TestCase
       {
+        use ProphecyTrait;
+
         public function testSomething(): void {
           $response = $this->prophesize(Resp::class);
           takesResp($response->reveal());
@@ -57,6 +63,8 @@ Feature: Prophecy
 
       final class MyTestCase extends TestCase
       {
+        use ProphecyTrait;
+
         public function testSomething(): void {
           $response = $this->prophesize(Resp::class);
           $response->willImplement(Extra::class);
@@ -75,6 +83,8 @@ Feature: Prophecy
       """
       final class MyTestCase extends TestCase
       {
+        use ProphecyTrait;
+
         public function testSomething(): void {
           $response = $this->prophesize(Resp::class);
           takesResp($response->reveal());
@@ -84,5 +94,23 @@ Feature: Prophecy
     When I run Psalm
     Then I see these errors
       | Type                  | Message                                                                                                                              |
+      | MissingThrowsDocblock | Prophecy\Exception\Doubler\DoubleException is thrown but not caught - please either catch or add a @throws annotation |
+      | MissingThrowsDocblock | Prophecy\Exception\Doubler\InterfaceNotFoundException is thrown but not caught - please either catch or add a @throws annotation |
       | MissingThrowsDocblock | Prophecy\Exception\Prophecy\ObjectProphecyException is thrown but not caught - please either catch or add a @throws annotation |
+    And I see no other errors
+
+  Scenario: prophesize() without ProphecyTrait is reported
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        public function testSomething(): void {
+          $this->prophesize(Resp::class);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                        |
+      | UndefinedMethod | Method NS\MyTestCase::prophesize does not exist |
     And I see no other errors
