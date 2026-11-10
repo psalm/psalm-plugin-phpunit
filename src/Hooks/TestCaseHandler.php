@@ -396,7 +396,8 @@ final class TestCaseHandler implements
              *     type: Type\Union,
              *     location: CodeLocation,
              *     return_type_location: CodeLocation,
-             *     return_type_suppressions: array<array-key, string>
+             *     return_type_suppressions: array<array-key, string>,
+             *     hint: string
              * }> $provided_types
              */
             $provided_types = [];
@@ -486,27 +487,48 @@ final class TestCaseHandler implements
                     continue;
                 }
 
-                $provider_return_type = self::expandForMethod(
-                    $codebase,
-                    $provider_return_type,
-                    $apparent_provider_method_name,
-                    $provider['class'] ?? $class_storage->name,
-                );
+                $provider_hint  = '';
+                $provider_types = [$provider_return_type];
+                if (ProviderReturnTypeHandler::hasNativeReturnTypeOnly($provider_method_storage)) {
+                    // A trait method is analysed with each class using it, other methods only with their own class
+                    $provider_analysed_here = $provider_class_storage->is_trait
+                        ? isset($class_storage->used_traits[strtolower($provider_class_storage->name)])
+                        : $provider_class_storage->name === $class_storage->name;
+                    $inferred_types = $provider_analysed_here
+                        ? ProviderReturnTypeHandler::inferredTypes($provider_method_storage)
+                        : null;
+
+                    if ($inferred_types !== null) {
+                        $provider_types = $inferred_types;
+                    } else {
+                        $provider_hint = '; add a @return type to ' . $provider_method_id . '()';
+                    }
+                }
 
                 $provider_return_type_location = $codebase->getMethodReturnTypeLocation($provider_method_id);
                 assert(null !== $provider_return_type_location);
-                $provided_types[] = [
-                    'name'                 => $provider_method_id . '()',
-                    'type'                 => $provider_return_type,
-                    'location'             => $provider_docblock_location,
-                    'return_type_location' => $provider_return_type_location,
-                    'return_type_suppressions' => Suppressions::of(
-                        $provider_return_type_location,
-                        $provider_method_storage->suppressed_issues + $provider_class_storage->suppressed_issues,
-                        $class_storage,
-                        $statements_source,
-                    ),
-                ];
+                $return_type_suppressions = Suppressions::of(
+                    $provider_return_type_location,
+                    $provider_method_storage->suppressed_issues + $provider_class_storage->suppressed_issues,
+                    $class_storage,
+                    $statements_source,
+                );
+
+                foreach ($provider_types as $provider_type) {
+                    $provided_types[] = [
+                        'name'                 => $provider_method_id . '()',
+                        'type'                 => self::expandForMethod(
+                            $codebase,
+                            $provider_type,
+                            $apparent_provider_method_name,
+                            $provider['class'] ?? $class_storage->name,
+                        ),
+                        'location'             => $provider_docblock_location,
+                        'return_type_location' => $provider_return_type_location,
+                        'return_type_suppressions' => $return_type_suppressions,
+                        'hint' => $provider_hint,
+                    ];
+                }
             }
 
             foreach ($closure_providers as $closure) {
@@ -532,6 +554,7 @@ final class TestCaseHandler implements
                     'location'             => $closure_location,
                     'return_type_location' => $closure_location,
                     'return_type_suppressions' => $test_suppressions,
+                    'hint' => '',
                 ];
             }
 
@@ -548,6 +571,7 @@ final class TestCaseHandler implements
                 $provider_docblock_location    = $provided['location'];
                 $provider_return_type_location = $provided['return_type_location'];
                 $return_type_suppressions      = $provided['return_type_suppressions'];
+                $provider_hint                 = $provided['hint'];
                 $provider_return_type_string   = $provider_return_type->getId();
 
                 $expected_provider_return_type = new Type\Atomic\TIterable([
@@ -609,7 +633,7 @@ final class TestCaseHandler implements
                     if ($provider_key_type_is_uncertain) {
                         IssueBuffer::accepts(new Issue\MixedReturnStatement(
                             'Providers must return ' . $expected_provider_return_type->getId()
-                            . ', possibly different ' . $provider_return_type_string . ' provided',
+                            . ', possibly different ' . $provider_return_type_string . ' provided' . $provider_hint,
                             $provider_return_type_location
                         ), $return_type_suppressions);
                     } else {
@@ -631,7 +655,7 @@ final class TestCaseHandler implements
                     if ($provider_return_type->type_params[1]->hasMixed()) {
                         IssueBuffer::accepts(new Issue\MixedReturnStatement(
                             'Providers must return ' . $expected_provider_return_type->getId()
-                            . ', possibly different ' . $provider_return_type_string . ' provided',
+                            . ', possibly different ' . $provider_return_type_string . ' provided' . $provider_hint,
                             $provider_return_type_location
                         ), $return_type_suppressions);
                     } else {
