@@ -1,16 +1,12 @@
 <?php
 namespace PHPUnit\Framework;
 
-use Prophecy\Prophecy\ObjectProphecy;
-
+/**
+ * Without a constructor here, Psalm reports a property that setUp() initializes as MissingConstructor, which
+ * TestCaseHandler suppresses, rather than as PropertyNotSetInConstructor of TestCase's final constructor.
+ */
 abstract class TestCase extends Assert implements Test, SelfDescribing
 {
-    /**
-     * @template T
-     * @param class-string<T> $classOrInterface
-     * @return ObjectProphecy<T>
-     */
-    protected function prophesize($classOrInterface): ObjectProphecy {}
 }
 
 abstract class Assert
