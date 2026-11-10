@@ -637,12 +637,14 @@ final class TestCaseHandler implements
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
                     $comparison = new TypeComparisonResult();
-                    if (UnionTypeComparator::isContainedBy(
-                        $codebase,
-                        $potential_argument_type,
-                        $param_type,
-                        union_comparison_result: $comparison,
-                    )) {
+                    if (
+                        UnionTypeComparator::isContainedBy(
+                            $codebase,
+                            $potential_argument_type,
+                            $param_type,
+                            union_comparison_result: $comparison,
+                        )
+                    ) {
                         // ok
                     } elseif ($comparison->type_coerced && !$potential_argument_type->hasMixed()) {
                         $message = $argument . ' of ' . $method_name
@@ -663,7 +665,8 @@ final class TestCaseHandler implements
                                 $provider_docblock_location
                             ));
                         }
-                        if ($potential_argument_type->isFalsable()
+                        if (
+                            $potential_argument_type->isFalsable()
                             && !$param_type->isFalsable()
                             && !$param_type->hasBool()
                             && !$param_type->hasScalar()
