@@ -41,6 +41,8 @@ final class Context implements BehatContext
     private array $suppressedPluginIssues = [];
     /** @var list<string> */
     private array $ignoredExceptions = [];
+    /** @var list<string> */
+    private array $ignoredPackages = [];
     private string|null $phpunitVersion = null;
     private bool $declaresDataProviderClosure = false;
     private string $codePreamble = self::DEFAULT_PREAMBLE;
@@ -179,6 +181,16 @@ final class Context implements BehatContext
         $this->ignoredExceptions[] = $class;
     }
 
+    /**
+     * Psalm reports the issues of a vendor trait in the class that uses it, unless the trait's files are ignored, as
+     * a project config usually does.
+     */
+    #[Given('Psalm ignores the vendor package :package')]
+    public function psalmIgnoresTheVendorPackage(string $package): void
+    {
+        $this->ignoredPackages[] = $package;
+    }
+
     /** Psalm loads the config's autoloader before analysis, and the plugin reads the version from PHPUnit\Runner\Version. */
     #[Given('PHPUnit identifies as version :version')]
     public function phpunitIdentifiesAsVersion(string $version): void
@@ -248,12 +260,17 @@ final class Context implements BehatContext
             );
         }
 
+        $ignoredFiles = '<directory name="../../vendor"/>';
+        foreach ($this->ignoredPackages as $package) {
+            $ignoredFiles .= sprintf(' <directory name="%s"/>', self::xml(\dirname(__DIR__, 3) . '/vendor/' . $package));
+        }
+
         $this->writeFile('psalm.xml', <<<XML
             <?xml version="1.0"?>
             <psalm {$attributes}>
               <projectFiles>
                 <directory name="."/>
-                <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
+                <ignoreFiles> {$ignoredFiles} </ignoreFiles>
               </projectFiles>
               <plugins>
                 <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
