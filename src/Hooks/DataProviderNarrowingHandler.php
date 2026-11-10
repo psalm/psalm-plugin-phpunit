@@ -6,8 +6,6 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Psalm\Codebase;
 use Psalm\Internal\Analyzer\MethodAnalyzer;
-use Psalm\Internal\MethodIdentifier;
-use Psalm\Internal\Type\TypeExpander;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
 use Psalm\Plugin\EventHandler\BeforeStatementAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\BeforeStatementAnalysisEvent;
@@ -205,16 +203,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             return null;
         }
 
-        // A trait provider is a method of the class that uses it, so self is that class and not the trait
-        $appearing_id = $codebase->getAppearingMethodId($class . '::' . $method);
-        $self_class   = $appearing_id === null ? $class : MethodIdentifier::wrap($appearing_id)->fq_class_name;
-        $return_type  = TypeExpander::expandUnion(
-            $codebase,
-            $return_type,
-            $self_class,
-            $class,
-            $codebase->classlike_storage_provider->get($self_class)->parent_class,
-        );
+        $return_type = TestCaseHandler::expandForMethod($codebase, $return_type, $class . '::' . $method, $class);
         if ($return_type->hasTemplate()) {
             return null;
         }

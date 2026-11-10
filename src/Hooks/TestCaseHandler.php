@@ -584,11 +584,10 @@ final class TestCaseHandler implements
                 ];
             }
 
-            // Expand parameter aliases before checking datasets
             $params = self::expandParams(
                 $codebase,
                 $method_storage->params,
-                $class_storage,
+                $class_storage->name,
                 $class_storage->name . '::' . $method_name_lc,
             );
 
@@ -958,8 +957,10 @@ final class TestCaseHandler implements
 
     /**
      * `self` is the class the method appears in (the class importing a trait's method), `static` the analysed one.
+     *
+     * @internal
      */
-    private static function expandForMethod(
+    public static function expandForMethod(
         Codebase $codebase,
         Type\Union $type,
         string $apparent_method_name,
@@ -984,13 +985,13 @@ final class TestCaseHandler implements
     private static function expandParams(
         Codebase $codebase,
         array $params,
-        ClassLikeStorage $class,
+        string $static_class,
         string $apparent_method_name
     ): array {
         foreach ($params as $offset => $param) {
             if ($param->type !== null) {
                 $params[$offset] = $param->setType(
-                    self::expandForMethod($codebase, $param->type, $apparent_method_name, $class->name),
+                    self::expandForMethod($codebase, $param->type, $apparent_method_name, $static_class),
                 );
             }
         }
