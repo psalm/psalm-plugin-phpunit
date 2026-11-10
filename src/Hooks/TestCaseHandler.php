@@ -24,7 +24,10 @@ use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitorAbstract;
+use PHPUnit\Framework\Attributes\After;
+use PHPUnit\Framework\Attributes\AfterClass;
 use PHPUnit\Framework\Attributes\Before;
+use PHPUnit\Framework\Attributes\BeforeClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\DataProviderExternal;
 use PHPUnit\Framework\Attributes\Depends;
@@ -33,6 +36,8 @@ use PHPUnit\Framework\Attributes\DependsExternalUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsExternalUsingShallowClone;
 use PHPUnit\Framework\Attributes\DependsUsingDeepClone;
 use PHPUnit\Framework\Attributes\DependsUsingShallowClone;
+use PHPUnit\Framework\Attributes\PostCondition;
+use PHPUnit\Framework\Attributes\PreCondition;
 use PHPUnit\Framework\Attributes\Test;
 use Psalm\Aliases;
 use Psalm\Codebase;
@@ -161,8 +166,10 @@ final class TestCaseHandler implements
         }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
-            $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-            if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
+            if (
+                $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
+                && self::hasInitializersFromTraits($codebase, $storage)
+            ) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
 
                 foreach (self::getDescendants($codebase, $name) as $dependent_name) {
@@ -171,6 +178,42 @@ final class TestCaseHandler implements
                 }
             }
         }
+    }
+
+    /**
+     * Trait methods are not merged into the class yet when the class is visited, so its own flag misses them.
+     *
+     * @param array<string, true> $visited Psalm keeps circular trait edges, so each trait is walked once
+     */
+    private static function hasInitializersFromTraits(
+        Codebase $codebase,
+        ClassLikeStorage $storage,
+        array &$visited = [],
+    ): bool {
+        $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
+        if (($meta['hasInitializers'] ?? false) || isset($storage->trait_alias_map['setup'])) {
+            return true;
+        }
+
+        foreach ($storage->used_traits as $trait_name_lc => $trait_name) {
+            if (isset($visited[$trait_name_lc]) || !$codebase->classlike_storage_provider->has($trait_name)) {
+                continue;
+            }
+
+            $visited[$trait_name_lc] = true;
+
+            if (
+                self::hasInitializersFromTraits(
+                    $codebase,
+                    $codebase->classlike_storage_provider->get($trait_name),
+                    $visited,
+                )
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -317,13 +360,15 @@ final class TestCaseHandler implements
 
             // The class declaring an inherited test does not see the providers its descendants implement
             if (!$declaring_class_storage->is_trait && $declaring_class_storage->name !== $class_storage->name) {
-                self::checkInheritedTestProviders(
-                    $codebase,
-                    $statements_source,
-                    $class_storage,
-                    $method_name_lc,
-                    $method_storage,
-                );
+                if (self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc)) {
+                    self::checkInheritedTestProviders(
+                        $codebase,
+                        $statements_source,
+                        $class_storage,
+                        $method_name_lc,
+                        $method_storage,
+                    );
+                }
                 continue;
             }
 
@@ -347,15 +392,20 @@ final class TestCaseHandler implements
                 $method_storage->suppressed_issues + $declaring_class_storage->suppressed_issues,
             );
 
-            $is_test = 0 === strpos($method_name_lc, 'test') || isset($specials['test']);
-            if (!$is_test) {
-                continue; // skip non-test methods
+            $is_test = self::isPublicMethod($codebase, $class_storage, $method_storage, $method_name_lc)
+                && (0 === strpos($method_name_lc, 'test') || isset($specials['test']));
+            if (!$is_test && !self::isHook($stmt_method, $method_aliases, $method_storage)) {
+                continue; // skip methods PHPUnit never calls
             }
 
             $codebase->methodExists(
                 (string) $declaring_method_id,
                 calling_method_id: 'PHPUnit\Framework\TestSuite::run',
             );
+
+            if (!$is_test) {
+                continue;
+            }
 
             $providers = self::getDataProviders($stmt_method, $method_aliases, $aliases, $class_storage);
             $closure_providers = self::getClosureProviders($stmt_method, $method_aliases);
@@ -1394,6 +1444,37 @@ final class TestCaseHandler implements
     }
 
     /**
+     * PHPUnit only runs public methods as tests, whatever their name or #[Test] says. A trait method has the
+     * visibility the class appearing with it imports it with, which a subclass inherits. A method the class declares
+     * itself keeps its own.
+     *
+     * @param lowercase-string $name_lc the name the class knows the method by
+     *
+     * @internal
+     */
+    public static function isPublicMethod(
+        Codebase $codebase,
+        ClassLikeStorage $class,
+        MethodStorage $method,
+        string $name_lc
+    ): bool {
+        $declaring_id = $class->declaring_method_ids[$name_lc] ?? null;
+        $appearing_id = $class->appearing_method_ids[$name_lc] ?? null;
+        $visibility   = $method->visibility;
+
+        if (
+            $declaring_id !== null
+            && $appearing_id !== null
+            && $codebase->classlike_storage_provider->get($declaring_id->fq_class_name)->is_trait
+        ) {
+            $visibility = $codebase->classlike_storage_provider->get($appearing_id->fq_class_name)
+                ->trait_visibility_map[$appearing_id->method_name] ?? $visibility;
+        }
+
+        return $visibility === ClassLikeAnalyzer::VISIBILITY_PUBLIC;
+    }
+
+    /**
      * PHPUnit's ParserChain ignores docblock annotations on a class or method that has any PHPUnit attribute.
      *
      * @internal
@@ -1501,12 +1582,33 @@ final class TestCaseHandler implements
 
         return Type::getFQCLNFromString($expression->class->toCodeString(), $aliases);
     }
+
+    /** PHPUnit ignores a docblock tag on a method that has any PHPUnit attribute. */
+    private static function isHook(ClassMethod $method, Aliases $aliases, MethodStorage $storage): bool
+    {
+        $specials = self::hasPhpUnitAttribute($method, $aliases)
+            ? self::getAttributeSpecials($method, $aliases)
+            : self::docblockSpecials($method);
+
+        // PHPUnit runs the class-level hooks only when they are static
+        return isset($specials['before'])
+            || isset($specials['after'])
+            || isset($specials['preCondition'])
+            || isset($specials['postCondition'])
+            || ($storage->is_static && (isset($specials['beforeClass']) || isset($specials['afterClass'])));
+    }
+
     /** @return array<string, list<array{int, string}>> */
     private static function getAttributeSpecials(ClassMethod $method, Aliases $aliases): array
     {
         return array_filter([
-            'before'       => self::attributeValue($method, $aliases, Before::class),
-            'test'         => self::attributeValue($method, $aliases, Test::class),
+            'before'        => self::attributeValue($method, $aliases, Before::class),
+            'after'         => self::attributeValue($method, $aliases, After::class),
+            'preCondition'  => self::attributeValue($method, $aliases, PreCondition::class),
+            'postCondition' => self::attributeValue($method, $aliases, PostCondition::class),
+            'beforeClass'   => self::attributeValue($method, $aliases, BeforeClass::class),
+            'afterClass'    => self::attributeValue($method, $aliases, AfterClass::class),
+            'test'          => self::attributeValue($method, $aliases, Test::class),
         ], static fn(array|null $special): bool => $special !== null);
     }
 
