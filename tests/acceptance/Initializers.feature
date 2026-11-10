@@ -423,10 +423,6 @@ Feature: MissingConstructor in stateful test cases
 
       final class MyTestCase extends TestCase {
         use State;
-
-        public function testSomething(): void {
-          $this->assertSame(1, 1);
-        }
       }
       """
     When I run Psalm

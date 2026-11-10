@@ -175,19 +175,33 @@ final class TestCaseHandler implements
         }
     }
 
-    /** Trait methods are not merged into the class yet when the class is visited, so its own flag misses them. */
-    private static function hasInitializersFromTraits(Codebase $codebase, ClassLikeStorage $storage): bool
-    {
+    /**
+     * Trait methods are not merged into the class yet when the class is visited, so its own flag misses them.
+     *
+     * @param array<string, true> $visited Psalm keeps circular trait edges, so each trait is walked once
+     */
+    private static function hasInitializersFromTraits(
+        Codebase $codebase,
+        ClassLikeStorage $storage,
+        array &$visited = [],
+    ): bool {
         $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
         if (($meta['hasInitializers'] ?? false) || isset($storage->trait_alias_map['setup'])) {
             return true;
         }
 
-        foreach ($storage->used_traits as $trait_name) {
-            if (
-                $codebase->classlike_storage_provider->has($trait_name)
-                && self::hasInitializersFromTraits($codebase, $codebase->classlike_storage_provider->get($trait_name))
-            ) {
+        foreach ($storage->used_traits as $trait_name_lc => $trait_name) {
+            if (isset($visited[$trait_name_lc]) || !$codebase->classlike_storage_provider->has($trait_name)) {
+                continue;
+            }
+
+            $visited[$trait_name_lc] = true;
+
+            if (self::hasInitializersFromTraits(
+                $codebase,
+                $codebase->classlike_storage_provider->get($trait_name),
+                $visited,
+            )) {
                 return true;
             }
         }
