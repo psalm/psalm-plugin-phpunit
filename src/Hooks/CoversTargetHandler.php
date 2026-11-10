@@ -18,6 +18,7 @@ use Psalm\Issue;
 use Psalm\IssueBuffer;
 use Psalm\PhpUnitPlugin\DocblockSpecials;
 use Psalm\PhpUnitPlugin\PhpUnitVersion;
+use Psalm\PhpUnitPlugin\Suppressions;
 use Psalm\Plugin\EventHandler\AfterClassLikeAnalysisInterface;
 use Psalm\Plugin\EventHandler\AfterClassLikeVisitInterface;
 use Psalm\Plugin\EventHandler\Event\AfterClassLikeAnalysisEvent;
@@ -231,7 +232,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
                     '@' . $tag . ' target ' . $class_name . ' does not exist',
                     $location->setCommentLine($line),
                     $class_name,
-                ), DocblockMetadataHandler::suppressions(
+                ), Suppressions::of(
                     $location,
                     $declaring_storage->suppressed_issues,
                     $storage,
@@ -247,7 +248,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
                 continue;
             }
 
-            $suppressed = DocblockMetadataHandler::suppressions(
+            $suppressed = Suppressions::of(
                 $location,
                 $declaring_storage->suppressed_issues,
                 $storage,
@@ -283,7 +284,7 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
                 continue;
             }
 
-            $suppressed = DocblockMetadataHandler::suppressions(
+            $suppressed = Suppressions::of(
                 $location,
                 $method_storage->suppressed_issues + $declaring_storage->suppressed_issues,
                 $storage,

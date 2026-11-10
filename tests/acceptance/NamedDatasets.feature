@@ -1208,3 +1208,29 @@ Feature: Named datasets
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Unknown named dataset keys can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{cents: int, currency: string}>
+         * @psalm-pure
+         */
+        public static function provideMoney(): iterable {
+          yield 'one euro' => ['cents' => 100, 'currency' => 'EUR'];
+        }
+
+        /**
+         * @psalm-suppress InvalidNamedArgument
+         */
+        #[DataProvider('provideMoney')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors

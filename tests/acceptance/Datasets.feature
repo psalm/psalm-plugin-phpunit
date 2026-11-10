@@ -344,218 +344,389 @@ Feature: Datasets
     When I run Psalm with dead code detection
     Then I see no errors
 
-  Scenario: An imported type alias in a test parameter is expanded in the provider check
+  Scenario: Mismatched datasets can be suppressed on the test method
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
-      /** @psalm-type Options = array{host: string} */
-      final class Connection {}
-
-      /** @psalm-import-type Options from Connection */
       final class MyTestCase extends TestCase {
         /**
-         * @return list<array{array<string, string>}>
+         * @return iterable<string, array{string}>
          * @psalm-pure
          */
-        public static function provide(): array {
-          return [[['host' => 'x']]];
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
         }
 
         /**
-         * @param Options $options
+         * @psalm-suppress InvalidArgument
          */
-        #[DataProvider('provide')]
-        public function testAlias(array $options): void {
-          $this->assertSame('x', $options['host']);
-        }
-
-        /**
-         * @param array{host: string} $options
-         */
-        #[DataProvider('provide')]
-        public function testShape(array $options): void {
-          $this->assertSame('x', $options['host']);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type                    | Message | Line |
-      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testAlias expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 23 |
-      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testShape expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 31 |
-    And I see no other errors
-
-  Scenario: An imported type alias in a test parameter accepts a matching dataset
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-
-      /** @psalm-type Options = array{host: string} */
-      final class Connection {}
-
-      /** @psalm-import-type Options from Connection */
-      final class MyTestCase extends TestCase {
-        /**
-         * @return list<array{array{host: string}}>
-         * @psalm-pure
-         */
-        public static function provide(): array {
-          return [[['host' => 'x']]];
-        }
-
-        /**
-         * @param Options $options
-         */
-        #[DataProvider('provide')]
-        public function testSomething(array $options): void {
-          $this->assertSame('x', $options['host']);
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
         }
       }
       """
     When I run Psalm
     Then I see no errors
 
-  Scenario: An imported type alias in a test parameter is expanded for named and unknown length datasets
+  Scenario: Mismatched datasets can be suppressed on the test class
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
-      /** @psalm-type Options = array{host: string} */
-      final class Connection {}
-
-      /** @psalm-import-type Options from Connection */
+      /**
+       * @psalm-suppress InvalidArgument
+       */
       final class MyTestCase extends TestCase {
         /**
-         * @return list<array{options: array<string, string>}>
+         * @return iterable<string, array{string}>
          * @psalm-pure
          */
-        public static function named(): array {
-          return [['options' => ['host' => 'x']]];
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
         }
 
-        /**
-         * @return list<array<int, array<string, string>>>
-         * @psalm-pure
-         */
-        public static function lengthless(): array {
-          return [[['host' => 'x']]];
-        }
-
-        /**
-         * @param Options $options
-         */
-        #[DataProvider('named')]
-        public function testNamed(array $options): void {
-          $this->assertSame('x', $options['host']);
-        }
-
-        /**
-         * @param Options $options
-         */
-        #[DataProvider('lengthless')]
-        public function testLengthless(array $options): void {
-          $this->assertSame('x', $options['host']);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type                    | Message | Line |
-      | ArgumentTypeCoercion | Argument 1 ($options) of NS\MyTestCase::testNamed expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::named():(list<array{options: array<string, string>}>) | 31 |
-      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testLengthless expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::lengthless():(list<array<int, array<string, string>>>) | 39 |
-    And I see no other errors
-
-  Scenario: A test parameter typed with an imported type alias is narrowed to the dataset type
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-
-      /** @psalm-type Options = array{host: string} */
-      final class Connection {}
-
-      /** @psalm-import-type Options from Connection */
-      final class MyTestCase extends TestCase {
-        /**
-         * @return list<array{array{host: 'x'}}>
-         * @psalm-pure
-         */
-        public static function provide(): array {
-          return [[['host' => 'x']]];
-        }
-
-        /**
-         * @param Options $options
-         */
-        #[DataProvider('provide')]
-        public function testSomething(array $options): void {
-          /** @psalm-check-type-exact $options = array{host: 'x'} */
-          $this->expectNotToPerformAssertions();
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
         }
       }
       """
     When I run Psalm
     Then I see no errors
 
-  Scenario: A variadic parameter typed with an imported type alias is expanded in the provider check
+  Scenario: A suppression on one test does not hide the mismatched datasets of another
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
-      /** @psalm-type Options = array{host: string} */
-      final class Connection {}
-
-      /** @psalm-import-type Options from Connection */
       final class MyTestCase extends TestCase {
         /**
-         * @return list<array{array<string, string>, array<string, string>}>
+         * @return iterable<string, array{string}>
          * @psalm-pure
          */
-        public static function provide(): array {
-          return [[['host' => 'x'], ['host' => 'y']]];
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
         }
 
         /**
-         * @param Options ...$options
+         * @psalm-suppress InvalidArgument
          */
-        #[DataProvider('provide')]
-        public function testSomething(array ...$options): void {
-          $this->assertNotEmpty($options);
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+
+        #[DataProvider('provideCents')]
+        public function testPositiveCents(int $cents): void {
+          $this->assertGreaterThan(0, $cents);
         }
       }
       """
     When I run Psalm
     Then I see these errors
-      | Type            | Message |
-      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
-      | ArgumentTypeCoercion | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testPositiveCents expects int, string provided by NS\MyTestCase::providecents():(iterable[pure]<string, list{string}>) | 24 |
     And I see no other errors
 
-  Scenario: self in a trait test and its provider means the class using the trait
+  Scenario: Mismatched datasets of a trait test can be suppressed on the trait method
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
-      trait ProvidesSelf {
+      trait CentsTests {
         /**
-         * @return list<array{class-string<self>}>
+         * @return iterable<string, array{string}>
          * @psalm-pure
          */
-        public static function provide(): array {
-          return [[self::class]];
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
         }
 
         /**
-         * @param class-string<self> $class
+         * @psalm-suppress InvalidArgument
          */
-        #[DataProvider('provide')]
-        public function testSomething(string $class): void {
-          $this->assertSame(self::class, $class);
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
         }
       }
 
       final class MyTestCase extends TestCase {
-        use ProvidesSelf;
+        use CentsTests;
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A suppression on the test class does not reach a trait test from another file
+    Given I have the following code in "CentsTests.php"
+      """
+      <?php
+      namespace NS;
+
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait CentsTests {
+        /**
+         * @return iterable<string, array{string}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => ['100'];
+        }
+
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    And I have the following code in "code.php"
+      """
+      <?php
+      namespace NS;
+      use PHPUnit\Framework\TestCase;
+
+      /**
+       * @psalm-suppress InvalidArgument
+       */
+      final class MyTestCase extends TestCase {
+        use CentsTests;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message | Line |
+      | InvalidArgument     | Argument 1 of NS\MyTestCase::testCents expects int, string provided by NS\CentsTests::providecents():(iterable[pure]<string, list{string}>) | 15 |
+      | UnusedPsalmSuppress | This suppression is never used | 6 |
+    And I see no other errors
+
+  Scenario: Missing dataset values can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{int}>
+         * @psalm-pure
+         */
+        public static function provideCents(): iterable {
+          yield 'one euro' => [100];
+        }
+
+        /**
+         * @psalm-suppress TooFewArguments
+         */
+        #[DataProvider('provideCents')]
+        public function testCents(int $cents, string $currency): void {
+          $this->assertSame('100 EUR', $cents . ' ' . $currency);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A non-empty-list dataset can supply any number of parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: The values of an open list dataset are checked against the parameters they can fill
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<int>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => [1, 2];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
+    And I see no other errors
+
+  Scenario: A possibly empty list dataset is reported for a required first parameter only
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined string provided by NS\MyTestCase::provide():(iterable[pure]<string, list<string>>) |
+    And I see no other errors
+
+  Scenario: The values of an open list dataset are checked against a variadic parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function ok(): iterable {
+          yield 'x' => ['a', 'b', 'c'];
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<int>>
+         * @psalm-pure
+         */
+        public static function wrong(): iterable {
+          yield 'x' => [1, 2, 3];
+        }
+
+        #[DataProvider('ok')]
+        public function testOk(string $a, string ...$rest): void {
+          $this->assertSame($a, $rest[0] ?? $a);
+        }
+
+        #[DataProvider('wrong')]
+        public function testWrong(string $a, string ...$rest): void {
+          $this->assertSame($a, $rest[0] ?? $a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
+    And I see no other errors
+
+  Scenario: The values of an open list dataset are checked against optional parameters
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, int $b = 1): void {
+          $this->assertSame($a, (string) $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
+    And I see no other errors
+
+  Scenario: An open list dataset leaves the last parameters to the values of depended-upon tests
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): int {
+          $this->assertTrue(true);
+          return 1;
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a', 'b'];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $a, string $b, int $one): void {
+          $this->assertSame($a . $b, (string) $one);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An open list dataset leaves optional parameters after the dependency params unchecked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Depends;
+
+      final class MyTestCase extends TestCase {
+        public function testOne(): int {
+          $this->assertTrue(true);
+          return 1;
+        }
+
+        /**
+         * @return iterable<string, non-empty-list<string>>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        #[Depends('testOne')]
+        public function testSecond(string $a, int $one, bool $unused = false): void {
+          $this->assertSame($a, (string) $one);
+          $this->assertFalse($unused);
+        }
       }
       """
     When I run Psalm
@@ -778,204 +949,245 @@ Feature: Datasets
       | MixedArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array<string, string>, but parent type array<string, mixed> provided by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>}>) |
     And I see no other errors
 
-  Scenario: A non-empty-list dataset can supply any number of parameters
+  Scenario: An argument type coercion of the datasets can be suppressed on the test method
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
       final class MyTestCase extends TestCase {
         /**
-         * @return iterable<string, non-empty-list<string>>
+         * @return iterable<string, list{string}>
          * @psalm-pure
          */
         public static function provide(): iterable {
-          yield 'x' => ['a', 'b'];
+          yield 'x' => ['x'];
         }
 
+        /**
+         * @psalm-suppress ArgumentTypeCoercion
+         * @param non-empty-string $s
+         */
         #[DataProvider('provide')]
-        public function testSomething(string $a, string $b): void {
-          $this->assertSame($a, $b);
+        public function testSomething(string $s): void {
+          $this->assertNotEmpty($s);
         }
       }
       """
     When I run Psalm
     Then I see no errors
 
-  Scenario: The values of an open list dataset are checked against the parameters they can fill
+  Scenario: An imported type alias in a test parameter is expanded in the provider check
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
       final class MyTestCase extends TestCase {
         /**
-         * @return iterable<string, non-empty-list<int>>
+         * @return list<array{array<string, string>}>
          * @psalm-pure
          */
-        public static function provide(): iterable {
-          yield 'x' => [1, 2];
+        public static function provide(): array {
+          return [[['host' => 'x']]];
         }
 
+        /**
+         * @param Options $options
+         */
         #[DataProvider('provide')]
-        public function testSomething(string $a, string $b): void {
-          $this->assertSame($a, $b);
+        public function testAlias(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+
+        /**
+         * @param array{host: string} $options
+         */
+        #[DataProvider('provide')]
+        public function testShape(array $options): void {
+          $this->assertSame('x', $options['host']);
         }
       }
       """
     When I run Psalm
     Then I see these errors
-      | Type | Message |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects string, int provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<int>>) |
+      | Type                    | Message | Line |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testAlias expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 23 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testShape expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>}>) | 31 |
     And I see no other errors
 
-  Scenario: A possibly empty list dataset is reported for a required first parameter only
+  Scenario: An imported type alias in a test parameter accepts a matching dataset
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
 
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
       final class MyTestCase extends TestCase {
         /**
-         * @return iterable<string, list<string>>
+         * @return list<array{array{host: string}}>
          * @psalm-pure
          */
-        public static function provide(): iterable {
-          yield 'x' => ['a', 'b'];
+        public static function provide(): array {
+          return [[['host' => 'x']]];
         }
 
+        /**
+         * @param Options $options
+         */
         #[DataProvider('provide')]
-        public function testSomething(string $a, string $b): void {
-          $this->assertSame($a, $b);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type | Message |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething is not optional, but possibly undefined string provided by NS\MyTestCase::provide():(iterable[pure]<string, list<string>>) |
-    And I see no other errors
-
-  Scenario: The values of an open list dataset are checked against a variadic parameter
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-
-      final class MyTestCase extends TestCase {
-        /**
-         * @return iterable<string, non-empty-list<string>>
-         * @psalm-pure
-         */
-        public static function ok(): iterable {
-          yield 'x' => ['a', 'b', 'c'];
-        }
-
-        /**
-         * @return iterable<string, non-empty-list<int>>
-         * @psalm-pure
-         */
-        public static function wrong(): iterable {
-          yield 'x' => [1, 2, 3];
-        }
-
-        #[DataProvider('ok')]
-        public function testOk(string $a, string ...$rest): void {
-          $this->assertSame($a, $rest[0] ?? $a);
-        }
-
-        #[DataProvider('wrong')]
-        public function testWrong(string $a, string ...$rest): void {
-          $this->assertSame($a, $rest[0] ?? $a);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type | Message |
-      | InvalidArgument | Argument 1 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testWrong expects string, int provided by NS\MyTestCase::wrong():(iterable[pure]<string, non-empty-list<int>>) |
-    And I see no other errors
-
-  Scenario: The values of an open list dataset are checked against optional parameters
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-
-      final class MyTestCase extends TestCase {
-        /**
-         * @return iterable<string, non-empty-list<string>>
-         * @psalm-pure
-         */
-        public static function provide(): iterable {
-          yield 'x' => ['a', 'b'];
-        }
-
-        #[DataProvider('provide')]
-        public function testSomething(string $a, int $b = 1): void {
-          $this->assertSame($a, (string) $b);
-        }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type | Message |
-      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<string, non-empty-list<string>>) |
-    And I see no other errors
-
-  Scenario: An open list dataset leaves the last parameters to the values of depended-upon tests
-    Given I have the following code
-      """
-      use PHPUnit\Framework\Attributes\DataProvider;
-      use PHPUnit\Framework\Attributes\Depends;
-
-      final class MyTestCase extends TestCase {
-        public function testOne(): int {
-          $this->assertTrue(true);
-          return 1;
-        }
-
-        /**
-         * @return iterable<string, non-empty-list<string>>
-         * @psalm-pure
-         */
-        public static function provide(): iterable {
-          yield 'x' => ['a', 'b'];
-        }
-
-        #[DataProvider('provide')]
-        #[Depends('testOne')]
-        public function testSecond(string $a, string $b, int $one): void {
-          $this->assertSame($a . $b, (string) $one);
+        public function testSomething(array $options): void {
+          $this->assertSame('x', $options['host']);
         }
       }
       """
     When I run Psalm
     Then I see no errors
 
-  Scenario: An open list dataset leaves optional parameters after the dependency params unchecked
+  Scenario: An imported type alias in a test parameter is expanded for named and unknown length datasets
     Given I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
-      use PHPUnit\Framework\Attributes\Depends;
 
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
       final class MyTestCase extends TestCase {
-        public function testOne(): int {
-          $this->assertTrue(true);
-          return 1;
+        /**
+         * @return list<array{options: array<string, string>}>
+         * @psalm-pure
+         */
+        public static function named(): array {
+          return [['options' => ['host' => 'x']]];
         }
 
         /**
-         * @return iterable<string, non-empty-list<string>>
+         * @return list<array<int, array<string, string>>>
          * @psalm-pure
          */
-        public static function provide(): iterable {
-          yield 'x' => ['a'];
+        public static function lengthless(): array {
+          return [[['host' => 'x']]];
         }
 
-        #[DataProvider('provide')]
-        #[Depends('testOne')]
-        public function testSecond(string $a, int $one, bool $unused = false): void {
-          $this->assertSame($a, (string) $one);
-          $this->assertFalse($unused);
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('named')]
+        public function testNamed(array $options): void {
+          $this->assertSame('x', $options['host']);
         }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('lengthless')]
+        public function testLengthless(array $options): void {
+          $this->assertSame('x', $options['host']);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message | Line |
+      | ArgumentTypeCoercion | Argument 1 ($options) of NS\MyTestCase::testNamed expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::named():(list<array{options: array<string, string>}>) | 31 |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testLengthless expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::lengthless():(list<array<int, array<string, string>>>) | 39 |
+    And I see no other errors
+
+  Scenario: A test parameter typed with an imported type alias is narrowed to the dataset type
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array{host: 'x'}}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x']]];
+        }
+
+        /**
+         * @param Options $options
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array $options): void {
+          /** @psalm-check-type-exact $options = array{host: 'x'} */
+          $this->expectNotToPerformAssertions();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A variadic parameter typed with an imported type alias is expanded in the provider check
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /** @psalm-type Options = array{host: string} */
+      final class Connection {}
+
+      /** @psalm-import-type Options from Connection */
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{array<string, string>, array<string, string>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[['host' => 'x'], ['host' => 'y']]];
+        }
+
+        /**
+         * @param Options ...$options
+         */
+        #[DataProvider('provide')]
+        public function testSomething(array ...$options): void {
+          $this->assertNotEmpty($options);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | ArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+      | ArgumentTypeCoercion | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
+    And I see no other errors
+
+  Scenario: self in a trait test and its provider means the class using the trait
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait ProvidesSelf {
+        /**
+         * @return list<array{class-string<self>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[self::class]];
+        }
+
+        /**
+         * @param class-string<self> $class
+         */
+        #[DataProvider('provide')]
+        public function testSomething(string $class): void {
+          $this->assertSame(self::class, $class);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use ProvidesSelf;
       }
       """
     When I run Psalm
