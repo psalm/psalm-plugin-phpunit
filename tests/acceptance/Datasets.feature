@@ -1163,6 +1163,154 @@ Feature: Datasets
       | ArgumentTypeCoercion | Argument 2 of NS\MyTestCase::testSomething expects array{host: string}, but parent type array<string, string> provided by NS\MyTestCase::provide():(list<list{array<string, string>, array<string, string>}>) |
     And I see no other errors
 
+  Scenario: A test parameter typed with the method's own templates accepts a matching dataset
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{iterable<int, int>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[[1, 2]]];
+        }
+
+        /**
+         * @template Tk of array-key
+         * @template Tv
+         * @param iterable<Tk, Tv> $iterable
+         */
+        #[DataProvider('provide')]
+        public function testSomething(iterable $iterable): void {
+          $this->assertGreaterThan(0, iterator_count($iterable));
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A dataset that violates the bound of a test method template is reported
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [['x']];
+        }
+
+        /**
+         * @template T of int
+         * @param T $value
+         */
+        #[DataProvider('provide')]
+        public function testSomething(int $value): void {
+          $this->assertSame(1, $value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, string provided by NS\MyTestCase::provide():(list<list{string}>) |
+    And I see no other errors
+
+  Scenario: A template inside an invariant generic of a test parameter accepts a matching dataset
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      /**
+       * @template T
+       * @psalm-immutable
+       */
+      final class Box {
+        /** @param T $value */
+        public function __construct(public mixed $value) {}
+      }
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{Box<int>}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[new Box(1)]];
+        }
+
+        /**
+         * @template T
+         * @param Box<T> $box
+         */
+        #[DataProvider('provide')]
+        public function testSomething(Box $box): void {
+          $this->assertNotSame(0, $box->value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A variadic test parameter typed with a method template accepts the dataset values
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{int, int}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[1, 2]];
+        }
+
+        /**
+         * @template T
+         * @param T ...$values
+         */
+        #[DataProvider('provide')]
+        public function testSomething(mixed ...$values): void {
+          $this->assertNotEmpty($values);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: An unsealed named dataset supplies a parameter typed with a method template
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<int, array{a: int, ...<string, int>}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield ['a' => 1, 'b' => 2];
+        }
+
+        /**
+         * @template T of int
+         * @param T $b
+         */
+        #[DataProvider('provide')]
+        public function testSomething(int $a, int $b): void {
+          $this->assertSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: self in a trait test and its provider means the class using the trait
     Given I have the following code
       """
