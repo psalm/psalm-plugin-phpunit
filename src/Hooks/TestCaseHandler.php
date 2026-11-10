@@ -759,8 +759,34 @@ final class TestCaseHandler implements
                     // let's hope properties are sorted in array order
                     $potential_argument_types = array_values($dataset_type->properties);
 
+                    // An open list supplies any number of further positions. A `mixed` tail only tells the
+                    // arity: nothing is known about its values, so they are not checked.
+                    $list_tail = $dataset_type->is_list ? $dataset_type->fallback_params[1] ?? null : null;
+                    $typed_tail = $list_tail !== null && !$list_tail->hasMixed() ? $list_tail : null;
+
+                    // PHPUnit appends the return values of depended-upon tests right after the dataset, so the
+                    // dataset certainly supplies only the positions that the required params need beyond them.
+                    // A trailing variadic param could consume them as well.
+                    $last_param         = array_slice($method_storage->params, -1)[0] ?? null;
+                    $tail_checked_until = count($method_storage->params);
+                    if ($dependency_values > 0 && ($last_param === null || !$last_param->is_variadic)) {
+                        $tail_checked_until = ($method_storage->required_param_count ?? $tail_checked_until)
+                            - $dependency_values;
+                    }
+
                     foreach ($method_storage->params as $param_offset => $param) {
-                        if (!isset($potential_argument_types[$param_offset])) {
+                        $potential_argument_type = $potential_argument_types[$param_offset] ?? null;
+                        if ($potential_argument_type === null && $list_tail !== null) {
+                            if ($param->is_variadic) {
+                                $potential_argument_type = $list_tail;
+                            } elseif ($typed_tail !== null && $param_offset < $tail_checked_until) {
+                                $potential_argument_type = $typed_tail;
+                            } else {
+                                continue;
+                            }
+                        }
+
+                        if ($potential_argument_type === null) {
                             // variadics are never required
                             // and they always come last
                             if ($param->is_variadic) {
@@ -787,7 +813,6 @@ final class TestCaseHandler implements
                             ), $test_suppressions);
                             break;
                         }
-                        $potential_argument_type = $potential_argument_types[$param_offset];
 
                         $param_type = $param->type === null ? Type::getMixed() : $param->type;
                         if ($param->is_variadic) {
@@ -796,13 +821,15 @@ final class TestCaseHandler implements
 
                             // check remaining argument types
                             for (; $param_offset < count($potential_argument_types); $param_offset++) {
-                                $potential_argument_type = $potential_argument_types[$param_offset];
                                 $checkParam(
-                                    $potential_argument_type,
+                                    $potential_argument_types[$param_offset],
                                     $variadic_param_type,
                                     true,
                                     $param_offset
                                 );
+                            }
+                            if ($typed_tail !== null) {
+                                $checkParam($typed_tail, $variadic_param_type, true, $param_offset);
                             }
                             break;
                         }
