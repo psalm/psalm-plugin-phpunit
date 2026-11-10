@@ -949,6 +949,185 @@ Feature: Datasets
       | MixedArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array<string, string>, but parent type array<string, mixed> provided by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>}>) |
     And I see no other errors
 
+  Scenario: A mixed dataset value is a mixed argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return array<array-key, array<array-key, mixed>>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [['a']];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('a', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | MixedArgument | Argument 1 of NS\MyTestCase::testSomething cannot be mixed, expecting string provided by NS\MyTestCase::provide():(array<array-key, array<array-key, mixed>>) |
+    And I see no other errors
+
+  Scenario: A mixed dataset value is accepted by a mixed or untyped parameter
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return array<array-key, array<array-key, mixed>>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [['a', 'b']];
+        }
+
+        /** @psalm-suppress MissingParamType */
+        #[DataProvider('provide')]
+        public function testSomething(mixed $a, $b): void {
+          $this->assertNotNull($a);
+          $this->assertNotNull($b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A mixed value of a string-keyed dataset is a mixed argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{s: mixed}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['s' => 'a'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('a', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | MixedArgument | Argument 1 ($s) of NS\MyTestCase::testSomething cannot be mixed, expecting string provided by NS\MyTestCase::provide():(iterable[pure]<string, array{s: mixed}>) |
+    And I see no other errors
+
+  Scenario: A mixed argument of the datasets can be suppressed on the test method
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return array<array-key, array<array-key, mixed>>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [['a']];
+        }
+
+        /** @psalm-suppress MixedArgument */
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('a', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: A possibly undefined mixed dataset value for a required parameter is an invalid argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, array{0: string, 1?: mixed}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $a, string $b): void {
+          $this->assertNotSame($a, $b);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | InvalidArgument | Argument 2 of NS\MyTestCase::testSomething is not optional, but possibly undefined mixed provided by NS\MyTestCase::provide():(iterable[pure]<string, array{0: string, 1?: mixed}>) |
+    And I see no other errors
+
+  Scenario: A mixed value of a positional list dataset is a mixed argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{mixed}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string $s): void {
+          $this->assertSame('a', $s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | MixedArgument | Argument 1 of NS\MyTestCase::testSomething cannot be mixed, expecting string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{mixed}>) |
+    And I see no other errors
+
+  Scenario: A mixed dataset value for a typed variadic parameter is a mixed argument
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{mixed}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => ['a'];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(string ...$s): void {
+          $this->assertNotEmpty($s);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | MixedArgument | Argument 1 of NS\MyTestCase::testSomething cannot be mixed, expecting string provided by NS\MyTestCase::provide():(iterable[pure]<string, list{mixed}>) |
+    And I see no other errors
+
   Scenario: An argument type coercion of the datasets can be suppressed on the test method
     Given I have the following code
       """

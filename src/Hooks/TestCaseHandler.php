@@ -683,7 +683,16 @@ final class TestCaseHandler implements
                         )
                     ) {
                         // ok
-                    } elseif ($comparison->type_coerced && !$potential_argument_type->hasMixed()) {
+                    } elseif (
+                        $potential_argument_type->hasMixed()
+                        && (!$potential_argument_type->possibly_undefined || $is_optional)
+                    ) {
+                        // A possibly undefined value for a required parameter is an InvalidArgument below
+                        IssueBuffer::accepts(new Issue\MixedArgument(
+                            $subject . ' cannot be ' . $argument_id . ', expecting ' . $param_id . ' provided' . $by,
+                            $provider_docblock_location,
+                        ), $test_suppressions);
+                    } elseif ($comparison->type_coerced) {
                         $message = $subject . ' expects ' . $param_id . ', but parent type ' . $argument_id
                             . ' provided' . $by;
                         IssueBuffer::accepts(
