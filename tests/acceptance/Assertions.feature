@@ -2,30 +2,6 @@ Feature: Assertions
 
   Background:
     Given PHPUnit identifies as version "11.5.0"
-    And I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" %s>
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
-    And I have the following code preamble
-      """
-      <?php
-      namespace NS;
-      use PHPUnit\Framework\TestCase;
-
-      """
 
   Scenario: assertNotEmpty removes null from the asserted value
     Given I have the following code
@@ -251,23 +227,7 @@ Feature: Assertions
     Then I see no errors
 
   Scenario: assertEquals suggestion is only reported at error level 1
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="2" findUnusedCode="false" >
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given the error level is 2
     And I have the following code
       """
       final class MyTestCase extends TestCase {
@@ -280,24 +240,7 @@ Feature: Assertions
     Then I see no errors
 
   Scenario: assertEquals suggestion can be suppressed in the config
-    Given I have the following config
-      """
-      <?xml version="1.0"?>
-      <psalm errorLevel="1" findUnusedCode="false" >
-        <projectFiles>
-          <directory name="."/>
-          <ignoreFiles> <directory name="../../vendor"/> </ignoreFiles>
-        </projectFiles>
-        <plugins>
-          <pluginClass class="Psalm\PhpUnitPlugin\Plugin"/>
-        </plugins>
-        <issueHandlers>
-          <MissingClassConstType errorLevel="suppress" />
-          <DeprecatedMethod errorLevel="suppress" />
-          <PluginIssue name="UnspecificEqualsAssertion" errorLevel="suppress" />
-        </issueHandlers>
-      </psalm>
-      """
+    Given the config suppresses the plugin issue "UnspecificEqualsAssertion"
     And I have the following code
       """
       final class MyTestCase extends TestCase {

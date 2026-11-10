@@ -27,7 +27,7 @@ Layout:
 - `stubs/TestCase.phpstub`: types `prophesize()`.
 - `tests/acceptance/*.feature`: the Behat scenarios, the only test suite that CI runs. One file per area
   (`DataProviders`, `NamedDatasets`, `Narrowing`, `MockMethod`, ...): add a scenario to the file of the area
-  it tests. Every file except `Prophecy.feature` starts with the same Background.
+  it tests. Every file except `Prophecy.feature` has the same Background, which pins the PHPUnit version.
 - `tools/behat/`: a separate composer project (Behat, azjezz/psl, and Psalm ^6 used only to
   analyse `tools/behat/src/Context.php`). `Context` writes each scenario to
   `tools/behat/run/<random>/` and runs the **root** `vendor/bin/psalm` there.
@@ -162,9 +162,14 @@ workaround explicitly in the report.
   exact behaviour being fixed or added. Prove it by running that single scenario on both
   (see above). Edge-case scenarios that guard the change may pass on the base.
 - Step semantics (`tools/behat/src/Context.php`):
-  - the Background sets errorLevel 1, `findUnusedCode="false"`, suppresses
-    `MissingClassConstType` and `DeprecatedMethod`, and prepends
-    `<?php namespace NS; use PHPUnit\Framework\TestCase;` to the code;
+  - `Context` writes the config: errorLevel 1, `findUnusedCode="false"`,
+    `findUnusedPsalmSuppress="true"` (so a `@psalm-suppress` in a fixture fails the scenario unless the
+    issue is raised), and `MissingClassConstType` and `DeprecatedMethod` suppressed. It prepends
+    `<?php namespace NS; use PHPUnit\Framework\TestCase;` to the code
+    (`Given I have the following code preamble` replaces it);
+  - config steps: `Given the error level is 2`, `Given Psalm checks for throws docblocks`,
+    `Given the config uses the autoloader "autoload.php"`, `Given the config suppresses the issue "X"`,
+    `Given the config suppresses the plugin issue "X"`, `Given Psalm ignores the exception "X"`;
   - `Then I see no errors`: the Psalm process exited 0;
   - `Then I see these errors` (table `| Type | Message |`): each row must match an issue's
     exact type **and** exact full message. Matched issues are removed;
