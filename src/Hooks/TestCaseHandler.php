@@ -161,8 +161,10 @@ final class TestCaseHandler implements
         }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
-            $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
-            if ($codebase->classExtends($name, 'PHPUnit\Framework\TestCase') && ($meta['hasInitializers'] ?? false)) {
+            if (
+                $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
+                && self::hasInitializersFromTraits($codebase, $storage)
+            ) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
 
                 foreach (self::getDescendants($codebase, $name) as $dependent_name) {
@@ -171,6 +173,26 @@ final class TestCaseHandler implements
                 }
             }
         }
+    }
+
+    /** Trait methods are not merged into the class yet when the class is visited, so its own flag misses them. */
+    private static function hasInitializersFromTraits(Codebase $codebase, ClassLikeStorage $storage): bool
+    {
+        $meta = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
+        if (($meta['hasInitializers'] ?? false) || isset($storage->trait_alias_map['setup'])) {
+            return true;
+        }
+
+        foreach ($storage->used_traits as $trait_name) {
+            if (
+                $codebase->classlike_storage_provider->has($trait_name)
+                && self::hasInitializersFromTraits($codebase, $codebase->classlike_storage_provider->get($trait_name))
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
