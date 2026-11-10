@@ -30,10 +30,12 @@ final class TemplateInference
         TemplateStandinTypeReplacer::fillTemplateResult($param_type, $result, $codebase, null, $argument);
         $inferred = TemplateInferredTypeReplacer::replace($param_type, $result, $codebase);
 
-        return TemplateInferredTypeReplacer::replace(
-            $inferred,
-            new TemplateResult($method->template_types, $method->template_types),
-            $codebase,
-        );
+        // The bounds on the parameter type are already expanded, those in the method storage are not
+        $bounds = [];
+        foreach ($param_type->getTemplateTypes() as $template) {
+            $bounds[$template->param_name][$template->defining_class] = $template->as;
+        }
+
+        return TemplateInferredTypeReplacer::replace($inferred, new TemplateResult($bounds, $bounds), $codebase);
     }
 }

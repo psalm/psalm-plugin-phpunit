@@ -1311,6 +1311,63 @@ Feature: Datasets
     When I run Psalm
     Then I see no errors
 
+  Scenario: A dataset that violates a self bound of a test method template is reported against the class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return list<array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [['x']];
+        }
+
+        /**
+         * @template T of self
+         * @param T $value
+         */
+        #[DataProvider('provide')]
+        public function testSomething(object $value): void {
+          $this->assertNotNull($value);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects NS\MyTestCase, string provided by NS\MyTestCase::provide():(list<list{string}>) |
+    And I see no other errors
+
+  Scenario: A test parameter typed with a method template accepts the values of a dataset of unknown length
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return array<int, array<int, int>>
+         * @psalm-pure
+         */
+        public static function provide(): array {
+          return [[1], [2]];
+        }
+
+        /**
+         * @template T
+         * @param T $a
+         */
+        #[DataProvider('provide')]
+        public function testSomething(mixed $a): void {
+          $this->assertNotSame(0, $a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: self in a trait test and its provider means the class using the trait
     Given I have the following code
       """
