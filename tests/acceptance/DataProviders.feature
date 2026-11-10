@@ -1382,3 +1382,21 @@ Feature: Data providers
       | Type         | Message |
       | UnusedMethod | Cannot find any calls to private method NS\MyTestCase::testHelper |
     And I see no other errors
+
+  Scenario: Docblock data provider next to a PHPUnit attribute that is not a provider is not resolved
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\Group;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @dataProvider provideCents
+         */
+        #[Group('money')]
+        public function testCents(int $cents = 100): void {
+          $this->assertSame(100, $cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
