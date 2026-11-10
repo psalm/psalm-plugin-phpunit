@@ -44,6 +44,8 @@ use Psalm\Codebase;
 use Psalm\CodeLocation;
 use Psalm\Internal\Analyzer\ClassLikeAnalyzer;
 use Psalm\Internal\MethodIdentifier;
+use Psalm\Internal\Type\Comparator\TypeComparisonResult;
+use Psalm\Internal\Type\Comparator\UnionTypeComparator;
 use Psalm\IssueBuffer;
 use Psalm\Issue;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
@@ -645,36 +647,67 @@ final class TestCaseHandler implements
                     $provider_docblock_location,
                     $test_suppressions
                 ): void {
-                    $argument = 'Argument ' . ($param_offset + 1)
-                        . ($param_name === null ? '' : ' ($' . $param_name . ')');
+                    $subject = 'Argument ' . ($param_offset + 1)
+                        . ($param_name === null ? '' : ' ($' . $param_name . ')')
+                        . ' of ' . $method_name;
+                    $by      = ' by ' . $provider_name . ':(' . $provider_return_type_string . ')';
                     if ($is_optional) {
                         $param_type = $param_type->setPossiblyUndefined(true);
                     }
-                    if ($codebase->isTypeContainedByType($potential_argument_type, $param_type)) {
+                    $param_id    = $param_type->getId();
+                    $argument_id = $potential_argument_type->getId();
+
+                    $comparison = new TypeComparisonResult();
+                    if (
+                        UnionTypeComparator::isContainedBy(
+                            $codebase,
+                            $potential_argument_type,
+                            $param_type,
+                            union_comparison_result: $comparison,
+                        )
+                    ) {
                         // ok
+                    } elseif ($comparison->type_coerced && !$potential_argument_type->hasMixed()) {
+                        $message = $subject . ' expects ' . $param_id . ', but parent type ' . $argument_id
+                            . ' provided' . $by;
+                        IssueBuffer::accepts(
+                            $comparison->type_coerced_from_mixed
+                                ? new Issue\MixedArgumentTypeCoercion($message, $provider_docblock_location)
+                                : new Issue\ArgumentTypeCoercion($message, $provider_docblock_location),
+                            $test_suppressions,
+                        );
+                        // Core reports these separately from the coercion, so they must not be hidden by it
+                        if ($potential_argument_type->isNullable() && !$param_type->isNullable()) {
+                            IssueBuffer::accepts(new Issue\PossiblyNullArgument(
+                                $subject . ' cannot be null, possibly null value provided' . $by,
+                                $provider_docblock_location,
+                            ), $test_suppressions);
+                        }
+                        if (
+                            $potential_argument_type->isFalsable()
+                            && !$param_type->isFalsable()
+                            && !$param_type->hasBool()
+                            && !$param_type->hasScalar()
+                        ) {
+                            IssueBuffer::accepts(new Issue\PossiblyFalseArgument(
+                                $subject . ' cannot be false, possibly ' . $param_id . ' value expected' . $by,
+                                $provider_docblock_location,
+                            ), $test_suppressions);
+                        }
                     } elseif ($codebase->canTypeBeContainedByType($potential_argument_type, $param_type)) {
                         IssueBuffer::accepts(new Issue\PossiblyInvalidArgument(
-                            $argument . ' of ' . $method_name
-                            . ' expects ' . $param_type->getId() . ', '
-                            . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
-                            $provider_docblock_location
+                            $subject . ' expects ' . $param_id . ', ' . $argument_id . ' provided' . $by,
+                            $provider_docblock_location,
                         ), $test_suppressions);
                     } elseif ($potential_argument_type->possibly_undefined && !$is_optional) {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            $argument . ' of ' . $method_name
-                            . ' is not optional, but possibly undefined '
-                            . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
-                            $provider_docblock_location
+                            $subject . ' is not optional, but possibly undefined ' . $argument_id . ' provided' . $by,
+                            $provider_docblock_location,
                         ), $test_suppressions);
                     } else {
                         IssueBuffer::accepts(new Issue\InvalidArgument(
-                            $argument . ' of ' . $method_name
-                            . ' expects ' . $param_type->getId() . ', '
-                            . $potential_argument_type->getId() . ' provided'
-                            . ' by ' . $provider_name . ':(' . $provider_return_type_string . ')',
-                            $provider_docblock_location
+                            $subject . ' expects ' . $param_id . ', ' . $argument_id . ' provided' . $by,
+                            $provider_docblock_location,
                         ), $test_suppressions);
                     }
                 };
