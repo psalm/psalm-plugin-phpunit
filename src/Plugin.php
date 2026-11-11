@@ -2,11 +2,15 @@
 
 namespace Psalm\PhpUnitPlugin;
 
+use Psalm\PhpUnitPlugin\Issue\UnspecificBooleanAssertion;
+use Psalm\PhpUnitPlugin\Issue\UnspecificEqualsAssertion;
+use Psalm\PhpUnitPlugin\Issue\UnspecificNullAssertion;
 use Psalm\Plugin\PluginEntryPointInterface;
+use Psalm\Plugin\PluginFixableIssuesInterface;
 use Psalm\Plugin\RegistrationInterface;
 
 /** @psalm-suppress UnusedClass */
-final class Plugin implements PluginEntryPointInterface
+final class Plugin implements PluginEntryPointInterface, PluginFixableIssuesInterface
 {
     #[\Override]
     public function __invoke(RegistrationInterface $psalm, ?\SimpleXMLElement $config = null): void
@@ -42,5 +46,15 @@ final class Plugin implements PluginEntryPointInterface
 
         class_exists(Hooks\ProviderReturnTypeHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\ProviderReturnTypeHandler::class);
+    }
+
+    #[\Override]
+    public function getFixableIssues(?\SimpleXMLElement $config = null): array
+    {
+        return [
+            UnspecificEqualsAssertion::class,
+            UnspecificNullAssertion::class,
+            UnspecificBooleanAssertion::class,
+        ];
     }
 }
