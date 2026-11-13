@@ -156,10 +156,15 @@ final class TestCaseHandler implements
         }
 
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
-            if (
-                $codebase->classExtends($name, 'PHPUnit\Framework\TestCase')
-                && self::hasInitializers($codebase, $storage)
-            ) {
+            if (!$codebase->classExtends($name, 'PHPUnit\Framework\TestCase')) {
+                continue;
+            }
+
+            // PHPUnit only runs from the command line. Psalm reads the flag from the class whose method is analysed
+            // (or that uses the trait), not from its parents, so every test case gets it.
+            $storage->cli_only = true;
+
+            if (self::hasInitializers($codebase, $storage)) {
                 $storage->suppressed_issues[] = 'MissingConstructor';
             }
         }
