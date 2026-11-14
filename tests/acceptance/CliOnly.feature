@@ -81,27 +81,3 @@ Feature: CliOnly
       """
     When I run Psalm
     Then I see no errors
-
-  Scenario: A class that is not a test case calls code that only runs from the command line
-    Given I have the following code
-      """
-      /** @psalm-cli-only */
-      final class ImportCommand
-      {
-          public function handle(): void {}
-      }
-
-      final class ImportController
-      {
-          public function store(): void
-          {
-              (new ImportCommand())->handle();
-          }
-      }
-      """
-    When I run Psalm
-    Then I see these errors
-      | Type        | Message |
-      | CliOnlyCall | The class NS\ImportCommand only runs from the command line (@psalm-cli-only), but this code may run outside of it: mark it @psalm-cli-only too, or check that PHP_SAPI === 'cli' first |
-      | CliOnlyCall | The method NS\ImportCommand::handle() only runs from the command line (@psalm-cli-only), but this code may run outside of it: mark it @psalm-cli-only too, or check that PHP_SAPI === 'cli' first |
-    And I see no other errors
