@@ -582,3 +582,133 @@ Feature: Dead code
       | Type                 | Message                                                        |
       | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::centsAreCounted |
     And I see no other errors
+
+  Scenario: The code of the test suites isn't part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code in "phpunit.xml"
+      """
+      <phpunit>
+        <testsuites>
+          <testsuite name="unit">
+            <directory>tests</directory>
+          </testsuite>
+        </testsuites>
+      </phpunit>
+      """
+    And I have the following code in "tests/Helper.php"
+      """
+      <?php
+      namespace NS\Tests;
+
+      final class Helper
+      {
+        public function help(): void {}
+      }
+      """
+    And I have the following code
+      """
+      final class Client
+      {
+        public function send(): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type        | Message                             |
+      | UnusedClass | Class NS\Tests\Helper is never used |
+    And I see no other errors
+
+  Scenario: Test cases aren't part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        public function testSomething(): void
+        {
+          $this->assertTrue(true);
+        }
+
+        public function helper(): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type                 | Message                                               |
+      | PossiblyUnusedMethod | Cannot find any calls to method NS\MyTestCase::helper |
+    And I see no other errors
+
+  Scenario: Abstract test cases outside the test suites stay part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code
+      """
+      abstract class KernelTestCase extends TestCase
+      {
+        public function bootKernel(): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Test cases of the global namespace stay part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code preamble
+      """
+      <?php
+      use PHPUnit\Framework\TestCase;
+      """
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        public function testSomething(): void
+        {
+          $this->assertTrue(true);
+        }
+
+        public function helper(): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: Files and wildcard directories of the test suites of phpunit.xml.dist aren't part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code in "phpunit.xml.dist"
+      """
+      <phpunit>
+        <testsuites>
+          <testsuite name="unit">
+            <file>support/Helper.php</file>
+            <directory>modules/*/tests</directory>
+          </testsuite>
+        </testsuites>
+      </phpunit>
+      """
+    And I have the following code in "support/Helper.php"
+      """
+      <?php
+      namespace NS\Support;
+
+      final class Helper {}
+      """
+    And I have the following code in "modules/billing/tests/Fixture.php"
+      """
+      <?php
+      namespace NS\Billing\Tests;
+
+      final class Fixture {}
+      """
+    And I have the following code in "modules/billing/src/Invoice.php"
+      """
+      <?php
+      namespace NS\Billing;
+
+      final class Invoice {}
+      """
+    When I run Psalm with dead code detection
+    Then I see these errors
+      | Type        | Message                                      |
+      | UnusedClass | Class NS\Support\Helper is never used        |
+      | UnusedClass | Class NS\Billing\Tests\Fixture is never used |
+    And I see no other errors

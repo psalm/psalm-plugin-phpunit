@@ -45,6 +45,7 @@ final class Context implements BehatContext
     private array $ignoredPackages = [];
     private ?string $phpunitVersion = null;
     private bool $declaresDataProviderClosure = false;
+    private bool $marksAllNonInternalCodeAsApi = false;
     private string $codePreamble = self::DEFAULT_PREAMBLE;
     private ?string $processOutput = null;
     /** @var int<0, 255> */
@@ -96,7 +97,9 @@ final class Context implements BehatContext
 
     private function writeFile(string $file, string $contents): void
     {
-        File\write($this->scenarioDirectory() . '/' . $file, $contents);
+        $path = $this->scenarioDirectory() . '/' . $file;
+        Filesystem\create_directory(\dirname($path));
+        File\write($path, $contents);
     }
 
     /** @param list<non-empty-string> $additionalFlags */
@@ -149,6 +152,12 @@ final class Context implements BehatContext
     public function theErrorLevelIs(int $level): void
     {
         $this->errorLevel = $level;
+    }
+
+    #[Given('the config marks all non-internal code as API')]
+    public function theConfigMarksAllNonInternalCodeAsApi(): void
+    {
+        $this->marksAllNonInternalCodeAsApi = true;
     }
 
     #[Given('Psalm checks for throws docblocks')]
@@ -232,6 +241,9 @@ final class Context implements BehatContext
         $attributes = \sprintf('errorLevel="%d" findUnusedCode="false" findUnusedPsalmSuppress="true"', $this->errorLevel);
         if ($this->checksForThrowsDocblock) {
             $attributes .= ' checkForThrowsDocblock="true"';
+        }
+        if ($this->marksAllNonInternalCodeAsApi) {
+            $attributes .= ' markAllNonInternalCodeAsApi="true"';
         }
         if ($autoloader !== null) {
             $attributes .= \sprintf(' autoloader="%s"', self::xml($autoloader));

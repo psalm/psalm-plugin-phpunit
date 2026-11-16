@@ -168,6 +168,122 @@ final class TestCaseHandler implements
                 $storage->suppressed_issues[] = 'MissingConstructor';
             }
         }
+
+        self::markTestCodeInternal($codebase);
+    }
+
+    /**
+     * The users of a project can't use its test suites or test cases.
+     */
+    private static function markTestCodeInternal(Codebase $codebase): void
+    {
+        $test_paths = self::getTestSuitePaths($codebase->config->base_dir);
+
+        $test_classes = [];
+        $namespaces = [];
+        foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
+            $file_path = $storage->location?->file_path;
+            if ($file_path === null || $storage->internal || !$codebase->config->isInProjectDirs($file_path)) {
+                continue;
+            }
+
+            // an abstract test case outside the test suites may be shipped for the users of the library to extend
+            if (!self::isInPaths($file_path, $test_paths)
+                && ($storage->abstract || !$codebase->classExtends($name, 'PHPUnit\Framework\TestCase'))
+            ) {
+                continue;
+            }
+
+            // Psalm can't make code of the global namespace internal
+            $namespace = \strstr($storage->name, '\\', true);
+            if ($namespace === false || $namespace === '') {
+                continue;
+            }
+
+            $namespaces[$namespace] = $namespace;
+            $test_classes[] = $storage;
+        }
+
+        // test code may use the test code of every other namespace
+        $namespaces = \array_values($namespaces);
+        foreach ($test_classes as $storage) {
+            $storage->internal = $namespaces;
+        }
+    }
+
+    /**
+     * The directories and files of the test suites in the PHPUnit configuration PHPUnit would use.
+     *
+     * @return list<string>
+     */
+    private static function getTestSuitePaths(string $base_dir): array
+    {
+        $config = false;
+        foreach (['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'] as $file_name) {
+            $config_path = $base_dir . \DIRECTORY_SEPARATOR . $file_name;
+            if (\is_file($config_path)) {
+                $config = @\simplexml_load_file($config_path);
+                break;
+            }
+        }
+
+        if ($config === false) {
+            return [];
+        }
+
+        $nodes = $config->xpath('/phpunit/testsuites/testsuite/directory|/phpunit/testsuites/testsuite/file');
+        if (!\is_array($nodes)) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($nodes as $path) {
+            $path = \trim((string) $path);
+            if ($path === '') {
+                continue;
+            }
+
+            if ($path[0] !== '/' && !\preg_match('~^[A-Za-z]:[\\\\/]~', $path)) {
+                $path = $base_dir . \DIRECTORY_SEPARATOR . $path;
+            }
+
+            // PHPUnit expands wildcards in the paths of test suites
+            $matches = \glob($path, \GLOB_NOSORT);
+            if ($matches === false) {
+                continue;
+            }
+
+            foreach ($matches as $match) {
+                $real_path = \realpath($match);
+                if ($real_path !== false) {
+                    $paths[] = $real_path;
+                }
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @param list<string> $paths
+     */
+    private static function isInPaths(string $file_path, array $paths): bool
+    {
+        if ($paths === []) {
+            return false;
+        }
+
+        $real_path = \realpath($file_path);
+        if ($real_path !== false) {
+            $file_path = $real_path;
+        }
+        foreach ($paths as $path) {
+            if ($file_path === $path || \str_starts_with($file_path, $path . \DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
