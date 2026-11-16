@@ -169,13 +169,11 @@ final class TestCaseHandler implements
             }
         }
 
-        if ($codebase->config->mark_all_non_internal_code_as_api) {
-            self::markTestCodeInternal($codebase);
-        }
+        self::markTestCodeInternal($codebase);
     }
 
     /**
-     * Users of a library can't use its test suites or test cases, so they aren't part of its API.
+     * The users of a project can't use its test suites or test cases.
      */
     private static function markTestCodeInternal(Codebase $codebase): void
     {

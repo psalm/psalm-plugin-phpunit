@@ -96,10 +96,10 @@ Locally:
 
 ### Psalm versions
 
-`composer.json` requires `psalm/psalm-plugin-api: ^0.4.6` (`Config#$mark_all_non_internal_code_as_api`)
-next to Psalm `^7.2 || dev-master`. Only Psalm dev-master
+`composer.json` requires `psalm/psalm-plugin-api: ^0.4.2` (Psalter fixes through
+`PluginFixableIssuesInterface`) next to Psalm `^7.2 || dev-master`. Only Psalm dev-master
 requires that API version for now: Psalm 7.2.0 and 7.2.1 pin 0.4.1. So every CI job (low,
-stable, high) installs dev-master until a Psalm release ships 0.4.6, and Psalm 7.2 users stay
+stable, high) installs dev-master until a Psalm release ships 0.4.2, and Psalm 7.2 users stay
 on the previous plugin release. Once such a release exists, raise `vimeo/psalm` to it.
 Psalm 7.0 and 7.1 require `psalm/plugin-phpunit: ^0.21` and never install 1.x.
 - Always check `vendor/bin/psalm --version` before trusting a result.
