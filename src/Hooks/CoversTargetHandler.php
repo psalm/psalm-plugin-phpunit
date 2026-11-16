@@ -455,6 +455,6 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
 
     private static function functionExists(Codebase $codebase, string $name): bool
     {
-        return $codebase->functions->isDeclaredInCode(\ltrim($name, '\\'));
+        return $codebase->functions->isDeclaredInCode(\ltrim($name, '\\'), $codebase->scanner);
     }
 }
