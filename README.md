@@ -50,6 +50,8 @@ public function testTypo(int $cents): void {}
 
 Tests, providers and `TestCase` classes are not unused code. Properties set in `setUp()` or a `#[Before]` method are initialized (no `MissingConstructor`). Exceptions declared by PHPUnit's API are not `MissingThrowsDocblock`.
 
+With Psalm's [`markAllNonInternalCodeAsApi`](https://psalm.dev/docs/running_psalm/configuration/#markallnoninternalcodeasapi), the code of the test suites of `phpunit.xml` and the test cases are internal, so they aren't part of the library's API.
+
 ```php
 $this->expectException(InvalidArgumentException::class);
 strtoupper($name); // no UnusedFunctionCall
