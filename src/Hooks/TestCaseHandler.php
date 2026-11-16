@@ -183,7 +183,12 @@ final class TestCaseHandler implements
         $namespaces = [];
         foreach ($codebase->classlike_storage_provider->getAll() as $name => $storage) {
             $file_path = $storage->location?->file_path;
-            if ($file_path === null || $storage->internal || !$codebase->config->isInProjectDirs($file_path)) {
+            // code marked @api is meant for the users of the project, even in a test suite
+            if ($file_path === null
+                || $storage->internal
+                || $storage->public_api
+                || !$codebase->config->isInProjectDirs($file_path)
+            ) {
                 continue;
             }
 

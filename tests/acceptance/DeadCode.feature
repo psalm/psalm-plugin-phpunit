@@ -712,3 +712,16 @@ Feature: Dead code
       | UnusedClass | Class NS\Support\Helper is never used        |
       | UnusedClass | Class NS\Billing\Tests\Fixture is never used |
     And I see no other errors
+
+  Scenario: Test cases marked @api stay part of the API of a library
+    Given the config marks all non-internal code as API
+    And I have the following code
+      """
+      /** @api */
+      class LogTestCase extends TestCase
+      {
+        protected function getRecord(): void {}
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
