@@ -949,6 +949,34 @@ Feature: Datasets
       | MixedArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array<string, string>, but parent type array<string, mixed> provided by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>}>) |
     And I see no other errors
 
+  Scenario: A possibly false mixed array value is still a mixed argument type coercion
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase {
+        /**
+         * @return iterable<string, list{array<string, mixed>|false}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield 'x' => [[]];
+        }
+
+        /** @param array<string, string> $a */
+        #[DataProvider('provide')]
+        public function testSomething(array $a): void {
+          $this->assertCount(0, $a);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type | Message |
+      | MixedArgumentTypeCoercion | Argument 1 of NS\MyTestCase::testSomething expects array<string, string>, but parent type array<string, mixed>\|false provided by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>\|false}>) |
+      | PossiblyFalseArgument | Argument 1 of NS\MyTestCase::testSomething cannot be false, possibly array<string, string> value expected by NS\MyTestCase::provide():(iterable[pure]<string, list{array<string, mixed>\|false}>) |
+    And I see no other errors
+
   Scenario: A mixed dataset value is a mixed argument
     Given I have the following code
       """

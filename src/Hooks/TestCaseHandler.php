@@ -697,14 +697,30 @@ final class TestCaseHandler implements
                     $argument_id = $potential_argument_type->getId();
 
                     $comparison = new TypeComparisonResult();
-                    if (
+                    $contained = UnionTypeComparator::isContainedBy(
+                        $codebase,
+                        $potential_argument_type,
+                        $param_type,
+                        union_comparison_result: $comparison,
+                    );
+                    if (!$contained && !$comparison->type_coerced) {
+                        // Like core, null and false are reported on their own, so they don't keep the rest from
+                        // being a coercion
+                        $rest_comparison = new TypeComparisonResult();
                         UnionTypeComparator::isContainedBy(
                             $codebase,
                             $potential_argument_type,
                             $param_type,
-                            union_comparison_result: $comparison,
-                        )
-                    ) {
+                            true,
+                            !isset($param_type->getAtomicTypes()['true']),
+                            $rest_comparison,
+                        );
+                        if ($rest_comparison->type_coerced) {
+                            $comparison = $rest_comparison;
+                        }
+                    }
+
+                    if ($contained) {
                         // ok
                     } elseif (
                         $potential_argument_type->hasMixed()
