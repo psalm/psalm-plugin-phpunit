@@ -129,3 +129,61 @@ Feature: Internal test code
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Library code may use a test case marked @api outside the test suites
+    Given I have the following code in "testing/LogTestCase.php"
+      """
+      <?php
+      namespace Testing;
+
+      /** @api */
+      class LogTestCase extends \PHPUnit\Framework\TestCase
+      {
+        public static function getRecord(): void {}
+      }
+      """
+    And I have the following code
+      """
+      /** @psalm-cli-only */
+      final class Client
+      {
+        public function send(): void
+        {
+          \Testing\LogTestCase::getRecord();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
+  Scenario: Library code may use the code of the test suites marked @api
+    Given I have the following code in "phpunit.xml"
+      """
+      <phpunit>
+        <testsuites>
+          <testsuite name="unit">
+            <directory>tests</directory>
+          </testsuite>
+        </testsuites>
+      </phpunit>
+      """
+    And I have the following code in "tests/Helper.php"
+      """
+      <?php
+      namespace Tests;
+
+      /** @api */
+      final class Helper {}
+      """
+    And I have the following code
+      """
+      final class Client
+      {
+        public function send(): void
+        {
+          new \Tests\Helper();
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
