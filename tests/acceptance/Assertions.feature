@@ -218,7 +218,8 @@ Feature: Assertions
     And I see no other errors
 
   Scenario: assertEquals with different, mixed, nullable or non-scalar arguments is not reported
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       enum Suit: string {
         case Hearts = 'h';
@@ -285,7 +286,8 @@ Feature: Assertions
     Then I see no errors
 
   Scenario: Assertions without a literal expectation or a plain count are not reported
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       /** @psalm-immutable */
       final class Bag {

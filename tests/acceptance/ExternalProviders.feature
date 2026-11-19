@@ -417,7 +417,8 @@ Feature: External data providers
     And I see no other errors
 
   Scenario: #[DataProviderExternal] class is resolved through an import alias and named arguments
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProviderExternal as Ext;
       use NS\External as Provider;
