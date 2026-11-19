@@ -38,7 +38,8 @@ Feature: Intersection mocks and stubs
     Then I see no errors
 
   Scenario: Intersection stubs have the type of every listed interface
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       /** @psalm-mutable */
       interface Clock {

@@ -196,7 +196,8 @@ Feature: Dependencies
     And I see no other errors
 
   Scenario: Named DependsExternal arguments are resolved by name
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       use PHPUnit\Framework\Attributes\DataProvider;
       use PHPUnit\Framework\Attributes\DependsExternal;

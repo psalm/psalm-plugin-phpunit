@@ -4,7 +4,8 @@ Feature: Coverage targets
     Given PHPUnit identifies as version "11.5.0"
 
   Scenario: Missing methods and functions in #[CoversMethod], #[UsesMethod], #[CoversFunction] and #[UsesFunction] are reported
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       use PHPUnit\Framework\Attributes\CoversFunction;
       use PHPUnit\Framework\Attributes\CoversMethod;
@@ -45,7 +46,8 @@ Feature: Coverage targets
     And I see no other errors
 
   Scenario: Existing targets of #[CoversMethod] and #[CoversFunction] are not reported
-    Given I have the following code
+    Given the config suppresses the issue "NamedArgumentNotAllowed"
+    And I have the following code
       """
       use PHPUnit\Framework\Attributes\CoversFunction;
       use PHPUnit\Framework\Attributes\CoversMethod;
