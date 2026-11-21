@@ -20,6 +20,9 @@ final class Plugin implements PluginEntryPointInterface, PluginFixableIssuesInte
         class_exists(Hooks\TestCaseHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\TestCaseHandler::class);
 
+        class_exists(Hooks\TestSuiteFileHandler::class, true);
+        $psalm->registerHooksFromClass(Hooks\TestSuiteFileHandler::class);
+
         class_exists(Hooks\AssertSameSuggestionHandler::class, true);
         $psalm->registerHooksFromClass(Hooks\AssertSameSuggestionHandler::class);
 

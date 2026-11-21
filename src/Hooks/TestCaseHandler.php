@@ -90,6 +90,9 @@ final class TestCaseHandler implements
         DependsExternalUsingShallowClone::class => true,
     ];
 
+    /** @var array<string, list<string>> test suite paths by base directory */
+    private static array $test_suite_paths = [];
+
     private const DATA_PROVIDER_CLOSURE = 'PHPUnit\\Framework\\Attributes\\DataProviderClosure';
 
     private const EXPECT_EXCEPTION_METHODS = [
@@ -220,8 +223,16 @@ final class TestCaseHandler implements
      * The directories and files of the test suites in the PHPUnit configuration PHPUnit would use.
      *
      * @return list<string>
+     *
+     * @internal
      */
-    private static function getTestSuitePaths(string $base_dir): array
+    public static function getTestSuitePaths(string $base_dir): array
+    {
+        return self::$test_suite_paths[$base_dir] ??= self::readTestSuitePaths($base_dir);
+    }
+
+    /** @return list<string> */
+    private static function readTestSuitePaths(string $base_dir): array
     {
         $config = false;
         foreach (['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'] as $file_name) {
@@ -271,8 +282,10 @@ final class TestCaseHandler implements
 
     /**
      * @param list<string> $paths
+     *
+     * @internal
      */
-    private static function isInPaths(string $file_path, array $paths): bool
+    public static function isInPaths(string $file_path, array $paths): bool
     {
         if ($paths === []) {
             return false;
