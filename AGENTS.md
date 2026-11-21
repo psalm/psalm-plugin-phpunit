@@ -11,6 +11,10 @@ Layout:
 - `src/Plugin.php`: entry point. Registers `stubs/TestCase.phpstub` and `Hooks\TestCaseHandler`.
 - `src/Hooks/TestCaseHandler.php`: all the hooks (`AfterClassLikeVisit`,
   `AfterClassLikeAnalysis`, `AfterCodebasePopulated`, `AfterMethodCallAnalysis`).
+- `src/Hooks/TestSuiteFileHandler.php`: the `BeforeFileAnalysis` hook that marks the files of the `phpunit.xml`
+  test suites CLI-only (their top-level code and closures, such as Pest tests bound to a `TestCase`), the
+  files `TestCaseHandler::getTestSuitePaths()` returns. The classes and functions they declare are not marked:
+  library code may use `@api` test helpers.
 - `src/Hooks/AssertSameSuggestionHandler.php` and `src/Issue/Unspecific*Assertion.php`: the
   `AfterMethodCallAnalysis` hook and plugin issues that suggest `assertNull()`, `assertTrue()` /
   `assertFalse()` and `assertCount()` over `assertSame()`, and `assertSame()` over `assertEquals()`
