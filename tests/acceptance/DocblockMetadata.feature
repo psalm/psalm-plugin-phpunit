@@ -563,3 +563,142 @@ Feature: Docblock metadata ignored by PHPUnit 12 and newer
       | Type                    | Message                                                          | Line |
       | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead | 7    |
     And I see no other errors
+
+  Scenario: PHPUnit 12 reports each docblock tag PHPUnit 11 reads
+    Given PHPUnit identifies as version "12.5.43"
+    And I have the following code
+      """
+      final class MyTestCase extends TestCase {
+        /** @after x */
+        public function method1(): void {}
+
+        /** @afterClass x */
+        public function method2(): void {}
+
+        /** @backupGlobals x */
+        public function method3(): void {}
+
+        /** @backupStaticAttributes x */
+        public function method4(): void {}
+
+        /** @backupStaticProperties x */
+        public function method5(): void {}
+
+        /** @before x */
+        public function method6(): void {}
+
+        /** @beforeClass x */
+        public function method7(): void {}
+
+        /** @covers x */
+        public function method8(): void {}
+
+        /** @coversDefaultClass x */
+        public function method9(): void {}
+
+        /** @coversNothing x */
+        public function method10(): void {}
+
+        /** @dataProvider x */
+        public function method11(): void {}
+
+        /** @depends x */
+        public function method12(): void {}
+
+        /** @doesNotPerformAssertions x */
+        public function method13(): void {}
+
+        /** @excludeGlobalVariableFromBackup x */
+        public function method14(): void {}
+
+        /** @excludeStaticPropertyFromBackup x */
+        public function method15(): void {}
+
+        /** @group x */
+        public function method16(): void {}
+
+        /** @large x */
+        public function method17(): void {}
+
+        /** @medium x */
+        public function method18(): void {}
+
+        /** @postCondition x */
+        public function method19(): void {}
+
+        /** @preCondition x */
+        public function method20(): void {}
+
+        /** @preserveGlobalState x */
+        public function method21(): void {}
+
+        /** @requires x */
+        public function method22(): void {}
+
+        /** @runClassInSeparateProcess x */
+        public function method23(): void {}
+
+        /** @runInSeparateProcess x */
+        public function method24(): void {}
+
+        /** @runTestsInSeparateProcesses x */
+        public function method25(): void {}
+
+        /** @small x */
+        public function method26(): void {}
+
+        /** @test x */
+        public function method27(): void {}
+
+        /** @testdox x */
+        public function method28(): void {}
+
+        /** @testWith x */
+        public function method29(): void {}
+
+        /** @ticket x */
+        public function method30(): void {}
+
+        /** @uses x */
+        public function method31(): void {}
+
+        /** @usesDefaultClass x */
+        public function method32(): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                    | Message                                                                                                                                                |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @after docblock tag, use #[After] instead                                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @afterClass docblock tag, use #[AfterClass] instead                                                                             |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @backupGlobals docblock tag, use #[BackupGlobals] instead                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @backupStaticAttributes docblock tag, use #[BackupStaticProperties] instead                                                     |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @backupStaticProperties docblock tag, use #[BackupStaticProperties] instead                                                     |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @before docblock tag, use #[Before] instead                                                                                     |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @beforeClass docblock tag, use #[BeforeClass] instead                                                                           |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @covers docblock tag, use #[CoversClass], #[CoversMethod] or #[CoversFunction] instead                                          |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @coversDefaultClass docblock tag, use #[CoversClass] instead                                                                    |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @coversNothing docblock tag, use #[CoversNothing] instead                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @dataProvider docblock tag, use #[DataProvider] or #[DataProviderExternal] instead                                              |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @depends docblock tag, use #[Depends] or #[DependsExternal] instead                                                             |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @doesNotPerformAssertions docblock tag, use #[DoesNotPerformAssertions] instead                                                 |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @excludeGlobalVariableFromBackup docblock tag, use #[ExcludeGlobalVariableFromBackup] instead                                   |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @excludeStaticPropertyFromBackup docblock tag, use #[ExcludeStaticPropertyFromBackup] instead                                   |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @group docblock tag, use #[Group] instead                                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @large docblock tag, use #[Large] instead                                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @medium docblock tag, use #[Medium] instead                                                                                     |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @postCondition docblock tag, use #[PostCondition] instead                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @preCondition docblock tag, use #[PreCondition] instead                                                                         |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @preserveGlobalState docblock tag, use #[PreserveGlobalState] instead                                                           |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @requires docblock tag, use #[RequiresPhp], #[RequiresPhpExtension], #[RequiresOperatingSystem] or another #[Requires*] instead |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @runClassInSeparateProcess docblock tag, use #[RunClassInSeparateProcess] instead                                               |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @runInSeparateProcess docblock tag, use #[RunInSeparateProcess] instead                                                         |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @runTestsInSeparateProcesses docblock tag, use #[RunTestsInSeparateProcesses] instead                                           |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @small docblock tag, use #[Small] instead                                                                                       |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @test docblock tag, use #[Test] instead                                                                                         |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @testdox docblock tag, use #[TestDox] instead                                                                                   |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @testWith docblock tag, use #[TestWith] or #[TestWithJson] instead                                                              |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @ticket docblock tag, use #[Ticket] instead                                                                                     |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @uses docblock tag, use #[UsesClass], #[UsesMethod] or #[UsesFunction] instead                                                  |
+      | IgnoredDocblockMetadata | PHPUnit 12 ignores the @usesDefaultClass docblock tag, use #[UsesClass] instead                                                                        |
+    And I see no other errors

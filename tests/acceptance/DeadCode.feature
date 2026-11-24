@@ -725,3 +725,44 @@ Feature: Dead code
       """
     When I run Psalm with dead code detection
     Then I see no errors
+
+  Scenario: A trait method imported under a test name is not marked as unused
+    Given I have the following code
+      """
+      trait Checks {
+        public function check(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Checks {
+          check as testCheck;
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors
+
+  Scenario: A hook docblock tag of a method of a trait used by the test case is used by PHPUnit 11
+    Given I have the following code
+      """
+      trait Prepares {
+        /**
+         * @before
+         */
+        public function prepare(): void {
+          $this->assertTrue(true);
+        }
+      }
+
+      final class MyTestCase extends TestCase {
+        use Prepares;
+
+        public function testSomething(): void {
+          $this->assertTrue(true);
+        }
+      }
+      """
+    When I run Psalm with dead code detection
+    Then I see no errors

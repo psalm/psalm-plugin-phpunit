@@ -1400,3 +1400,133 @@ Feature: Data providers
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: A trait test imported as protected is checked under the public name it is also imported with
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Test;
+
+      trait HelperTrait
+      {
+        #[Test]
+        #[DataProvider('provide')]
+        public function check(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait {
+          check as protected;
+          check as public verify;
+        }
+
+        /**
+         * @return iterable<int, array{string}>
+         * @psalm-pure
+         */
+        public static function provide(): iterable {
+          yield ['a'];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message                                                                                                                              |
+      | InvalidArgument | Argument 1 of NS\HelperTrait::check expects int, string provided by NS\MyTestCase::provide():(iterable[pure]<int, list{string}>) |
+    And I see no other errors
+
+  Scenario: Invalid implementation of an abstract data provider of an inherited @test method is reported
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public function provide();
+
+        /**
+         * @test
+         * @dataProvider provide
+         */
+        public function check(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
+
+  Scenario: Invalid implementation of an abstract data provider of an inherited #[Test] method is reported when only the file of the subclass is analysed
+    Given I have the following code in "BaseTestCase.php"
+      """
+      <?php
+      namespace NS;
+
+      use PHPUnit\Framework\Attributes\DataProvider;
+      use PHPUnit\Framework\Attributes\Test;
+      use PHPUnit\Framework\TestCase;
+
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        abstract public function provide();
+
+        #[Test]
+        #[DataProvider('provide')]
+        public function check(int $int): void {
+          $this->assertSame(1, $int);
+        }
+      }
+      """
+    And I have the following code in "test.php"
+      """
+      <?php
+      namespace NS;
+
+      final class MyTestCase extends BaseTestCase {
+        /**
+         * @return iterable<int,array<int,int>>
+         * @psalm-pure
+         */
+        #[\Override]
+        public function provide() {
+          yield [1];
+        }
+      }
+      """
+    And I have the following code in "autoload.php"
+      """
+      <?php
+      spl_autoload_register(function(string $class) {
+          if ($class === 'NS\\BaseTestCase') {
+              /** @psalm-suppress UnresolvableInclude */
+              include __DIR__ . '/BaseTestCase.php';
+          }
+      });
+      """
+    And the config uses the autoloader "autoload.php"
+    When I run Psalm on "test.php"
+    Then I see these errors
+      | Type                | Message                                                     |
+      | InvalidDataProvider | Data provider method NS\MyTestCase::provide must be static |
+    And I see no other errors
