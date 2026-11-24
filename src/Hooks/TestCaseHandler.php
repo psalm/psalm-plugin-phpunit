@@ -389,13 +389,8 @@ final class TestCaseHandler implements
         }
 
         // a stub and the file it refines are visited into the same storage, the set covers both
-        if ($with_metadata !== []) {
-            $metadata['with_metadata'] = $with_metadata + (array) ($metadata['with_metadata'] ?? []);
-        }
-
-        if ($metadata !== []) {
-            $class_storage->custom_metadata[__NAMESPACE__] = $metadata;
-        }
+        $metadata['with_metadata'] = $with_metadata + (array) ($metadata['with_metadata'] ?? []);
+        $class_storage->custom_metadata[__NAMESPACE__] = $metadata;
     }
 
     #[\Override]
@@ -453,14 +448,18 @@ final class TestCaseHandler implements
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
             $declaring_method_class = $declaring_method_id->fq_class_name;
             $declaring_method_name = $declaring_method_id->method_name;
-            $methods_with_metadata[$declaring_method_class] ??= self::methodsWithMetadata(
-                $codebase->classlike_storage_provider->get($declaring_method_class),
-            );
+            if (!\array_key_exists($declaring_method_class, $methods_with_metadata)) {
+                $methods_with_metadata[$declaring_method_class] = self::methodsWithMetadata(
+                    $codebase->classlike_storage_provider->get($declaring_method_class),
+                );
+            }
+            $with_metadata = $methods_with_metadata[$declaring_method_class];
 
             // PHPUnit runs the methods the test case names test*, a trait alias included. Of the others it only reads
             // the metadata of their declaration.
             if (
-                !isset($methods_with_metadata[$declaring_method_class][$declaring_method_name])
+                $with_metadata !== null
+                && !isset($with_metadata[$declaring_method_name])
                 && !\str_starts_with($method_name_lc, 'test')
             ) {
                 continue;
@@ -1773,20 +1772,21 @@ final class TestCaseHandler implements
     /**
      * An upper bound of the methods the class-like declares with PHPUnit metadata, as afterClassLikeVisit() found
      * them: a method outside it has no attribute and no docblock tag PHPUnit 11 reads. The methods in it and the ones
-     * a test case names test* still go through every check.
+     * a test case names test* still go through every check. Null when unknown: the storage was cached by an older
+     * version of the plugin.
      *
-     * @return array<lowercase-string, true>
+     * @return array<lowercase-string, true>|null
      *
      * @psalm-mutation-free
      *
      * @internal
      */
-    public static function methodsWithMetadata(ClassLikeStorage $storage): array
+    public static function methodsWithMetadata(ClassLikeStorage $storage): ?array
     {
         $metadata = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
 
-        /** @var array<lowercase-string, true> */
-        return $metadata['with_metadata'] ?? [];
+        /** @var array<lowercase-string, true>|null */
+        return $metadata['with_metadata'] ?? null;
     }
 
     /**

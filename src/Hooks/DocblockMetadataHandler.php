@@ -96,10 +96,13 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
         $methods_with_metadata = [];
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
             $declaring_class_name = $declaring_method_id->fq_class_name;
-            $methods_with_metadata[$declaring_class_name] ??= TestCaseHandler::methodsWithMetadata(
-                $codebase->classlike_storage_provider->get($declaring_class_name),
-            );
-            if (!isset($methods_with_metadata[$declaring_class_name][$declaring_method_id->method_name])) {
+            if (!\array_key_exists($declaring_class_name, $methods_with_metadata)) {
+                $methods_with_metadata[$declaring_class_name] = TestCaseHandler::methodsWithMetadata(
+                    $codebase->classlike_storage_provider->get($declaring_class_name),
+                );
+            }
+            $with_metadata = $methods_with_metadata[$declaring_class_name];
+            if ($with_metadata !== null && !isset($with_metadata[$declaring_method_id->method_name])) {
                 continue;
             }
 
