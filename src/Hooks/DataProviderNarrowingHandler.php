@@ -6,6 +6,7 @@ namespace Psalm\PhpUnitPlugin\Hooks;
 
 use Psalm\Codebase;
 use Psalm\Internal\Analyzer\MethodAnalyzer;
+use Psalm\Internal\MethodIdentifier;
 use Psalm\PhpUnitPlugin\Dataset\DatasetBinding;
 use Psalm\Plugin\EventHandler\BeforeStatementAnalysisInterface;
 use Psalm\Plugin\EventHandler\Event\BeforeStatementAnalysisEvent;
@@ -64,7 +65,7 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
             return null;
         }
 
-        $method_id = (string) $method_analyzer->getMethodId();
+        $method_id = $method_analyzer->getMethodId();
         $marked = (bool) $metadata['test'];
         $class = $codebase->classlike_storage_provider->get($self);
         if (!self::isTest($codebase, $class, $storage, $method_id, $marked)) {
@@ -142,24 +143,46 @@ final class DataProviderNarrowingHandler implements BeforeStatementAnalysisInter
         Codebase $codebase,
         ClassLikeStorage $class,
         MethodStorage $method,
-        string $method_id,
+        MethodIdentifier $method_id,
         bool $marked,
     ): bool {
-        $method_id = \strtolower($method_id);
-        foreach ($class->declaring_method_ids as $name => $declaring_id) {
-            if (\strtolower((string) $declaring_id) !== $method_id) {
-                continue;
-            }
+        $method_id_lc = \strtolower((string) $method_id);
 
+        // The usual case: the class declares the method itself under the name it is analysed with
+        $own_name = $method_id->method_name;
+        $own_id = $class->declaring_method_ids[$own_name] ?? null;
+        if (
+            $own_id !== null
+            && \strtolower((string) $own_id) === $method_id_lc
+            && self::isTestEntry($codebase, $class, $method, $own_name, $marked)
+        ) {
+            return true;
+        }
+
+        foreach ($class->declaring_method_ids as $name => $declaring_id) {
             if (
-                ($marked || \str_starts_with(self::casedName($class, $method, $name), 'test'))
-                && TestCaseHandler::isPublicMethod($codebase, $class, $method, $name)
+                \strtolower((string) $declaring_id) === $method_id_lc
+                && self::isTestEntry($codebase, $class, $method, $name, $marked)
             ) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * @param lowercase-string $name
+     */
+    private static function isTestEntry(
+        Codebase $codebase,
+        ClassLikeStorage $class,
+        MethodStorage $method,
+        string $name,
+        bool $marked,
+    ): bool {
+        return ($marked || \str_starts_with(self::casedName($class, $method, $name), 'test'))
+            && TestCaseHandler::isPublicMethod($codebase, $class, $method, $name);
     }
 
     /**

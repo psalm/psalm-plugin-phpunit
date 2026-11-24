@@ -309,6 +309,7 @@ final class TestCaseHandler implements
      */
     private static function hasInitializers(Codebase $codebase, ClassLikeStorage $storage): bool
     {
+        $before_by_class = [];
         foreach ($storage->declaring_method_ids as $name_lc => $method_id) {
             if ($name_lc === 'setup') {
                 if (\strtolower($method_id->fq_class_name) !== 'phpunit\framework\testcase') {
@@ -317,9 +318,14 @@ final class TestCaseHandler implements
                 continue;
             }
 
-            $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
-            $meta = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
-            if (isset($meta['before'][$method_id->method_name])) {
+            // Most methods come from a handful of declaring classes
+            if (!isset($before_by_class[$method_id->fq_class_name])) {
+                $declaring = $codebase->classlike_storage_provider->get($method_id->fq_class_name);
+                $meta = (array) ($declaring->custom_metadata[__NAMESPACE__] ?? []);
+                $before_by_class[$method_id->fq_class_name] = (array) ($meta['before'] ?? []);
+            }
+
+            if (isset($before_by_class[$method_id->fq_class_name][$method_id->method_name])) {
                 return true;
             }
         }
@@ -1416,9 +1422,16 @@ final class TestCaseHandler implements
     private static function getBeforeMethods(ClassLikeStorage $storage, ClassLike $stmt, Aliases $aliases): array
     {
         $before = [];
-        foreach ($storage->methods as $method => $_) {
-            $stmt_method = $stmt->getMethod($method);
-            if ($stmt_method && self::isBeforeInitializer($stmt_method, $aliases)) {
+        $seen = [];
+        // Only the first method of a duplicated name counts, as for ClassLike::getMethod()
+        foreach ($stmt->getMethods() as $stmt_method) {
+            $method = $stmt_method->name->toLowerString();
+            if (isset($seen[$method]) || !isset($storage->methods[$method])) {
+                continue;
+            }
+
+            $seen[$method] = true;
+            if (self::isBeforeInitializer($stmt_method, $aliases)) {
                 $before[$method] = true;
             }
         }

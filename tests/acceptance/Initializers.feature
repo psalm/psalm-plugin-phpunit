@@ -64,6 +64,26 @@ Feature: MissingConstructor in stateful test cases
     When I run Psalm
     Then I see no errors
 
+  Scenario: A mixed-case @before method produces no MissingConstructor
+    Given I have the following code
+      """
+      final class MyTestCase extends TestCase
+      {
+        private int $cents;
+
+        /** @before */
+        public function InitCents(): void {
+          $this->cents = 100;
+        }
+
+        public function testCents(): void {
+          $this->assertSame(100, $this->cents);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see no errors
+
   Scenario: Stateful test case without @before or setUp produces MissingConstructor
     Given I have the following code
       """
