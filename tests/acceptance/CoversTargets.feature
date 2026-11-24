@@ -537,3 +537,44 @@ Feature: Coverage targets
       """
     When I run Psalm
     Then I see no errors
+
+  Scenario: Every tagged method of each declaring class is validated, also next to untagged ones
+    Given I have the following code
+      """
+      abstract class BaseTestCase extends TestCase {
+        /**
+         * @covers ::missingFirst
+         * @psalm-capabilities read-props
+         */
+        public function testFirst(): void {}
+
+        /** @psalm-capabilities read-props */
+        public function testPlain(): void {}
+
+        /**
+         * @uses ::missingSecond
+         * @psalm-capabilities read-props
+         */
+        public function testSecond(): void {}
+      }
+
+      abstract class MiddleTestCase extends BaseTestCase {
+        /** @psalm-capabilities read-props */
+        public function testMiddle(): void {}
+      }
+
+      final class ConcreteTestCase extends MiddleTestCase {
+        /**
+         * @covers ::missingOwn
+         * @psalm-capabilities read-props
+         */
+        public function testOwn(): void {}
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type              | Message                                      | Line |
+      | UndefinedFunction | @covers target ::missingFirst is not defined | 7    |
+      | UndefinedFunction | @uses target ::missingSecond is not defined  | 16   |
+      | UndefinedFunction | @covers target ::missingOwn is not defined   | 29   |
+    And I see no other errors

@@ -261,9 +261,19 @@ final class CoversTargetHandler implements AfterClassLikeVisitInterface, AfterCl
             return;
         }
 
+        $declaring_classes = [];
         foreach ($storage->declaring_method_ids as $declaring_method_id) {
-            $declaring_storage = $codebase->classlike_storage_provider->get($declaring_method_id->fq_class_name);
-            $tags = self::metadata($declaring_storage)['methods'][$declaring_method_id->method_name] ?? [];
+            $declaring_class = $declaring_method_id->fq_class_name;
+            if (!isset($declaring_classes[$declaring_class])) {
+                $declaring_storage = $codebase->classlike_storage_provider->get($declaring_class);
+                $declaring_classes[$declaring_class] = [
+                    $declaring_storage,
+                    self::metadata($declaring_storage)['methods'],
+                ];
+            }
+
+            [$declaring_storage, $declaring_methods] = $declaring_classes[$declaring_class];
+            $tags = $declaring_methods[$declaring_method_id->method_name] ?? [];
             if ($tags === []) {
                 continue;
             }
