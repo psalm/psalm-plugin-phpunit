@@ -648,3 +648,26 @@ final class MyTestCase extends TestCase
       | Type                     | Message                           | Line |
       | InvalidPhpUnitAnnotation | Annotation "@covers" has no value | 14   |
     And I see no other errors
+
+  Scenario: Malformed annotation on a trait method that is not a test is reported
+    Given I have the following code
+      """
+      trait HelperTrait
+      {
+        /**
+         * @group
+         */
+        public function helper(): void {
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use HelperTrait;
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type                     | Message                          | Line |
+      | InvalidPhpUnitAnnotation | Annotation "@group" has no value | 8    |
+    And I see no other errors
