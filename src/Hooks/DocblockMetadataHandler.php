@@ -93,8 +93,17 @@ final class DocblockMetadataHandler implements AfterClassLikeAnalysisInterface
 
         // Inherited methods are reported with the class that declares them. A trait docblock or method is reported
         // once for every class using it, at the same location with the same message, which Psalm deduplicates.
+        $methods_with_metadata = [];
         foreach ($class_storage->declaring_method_ids as $declaring_method_id) {
-            $declaring_class = $codebase->classlike_storage_provider->get($declaring_method_id->fq_class_name);
+            $declaring_class_name = $declaring_method_id->fq_class_name;
+            $methods_with_metadata[$declaring_class_name] ??= TestCaseHandler::methodsWithMetadata(
+                $codebase->classlike_storage_provider->get($declaring_class_name),
+            );
+            if (!isset($methods_with_metadata[$declaring_class_name][$declaring_method_id->method_name])) {
+                continue;
+            }
+
+            $declaring_class = $codebase->classlike_storage_provider->get($declaring_class_name);
             $declaring_class_node = match (true) {
                 \strtolower($declaring_class->name) === \strtolower($class_storage->name) => $class_node,
                 $declaring_class->is_trait => $codebase->classlikes->getTraitNode($declaring_class->name),

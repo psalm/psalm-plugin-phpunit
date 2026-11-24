@@ -33,6 +33,13 @@ final class DocblockSpecials
     ];
 
     /**
+     * Matches every tag PHPUnit 11 reads from a docblock (the keys of DocblockMetadataHandler::ATTRIBUTES) by its
+     * first letters, in any case.
+     */
+    private const TAGS = '/@(?:after|backup|before|covers|dataProvider|depends|doesNotPerformAssertions|exclude|group'
+        . '|large|medium|postCondition|preCondition|preserveGlobalState|requires|run|small|test|ticket|uses)/i';
+
+    /**
      * The tags PHPUnit 11 accepts. A malformed tag is ignored by PHPUnit, so it is not here.
      *
      * @return array<string, list<array{int, string}>> tag => [[file line, value]]
@@ -50,7 +57,7 @@ final class DocblockSpecials
     }
 
     /**
-     * Every tag, malformed or not.
+     * Every tag, malformed or not, of a docblock that may hold a tag PHPUnit 11 reads.
      *
      * @return array<string, list<array{int, string}>> tag => [[file line, value]]
      */
@@ -78,12 +85,29 @@ final class DocblockSpecials
     }
 
     /**
+     * Whether the docblock of the node may hold a tag PHPUnit 11 reads. Without one, of(), all() and malformed() find
+     * nothing.
+     */
+    public static function mayHoldTags(Node $node): bool
+    {
+        $docblock = $node->getDocComment();
+
+        return $docblock !== null && self::docblockMayHoldTags($docblock);
+    }
+
+    private static function docblockMayHoldTags(Doc $docblock): bool
+    {
+        // Psalm's DocblockParser removes every \r before it reads a tag
+        return \preg_match(self::TAGS, \str_replace("\r", '', $docblock->getText())) === 1;
+    }
+
+    /**
      * @return list<array{string, int, string, string|null}> [tag, file line, value, what is wrong with the tag]
      */
     private static function parse(Node $node): array
     {
         $docblock = $node->getDocComment();
-        if (!$docblock) {
+        if ($docblock === null || !self::docblockMayHoldTags($docblock)) {
             return [];
         }
 

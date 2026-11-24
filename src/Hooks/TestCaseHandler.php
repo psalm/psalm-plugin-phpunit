@@ -341,15 +341,23 @@ final class TestCaseHandler implements
             $class_storage->sealed_methods = false;
         }
 
+        $metadata = (array) ($class_storage->custom_metadata[__NAMESPACE__] ?? []);
         $before = self::getBeforeMethods($class_storage, $class_node, $aliases);
         if ($before !== []) {
-            $class_storage->custom_metadata[__NAMESPACE__] = ['before' => $before];
+            $metadata['before'] = $before;
         }
 
         $file_path = $statements_source->getFilePath();
         $file_storage = $codebase->file_storage_provider->get($file_path);
 
+        $with_metadata = [];
         foreach ($class_node->getMethods() as $method) {
+            // any attribute: at analysis, the aliases also hold the imports written after the class
+            if ($method->attrGroups === [] && !DocblockSpecials::mayHoldTags($method)) {
+                continue;
+            }
+            $with_metadata[$method->name->toLowerString()] = true;
+
             $providers = self::getDataProviders($method, $aliases, $aliases, $class_storage);
             foreach ($providers as $provider) {
                 if ($provider['class'] === null) {
@@ -378,6 +386,15 @@ final class TestCaseHandler implements
                 'test' => isset($test_specials['test']),
                 'depends' => self::getDependencyTargets($method, $aliases, $class_storage) !== [],
             ];
+        }
+
+        // a stub and the file it refines are visited into the same storage, the set covers both
+        if ($with_metadata !== []) {
+            $metadata['with_metadata'] = $with_metadata + (array) ($metadata['with_metadata'] ?? []);
+        }
+
+        if ($metadata !== []) {
+            $class_storage->custom_metadata[__NAMESPACE__] = $metadata;
         }
     }
 
@@ -432,17 +449,25 @@ final class TestCaseHandler implements
             );
         }
 
+        $methods_with_metadata = [];
         foreach ($class_storage->declaring_method_ids as $method_name_lc => $declaring_method_id) {
-            $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
-            $method_storage = $codebase->methods->getStorage($declaring_method_id);
-            [$declaring_method_class, $declaring_method_name] = \explode('::', (string) $declaring_method_id);
-            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
+            $declaring_method_class = $declaring_method_id->fq_class_name;
+            $declaring_method_name = $declaring_method_id->method_name;
+            $methods_with_metadata[$declaring_method_class] ??= self::methodsWithMetadata(
+                $codebase->classlike_storage_provider->get($declaring_method_class),
+            );
 
-            $declaring_class_node = $class_node;
-            if ($declaring_class_storage->is_trait) {
-                $declaring_class_node = $codebase->classlikes->getTraitNode($declaring_class_storage->name);
+            // PHPUnit runs the methods the test case names test*, a trait alias included. Of the others it only reads
+            // the metadata of their declaration.
+            if (
+                !isset($methods_with_metadata[$declaring_method_class][$declaring_method_name])
+                && !\str_starts_with($method_name_lc, 'test')
+            ) {
+                continue;
             }
 
+            $method_storage = $codebase->methods->getStorage($declaring_method_id);
+            $declaring_class_storage = $codebase->classlike_storage_provider->get($declaring_method_class);
             if (!$method_storage->location) {
                 continue;
             }
@@ -460,6 +485,10 @@ final class TestCaseHandler implements
                 }
                 continue;
             }
+
+            $declaring_class_node = $declaring_class_storage->is_trait
+                ? $codebase->classlikes->getTraitNode($declaring_class_storage->name)
+                : $class_node;
 
             $stmt_method = $declaring_class_node->getMethod($declaring_method_name);
 
@@ -498,6 +527,8 @@ final class TestCaseHandler implements
             if ($providers === [] && $closure_providers === []) {
                 continue;
             }
+
+            $method_name = $codebase->getCasedMethodId($class_storage->name . '::' . $method_name_lc);
 
             $dependency_values = self::countDependencyValues(
                 $codebase,
@@ -1737,6 +1768,25 @@ final class TestCaseHandler implements
         }
 
         return $visibility === ClassLikeAnalyzer::VISIBILITY_PUBLIC;
+    }
+
+    /**
+     * An upper bound of the methods the class-like declares with PHPUnit metadata, as afterClassLikeVisit() found
+     * them: a method outside it has no attribute and no docblock tag PHPUnit 11 reads. The methods in it and the ones
+     * a test case names test* still go through every check.
+     *
+     * @return array<lowercase-string, true>
+     *
+     * @psalm-mutation-free
+     *
+     * @internal
+     */
+    public static function methodsWithMetadata(ClassLikeStorage $storage): array
+    {
+        $metadata = (array) ($storage->custom_metadata[__NAMESPACE__] ?? []);
+
+        /** @var array<lowercase-string, true> */
+        return $metadata['with_metadata'] ?? [];
     }
 
     /**
