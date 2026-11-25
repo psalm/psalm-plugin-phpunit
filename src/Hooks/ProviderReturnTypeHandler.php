@@ -75,6 +75,17 @@ final class ProviderReturnTypeHandler implements AfterFunctionLikeAnalysisInterf
         unset(self::$inferredTypes[$storage]);
 
         $codebase = $event->getCodebase();
+        $declaring_class = $storage->defining_fqcln;
+        // Only a test case reads the types, and walking the body of every static helper of the project is costly.
+        // A trait method is always walked: its storage is shared by the classes using it, any of them can be a test.
+        if (
+            $declaring_class !== null
+            && !$codebase->classlikes->traitExists($declaring_class)
+            && !$codebase->classExtends($declaring_class, 'PHPUnit\Framework\TestCase')
+        ) {
+            return null;
+        }
+
         $statements = $method->stmts ?? [];
 
         $finder = new NodeFinder();

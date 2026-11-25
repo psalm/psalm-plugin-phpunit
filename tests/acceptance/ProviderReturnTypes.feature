@@ -985,3 +985,60 @@ Feature: Data provider return types
       | Type            | Message | Line |
       | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, 'x' provided by NS\MyTestCase::provide():(array{one: list{'x'}}) | 17 |
     And I see no other errors
+
+  Scenario: A trait provider is checked when a test method also uses the trait in an anonymous class
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      trait Provides
+      {
+        /** @psalm-pure */
+        public static function provide(): array {
+          return ['one' => ['x']];
+        }
+      }
+
+      final class MyTestCase extends TestCase
+      {
+        use Provides;
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+          new class {
+            use Provides;
+          };
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, 'x' provided by NS\Provides::provide():(array{one: list{'x'}}) | 19 |
+    And I see no other errors
+
+  Scenario: A provider that rebinds its scope with a docblock is still checked
+    Given I have the following code
+      """
+      use PHPUnit\Framework\Attributes\DataProvider;
+
+      final class MyTestCase extends TestCase
+      {
+        /** @psalm-pure */
+        public static function provide(): array {
+          /** @psalm-scope-this \stdClass */
+          return ['one' => ['x']];
+        }
+
+        #[DataProvider('provide')]
+        public function testSomething(int $i): void {
+          $this->assertSame(1, $i);
+        }
+      }
+      """
+    When I run Psalm
+    Then I see these errors
+      | Type            | Message | Line |
+      | InvalidArgument | Argument 1 of NS\MyTestCase::testSomething expects int, 'x' provided by NS\MyTestCase::provide():(array{one: list{'x'}}) | 15 |
+    And I see no other errors
