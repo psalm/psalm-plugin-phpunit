@@ -2,11 +2,12 @@
 namespace PHPUnit\Framework;
 
 /**
- * Without a constructor here, Psalm reports a property that setUp() initializes as MissingConstructor, which
- * TestCaseHandler suppresses, rather than as PropertyNotSetInConstructor of TestCase's final constructor.
+ * Psalm doesn't analyse a stubbed constructor, so it reports a property that a test case leaves uninitialized as
+ * MissingConstructor, which TestCaseHandler suppresses when setUp() or another initializer sets it.
  */
 abstract class TestCase extends Assert implements Test, SelfDescribing
 {
+    final public function __construct(string $name) {}
 }
 
 abstract class Assert

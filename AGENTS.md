@@ -33,7 +33,7 @@ Layout:
   metadata is ignored by PHPUnit, so the plugin reports it and stops honouring it in `TestCaseHandler`.
 - `src/Hooks/MissingParentCallHandler.php` and `src/Issue/MissingParentCall.php`: the
   `AfterClassLikeAnalysis` hook and plugin issue for `setUp()`-style overrides without a `parent::` call.
-- `stubs/TestCase.phpstub`: hides the constructor of `TestCase` (see the stub) and makes `assertNotEmpty()`
+- `stubs/TestCase.phpstub`: declares the constructor of `TestCase` (see the stub) and makes `assertNotEmpty()`
   narrow its argument.
 - `tests/acceptance/*.feature`: the Behat scenarios, the only test suite that CI runs. One file per area
   (`DataProviders`, `NamedDatasets`, `Narrowing`, `MockMethod`, ...): add a scenario to the file of the area
