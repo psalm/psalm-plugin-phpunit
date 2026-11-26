@@ -9,6 +9,10 @@
             "email": "github@muglug.com"
         }
     ],
+    "support": {
+        "issues": "https://github.com/psalm/psalm-plugin-phpunit/issues",
+        "source": "https://github.com/psalm/psalm-plugin-phpunit"
+    },
     "require": {
         "php": ">=8.2",
         "ext-simplexml": "*",
